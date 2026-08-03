@@ -4,10 +4,7 @@ import GameOverScene from './scenes/GameOverScene.js';
 import GameScene from './scenes/GameScene.js';
 import UIScene from './scenes/UIScene.js';
 import { initAnalytics } from './services/analytics.js';
-
-// Before the game, so the session is open and the departure listeners are on
-// by the time anything has happened worth recording.
-initAnalytics();
+import { initExperiments } from './services/experiments.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -23,4 +20,18 @@ const config = {
   scene: [GameScene, UIScene, GameOverScene]
 };
 
-new Phaser.Game(config);
+/**
+ * The experiment resolves first, because every analytics event carries the
+ * assignment and the very first one is sent by initAnalytics. It has its own
+ * short timeout and cannot fail in a way that stops the game, so this waits on
+ * it rather than racing it.
+ */
+async function boot() {
+  await initExperiments();
+
+  initAnalytics();
+
+  new Phaser.Game(config);
+}
+
+boot();

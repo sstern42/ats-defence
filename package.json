@@ -15,6 +15,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@growthbook/growthbook": "^1.6.5",
     "phaser": "^4.2.1"
   },
   "devDependencies": {
