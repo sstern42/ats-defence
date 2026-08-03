@@ -20,12 +20,20 @@ const BUTTON_DISABLED = '#1c2128';
 /** Lives left at which the readout starts looking worried. */
 const WARNING_LIVES = 3;
 
-/** How long the budget readout stays cross about a purchase it cannot cover. */
-const SHORTFALL_MS = 1400;
+/** How long the HUD stays cross about something it will not do. */
+const WARNING_MS = 1400;
 
+/**
+ * The palette is two rows of three, which is what six towers and a 1024 pixel
+ * board allow. Buttons are a fixed width so the rows line up, and one line each
+ * so both rows and the blurb under them stay inside the HUD strip.
+ */
 const PALETTE_LEFT = 16;
 const PALETTE_TOP = 12;
-const PALETTE_GAP = 10;
+const PALETTE_GAP = 8;
+const PALETTE_ROW_GAP = 6;
+const PALETTE_COLUMNS = 3;
+const BUTTON_WIDTH = 232;
 
 /**
  * The HUD, run as its own scene on top of GameScene so it keeps rendering
@@ -47,7 +55,7 @@ export default class UIScene extends Phaser.Scene {
   create() {
     this.gameScene = this.scene.get('GameScene');
     this.buttons = new Map();
-    this.shortfallTimer = null;
+    this.warningTimer = null;
 
     // Mirrored from GameScene so the first paint has something to read. Both
     // are kept up to date by its events from here on.
@@ -66,25 +74,39 @@ export default class UIScene extends Phaser.Scene {
   }
 
   /**
-   * One button per tower, laid out left to right in palette order, which is
-   * also the order of the number key shortcuts.
+   * One button per tower, laid out left to right and then down, in palette
+   * order, which is also the order of the number key shortcuts.
    */
   createPalette() {
-    let x = PALETTE_LEFT;
+    let rowTop = PALETTE_TOP;
+    let rowHeight = 0;
 
     Object.entries(TOWERS).forEach(([typeKey, definition], index) => {
-      const label = `${index + 1}. ${COPY.towers[typeKey].name}\n${COPY.hud.currency} ${definition.cost}`;
+      const column = index % PALETTE_COLUMNS;
+      const cost = definition.cost === 0 ? COPY.hud.free : definition.cost;
+      const label = `${index + 1}. ${COPY.towers[typeKey].name} (${cost})`;
+
+      if (column === 0 && index > 0) {
+        rowTop += rowHeight + PALETTE_ROW_GAP;
+      }
 
       const button = this.add
-        .text(x, PALETTE_TOP, label, {
-          fontFamily: FONT,
-          fontSize: '14px',
-          color: BODY_COLOUR,
-          backgroundColor: BUTTON_IDLE,
-          padding: { x: 12, y: 8 },
-          lineSpacing: 3
-        })
+        .text(
+          PALETTE_LEFT + column * (BUTTON_WIDTH + PALETTE_GAP),
+          rowTop,
+          label,
+          {
+            fontFamily: FONT,
+            fontSize: '13px',
+            color: BODY_COLOUR,
+            backgroundColor: BUTTON_IDLE,
+            fixedWidth: BUTTON_WIDTH,
+            padding: { x: 10, y: 8 }
+          }
+        )
         .setInteractive({ useHandCursor: true });
+
+      rowHeight = Math.max(rowHeight, button.height);
 
       button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
         this.hover(typeKey, true)
@@ -99,24 +121,15 @@ export default class UIScene extends Phaser.Scene {
       );
 
       this.buttons.set(typeKey, button);
-
-      x += button.width + PALETTE_GAP;
     });
 
-    this.blurbText = this.add.text(
-      PALETTE_LEFT,
-      PALETTE_TOP + this.tallestButton() + 8,
-      '',
-      {
-        fontFamily: FONT,
-        fontSize: '13px',
-        color: MUTED_COLOUR
-      }
-    );
-  }
+    this.paletteBottom = rowTop + rowHeight;
 
-  tallestButton() {
-    return Math.max(...[...this.buttons.values()].map((button) => button.height));
+    this.blurbText = this.add.text(PALETTE_LEFT, this.paletteBottom + 8, '', {
+      fontFamily: FONT,
+      fontSize: '13px',
+      color: MUTED_COLOUR
+    });
   }
 
   createReadouts() {
@@ -146,16 +159,26 @@ export default class UIScene extends Phaser.Scene {
       })
       .setOrigin(1, 0);
 
-    this.hintDefault = `${COPY.hints.placeTower} ${COPY.hints.selectTower}`;
-    this.hintCurrent = this.hintDefault;
+    this.hintCurrent = this.defaultHint();
 
     this.hintText = this.add
-      .text(right, PALETTE_TOP + this.tallestButton() + 20, this.hintDefault, {
+      .text(right, this.paletteBottom + 8, this.hintCurrent, {
         fontFamily: FONT,
         fontSize: '13px',
         color: MUTED_COLOUR
       })
       .setOrigin(1, 0);
+  }
+
+  /**
+   * What the hint line says when it has nothing more pressing to report. It
+   * depends on the selection, since a trap goes somewhere a tower cannot.
+   */
+  defaultHint() {
+    const trap = TOWERS[this.selectedTowerKey].behaviour === 'trap';
+    const placing = trap ? COPY.hints.layTrap : COPY.hints.placeTower;
+
+    return `${placing} ${COPY.hints.selectTower}`;
   }
 
   /**
@@ -168,6 +191,7 @@ export default class UIScene extends Phaser.Scene {
       'currency-changed': this.showCurrency,
       'tower-selected': this.showSelection,
       'purchase-failed': this.showShortfall,
+      'trap-limit': this.showTrapLimit,
       'wave-preparing': this.showPreparation,
       'wave-started': this.showWaveOpen,
       'run-over': this.stopPalette
@@ -232,7 +256,7 @@ export default class UIScene extends Phaser.Scene {
 
   showWaveOpen({ waveNumber, waveCount }) {
     this.showWave(waveNumber, waveCount);
-    this.setHint(this.hintDefault);
+    this.setHint(this.defaultHint());
   }
 
   /**
@@ -242,7 +266,7 @@ export default class UIScene extends Phaser.Scene {
   setHint(text) {
     this.hintCurrent = text;
 
-    if (!this.shortfallTimer) {
+    if (!this.warningTimer) {
       this.hintText.setText(text).setColor(MUTED_COLOUR);
     }
   }
@@ -258,6 +282,12 @@ export default class UIScene extends Phaser.Scene {
   showSelection(typeKey) {
     this.selectedTowerKey = typeKey;
     this.blurbText.setText(COPY.towers[typeKey].blurb);
+
+    // Where the selection goes has just changed, so the hint says where. Not
+    // between waves, when the countdown has the more useful thing to offer.
+    if (this.gameScene.phase !== 'preparing') {
+      this.setHint(this.defaultHint());
+    }
 
     this.refreshButtons();
   }
@@ -317,18 +347,33 @@ export default class UIScene extends Phaser.Scene {
    */
   showShortfall() {
     this.currencyText.setColor(WARNING_COLOUR);
-    this.hintText.setText(COPY.hud.shortfall).setColor(WARNING_COLOUR);
+    this.flashWarning(COPY.hud.shortfall);
+  }
 
-    if (this.shortfallTimer) {
-      this.shortfallTimer.remove();
+  /**
+   * The player has asked for a second set of salary expectations. The budget
+   * is not the problem here, so it is left alone.
+   */
+  showTrapLimit() {
+    this.flashWarning(COPY.hud.trapArmed);
+  }
+
+  /**
+   * Puts a complaint in the hint line for a moment, then puts back whatever
+   * the line was saying before, since the wave may have opened or closed while
+   * the complaint was up.
+   */
+  flashWarning(message) {
+    this.hintText.setText(message).setColor(WARNING_COLOUR);
+
+    if (this.warningTimer) {
+      this.warningTimer.remove();
     }
 
-    this.shortfallTimer = this.time.delayedCall(SHORTFALL_MS, () => {
+    this.warningTimer = this.time.delayedCall(WARNING_MS, () => {
       this.currencyText.setColor(CURRENCY_COLOUR);
-      this.shortfallTimer = null;
+      this.warningTimer = null;
 
-      // Whatever the hint line was saying before, since the wave may have
-      // opened or closed while the shortfall was up.
       this.setHint(this.hintCurrent);
     });
   }
