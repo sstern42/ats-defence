@@ -20,7 +20,7 @@
 export const TOWERS = {
   keywordFilter: {
     behaviour: 'shoot',
-    cost: 80,
+    cost: 60,
     range: 150,
     damage: 12,
     fireIntervalMs: 380,
@@ -36,7 +36,7 @@ export const TOWERS = {
     // whatever health is left, which is what an instant rejection is.
     behaviour: 'shoot',
     instantReject: true,
-    cost: 185,
+    cost: 140,
     range: 130,
     fireIntervalMs: 3400,
     footprint: 40,
@@ -48,7 +48,7 @@ export const TOWERS = {
   },
   takeHomeTask: {
     behaviour: 'slow',
-    cost: 120,
+    cost: 90,
     range: 120,
     slowMultiplier: 0.4,
     footprint: 40,
@@ -60,7 +60,7 @@ export const TOWERS = {
     // The range of the roll is the point of it. A panel with no agreed
     // criteria is as likely to wave somebody through as to end them.
     behaviour: 'shoot',
-    cost: 160,
+    cost: 120,
     range: 135,
     damageMin: 4,
     damageMax: 46,
@@ -76,7 +76,7 @@ export const TOWERS = {
   },
   videoScreen: {
     behaviour: 'shoot',
-    cost: 110,
+    cost: 85,
     range: 145,
     damage: 7,
     adjacencyBonus: 13,

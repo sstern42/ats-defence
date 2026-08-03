@@ -22,7 +22,7 @@
 export const GAME = {
   startingLives: 10,
   livesPerLeak: 1,
-  startingCurrency: 180,
+  startingCurrency: 150,
   firstWavePrepMs: 15000,
   wavePrepMs: 9000,
   scoring: {
