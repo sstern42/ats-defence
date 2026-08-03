@@ -60,6 +60,7 @@ export default class UIScene extends Phaser.Scene {
     this.showSelection(this.selectedTowerKey);
     this.showCurrency(this.currency);
     this.showLives(this.gameScene.lives);
+    this.showWaveState();
 
     this.listen();
   }
@@ -137,17 +138,23 @@ export default class UIScene extends Phaser.Scene {
       })
       .setOrigin(1, 0);
 
+    this.waveText = this.add
+      .text(right, PALETTE_TOP + 48, '', {
+        fontFamily: FONT,
+        fontSize: '15px',
+        color: BODY_COLOUR
+      })
+      .setOrigin(1, 0);
+
+    this.hintDefault = `${COPY.hints.placeTower} ${COPY.hints.selectTower}`;
+    this.hintCurrent = this.hintDefault;
+
     this.hintText = this.add
-      .text(
-        right,
-        PALETTE_TOP + this.tallestButton() + 8,
-        `${COPY.hints.placeTower} ${COPY.hints.selectTower}`,
-        {
-          fontFamily: FONT,
-          fontSize: '13px',
-          color: MUTED_COLOUR
-        }
-      )
+      .text(right, PALETTE_TOP + this.tallestButton() + 20, this.hintDefault, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: MUTED_COLOUR
+      })
       .setOrigin(1, 0);
   }
 
@@ -161,6 +168,8 @@ export default class UIScene extends Phaser.Scene {
       'currency-changed': this.showCurrency,
       'tower-selected': this.showSelection,
       'purchase-failed': this.showShortfall,
+      'wave-preparing': this.showPreparation,
+      'wave-started': this.showWaveOpen,
       'run-over': this.stopPalette
     };
 
@@ -180,6 +189,62 @@ export default class UIScene extends Phaser.Scene {
     this.livesText.setColor(
       lives <= WARNING_LIVES ? WARNING_COLOUR : STEADY_COLOUR
     );
+  }
+
+  /**
+   * The first paint. GameScene has already opened the countdown by the time
+   * this scene exists, so the state is read across once rather than waited
+   * for, and events keep it right from there on.
+   */
+  showWaveState() {
+    const { waveNumber, waveCount, phase, prepSecondsLeft } = this.gameScene;
+
+    if (phase === 'preparing') {
+      this.showPreparation({
+        waveNumber,
+        waveCount,
+        secondsLeft: prepSecondsLeft
+      });
+
+      return;
+    }
+
+    this.showWave(waveNumber, waveCount);
+  }
+
+  showWave(waveNumber, waveCount) {
+    this.waveText.setText(
+      `${COPY.hud.wave} ${waveNumber} ${COPY.hud.waveOf} ${waveCount}`
+    );
+  }
+
+  /**
+   * Between waves. The counter says what is coming and how long there is to
+   * get ready for it, and the hint line offers the way to cut that short.
+   */
+  showPreparation({ waveNumber, waveCount, secondsLeft }) {
+    this.waveText.setText(
+      `${COPY.hud.wave} ${waveNumber} ${COPY.hud.waveOf} ${waveCount}, ${COPY.hud.waveOpensIn} ${secondsLeft}s`
+    );
+
+    this.setHint(COPY.hints.skipPrep);
+  }
+
+  showWaveOpen({ waveNumber, waveCount }) {
+    this.showWave(waveNumber, waveCount);
+    this.setHint(this.hintDefault);
+  }
+
+  /**
+   * The hint line is shared, so whatever is put there has to say what should
+   * go back once a passing message has had its moment.
+   */
+  setHint(text) {
+    this.hintCurrent = text;
+
+    if (!this.shortfallTimer) {
+      this.hintText.setText(text).setColor(MUTED_COLOUR);
+    }
   }
 
   showCurrency(currency) {
@@ -260,11 +325,11 @@ export default class UIScene extends Phaser.Scene {
 
     this.shortfallTimer = this.time.delayedCall(SHORTFALL_MS, () => {
       this.currencyText.setColor(CURRENCY_COLOUR);
-      this.hintText
-        .setText(`${COPY.hints.placeTower} ${COPY.hints.selectTower}`)
-        .setColor(MUTED_COLOUR);
-
       this.shortfallTimer = null;
+
+      // Whatever the hint line was saying before, since the wave may have
+      // opened or closed while the shortfall was up.
+      this.setHint(this.hintCurrent);
     });
   }
 }

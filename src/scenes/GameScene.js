@@ -7,6 +7,7 @@ import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
 import Applicant from '../entities/Applicant.js';
 import Tower from '../entities/Tower.js';
+import { resolveWaves } from '../services/experiments.js';
 
 const PATH_WIDTH = 44;
 const PATH_FILL = 0x232830;
@@ -42,6 +43,10 @@ const LEAK_FLASH_MS = 340;
 const LEAK_LABEL_MS = 900;
 const GAME_OVER_DELAY_MS = 700;
 
+/** How long a wave banner fades up, sits there and fades out again. */
+const BANNER_FADE_MS = 220;
+const BANNER_HOLD_MS = 1100;
+
 const DEPTHS = {
   board: 0,
   fields: 5,
@@ -69,6 +74,16 @@ export default class GameScene extends Phaser.Scene {
     this.selectedTowerKey = Object.keys(TOWERS)[0];
     this.rejected = 0;
     this.runOver = false;
+
+    // Wave one comes from the experiment assignment, the rest are the same in
+    // both arms. Resolved once per run, so a restart is a fresh assignment.
+    this.waves = resolveWaves();
+    this.waveIndex = 0;
+    this.phase = 'preparing';
+    this.waveTimers = [];
+    this.spawnsRemaining = 0;
+    this.prepSecondsLeft = 0;
+    this.banner = null;
 
     this.drawPath();
     this.drawVacancy();
@@ -106,12 +121,9 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    this.spawnTimer = this.time.addEvent({
-      delay: APPLICANTS.graduate.spawnIntervalMs,
-      callback: () => this.spawnApplicant('graduate'),
-      loop: true,
-      startAt: APPLICANTS.graduate.spawnIntervalMs - 400
-    });
+    this.input.keyboard.on('keydown-SPACE', () => this.skipPreparation());
+
+    this.beginPreparation();
   }
 
   update(time) {
@@ -141,6 +153,219 @@ export default class GameScene extends Phaser.Scene {
 
     this.drawShots(time);
     this.drawHealthBars(applicants);
+
+    // A wave is over when everybody it was going to send has been sent and
+    // none of them are still walking, however they left the board.
+    if (
+      this.phase === 'running' &&
+      this.spawnsRemaining === 0 &&
+      !applicants.some((applicant) => applicant.active)
+    ) {
+      this.completeWave();
+    }
+  }
+
+  get waveNumber() {
+    return this.waveIndex + 1;
+  }
+
+  get waveCount() {
+    return this.waves.length;
+  }
+
+  /**
+   * The pause before a wave. The player builds in it, and it counts down in
+   * whole seconds rather than being tracked per frame, since a second is the
+   * smallest unit the HUD shows.
+   */
+  beginPreparation() {
+    const prepMs =
+      this.waveNumber === 1 ? GAME.firstWavePrepMs : GAME.wavePrepMs;
+
+    this.phase = 'preparing';
+    this.prepSecondsLeft = Math.round(prepMs / 1000);
+    this.announcePreparation();
+
+    this.prepTimer = this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        this.prepSecondsLeft -= 1;
+
+        if (this.prepSecondsLeft <= 0) {
+          this.startWave();
+
+          return;
+        }
+
+        this.announcePreparation();
+      }
+    });
+  }
+
+  announcePreparation() {
+    this.events.emit('wave-preparing', {
+      waveNumber: this.waveNumber,
+      waveCount: this.waveCount,
+      secondsLeft: this.prepSecondsLeft
+    });
+  }
+
+  /**
+   * The player would rather not wait. Nothing is skipped except the waiting:
+   * the wave that was coming is the wave that arrives.
+   */
+  skipPreparation() {
+    if (this.phase !== 'preparing' || this.runOver) {
+      return;
+    }
+
+    this.startWave();
+  }
+
+  /**
+   * Opens the wave. Every group is scheduled up front, since a wave is a fixed
+   * list of arrivals and nothing during it changes what is coming.
+   */
+  startWave() {
+    const wave = this.waves[this.waveIndex];
+
+    this.prepTimer.remove();
+    this.phase = 'running';
+    this.spawnsRemaining = wave.groups.reduce(
+      (total, group) => total + group.count,
+      0
+    );
+
+    wave.groups.forEach((group) => this.scheduleGroup(group));
+
+    this.events.emit('wave-started', {
+      waveNumber: this.waveNumber,
+      waveCount: this.waveCount
+    });
+
+    this.showBanner(
+      `${COPY.hud.wave} ${this.waveNumber}`,
+      COPY.board.waveIncoming
+    );
+  }
+
+  /**
+   * One run of arrivals: the first after the group's delay, the rest on the
+   * interval behind it.
+   */
+  scheduleGroup(group) {
+    const opener = this.time.delayedCall(group.delayMs, () => {
+      this.spawnApplicant(group.applicant);
+
+      if (group.count === 1) {
+        return;
+      }
+
+      this.waveTimers.push(
+        this.time.addEvent({
+          delay: group.intervalMs,
+          repeat: group.count - 2,
+          callback: () => this.spawnApplicant(group.applicant)
+        })
+      );
+    });
+
+    this.waveTimers.push(opener);
+  }
+
+  /**
+   * The board is clear. The wave pays out, and either the next one is queued
+   * up or that was the last of them and the vacancy has held.
+   */
+  completeWave() {
+    const wave = this.waves[this.waveIndex];
+
+    this.clearWaveTimers();
+
+    this.currency += wave.reward;
+    this.events.emit('currency-changed', this.currency);
+    this.events.emit('wave-completed', {
+      waveNumber: this.waveNumber,
+      reward: wave.reward
+    });
+
+    // The last wave gets no banner, since the game over screen is about to
+    // say the same thing at more length.
+    if (this.waveNumber === this.waveCount) {
+      this.endRun('survived');
+
+      return;
+    }
+
+    this.showBanner(
+      COPY.board.waveCleared,
+      `+${wave.reward} ${COPY.board.budgetAdded}`
+    );
+
+    this.waveIndex += 1;
+    this.beginPreparation();
+  }
+
+  clearWaveTimers() {
+    this.waveTimers.forEach((timer) => timer.remove());
+    this.waveTimers = [];
+  }
+
+  /**
+   * A line or two across the middle of the board, for the things worth saying
+   * out loud: a wave opening, a wave screened.
+   */
+  showBanner(title, subtitle) {
+    const centreX = this.scale.width / 2;
+    const centreY = this.scale.height / 2 - 40;
+
+    this.clearBanner();
+
+    const titleText = this.add
+      .text(centreX, centreY, title, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '30px',
+        color: '#e6ebf0'
+      })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(DEPTHS.hint);
+
+    const subtitleText = this.add
+      .text(centreX, centreY + 30, subtitle, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '15px',
+        color: '#8b98a6'
+      })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(DEPTHS.hint);
+
+    this.banner = [titleText, subtitleText];
+
+    this.tweens.add({
+      targets: this.banner,
+      alpha: 1,
+      duration: BANNER_FADE_MS,
+      hold: BANNER_HOLD_MS,
+      yoyo: true,
+      onComplete: () => this.clearBanner()
+    });
+  }
+
+  /**
+   * Takes a banner off the board, whether it faded out on its own or the run
+   * ended underneath it. Without this a banner caught by the game over screen
+   * freezes there, since the scene is paused rather than stopped.
+   */
+  clearBanner() {
+    if (!this.banner) {
+      return;
+    }
+
+    this.banner.forEach((text) => text.destroy());
+    this.banner = null;
   }
 
   /**
@@ -557,6 +782,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnApplicant(typeKey) {
+    this.spawnsRemaining = Math.max(0, this.spawnsRemaining - 1);
+
     const applicant = new Applicant(
       this,
       this.path,
@@ -591,7 +818,7 @@ export default class GameScene extends Phaser.Scene {
     this.showLeak();
 
     if (this.lives === 0) {
-      this.endRun();
+      this.endRun('filled');
     }
   }
 
@@ -636,13 +863,22 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Out of lives. Spawning stops at once, then the board is frozen under the
-   * game over screen. Pausing this scene holds the applicants where they are,
-   * which is a more useful picture than an empty board.
+   * The run is over, either because the vacancy has been filled by somebody
+   * who got through, or because every wave has been screened. Spawning stops
+   * at once, then the board is frozen under the game over screen. Pausing this
+   * scene holds the applicants where they are, which is a more useful picture
+   * than an empty board.
    */
-  endRun() {
+  endRun(outcome) {
     this.runOver = true;
-    this.spawnTimer.remove();
+    this.phase = 'over';
+
+    this.clearWaveTimers();
+    this.clearBanner();
+
+    if (this.prepTimer) {
+      this.prepTimer.remove();
+    }
 
     this.ghost.setVisible(false);
     this.ghostRange.clear();
@@ -651,7 +887,12 @@ export default class GameScene extends Phaser.Scene {
     this.events.emit('run-over');
 
     this.time.delayedCall(GAME_OVER_DELAY_MS, () => {
-      this.scene.launch('GameOverScene', { rejected: this.rejected });
+      this.scene.launch('GameOverScene', {
+        outcome,
+        rejected: this.rejected,
+        waveNumber: this.waveNumber,
+        waveCount: this.waveCount
+      });
       this.scene.pause();
     });
   }
