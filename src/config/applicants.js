@@ -26,21 +26,21 @@ export const APPLICANTS = {
     speed: 110,
     radius: 11,
     colour: 0xc7d94a,
-    bounty: 8
+    bounty: 6
   },
   careerChanger: {
     health: 260,
     speed: 55,
     radius: 15,
     colour: 0x6a8fd9,
-    bounty: 26
+    bounty: 20
   },
   overqualified: {
     health: 70,
     speed: 190,
     radius: 10,
     colour: 0xd9c46a,
-    bounty: 16,
+    bounty: 12,
     priorityFor: 'knockoutQuestion'
   },
   keywordStuffer: {
@@ -49,7 +49,7 @@ export const APPLICANTS = {
     radius: 12,
     colour: 0xd96a9b,
     ringColour: 0xf0b8d0,
-    bounty: 20,
+    bounty: 15,
     immuneTo: ['keywordFilter']
   },
   referral: {
@@ -57,7 +57,7 @@ export const APPLICANTS = {
     speed: 120,
     radius: 12,
     colour: 0x9b6ad9,
-    bounty: 18,
+    bounty: 14,
     spawnProgress: 0.28
   },
   boomerang: {
@@ -66,7 +66,7 @@ export const APPLICANTS = {
     radius: 12,
     colour: 0x6ad9c4,
     ringColour: 0xd9f0ea,
-    bounty: 14,
+    bounty: 11,
     returns: true
   }
 };
