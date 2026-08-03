@@ -7,5 +7,13 @@ export const COPY = {
     graduate: {
       name: 'The Graduate'
     }
+  },
+  towers: {
+    keywordFilter: {
+      name: 'Keyword Filter'
+    }
+  },
+  hints: {
+    placeTower: 'Click a free tile to install a Keyword Filter. It does not read, it matches.'
   }
 };
