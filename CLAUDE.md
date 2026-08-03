@@ -6,6 +6,9 @@ Browser tower defence where the player is the Applicant Tracking System, defendi
 
 Read these before writing anything.
 
+- **Phaser 4, not Phaser 3.** If you find yourself writing v3 pipeline
+  or FX code, stop and check the Phaser 4 agent skill files in the
+  package rather than relying on recalled patterns.
 - **UK English.** Everywhere. Code comments, commit messages, in-game copy, README.
 - **No em dashes.** Use commas, full stops or brackets.
 - **Tone: dry and understated.** Wry, never bitter. The system is the butt of the joke, not the applicants. If a line reads as angry about the job market, rewrite it.
@@ -27,17 +30,6 @@ Read these before writing anything.
 | Domain | ats.spencerstern.com (pointed at Netlify once the game runs) |
 
 Keep dependencies minimal. If a task can be done with vanilla JS in twenty lines, do not add a package.
-
-## Non-negotiables
-
-Read these before writing anything.
-
-- **Phaser 4, not Phaser 3.** If you find yourself writing v3 pipeline
-  or FX code, stop and check the Phaser 4 agent skill files in the
-  package rather than relying on recalled patterns.
-- **UK English.** Everywhere. Code comments, commit messages, in-game copy, README.
-- **No em dashes.** Use commas, full stops or brackets.
-- **Tone: dry and understated.** ...
 
 ## How this project is worked on
 
