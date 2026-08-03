@@ -17,8 +17,7 @@
  * every change already has to pass. A second deployment target would need its
  * own secrets, its own preview story and its own reason to exist.
  */
-import { createHash } from 'node:crypto';
-
+import { addressFrom, hashAddress } from './lib/address.js';
 import { checkName } from './lib/names.js';
 import { checkScore } from './lib/plausibility.js';
 import { insert, isConfigured, select } from './lib/supabase.js';
@@ -32,29 +31,6 @@ const json = (body, status = 200) =>
     status,
     headers: { 'Content-Type': 'application/json' }
   });
-
-/**
- * Stored as a salted hash, never as an address. It is only ever compared with
- * itself, so there is no reason to keep the original.
- *
- * A dedicated `IP_HASH_SALT` is better, but falling back to the service role
- * key keeps a deploy working rather than silently storing weakly hashed
- * addresses. Both are server side only.
- */
-function hashAddress(address) {
-  const salt = process.env.IP_HASH_SALT ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  return createHash('sha256').update(`${salt}:${address}`).digest('hex');
-}
-
-function addressFrom(request, context) {
-  return (
-    context?.ip ??
-    request.headers.get('x-nf-client-connection-ip') ??
-    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
-    'unknown'
-  );
-}
 
 async function isOverRateLimit(ipHash) {
   const since = new Date(

@@ -42,7 +42,17 @@ const INPUT_EVENTS = [
 const SESSION_KEY = 'requisita.session_id';
 const ATTEMPT_KEY = 'requisita.attempt_number';
 
-const ENDPOINT = import.meta.env.VITE_ANALYTICS_ENDPOINT ?? '';
+/**
+ * The collector, on this site's own origin. It defaults to the Netlify
+ * function rather than needing an environment variable, for the same reason
+ * the leaderboard does: it is same origin, it needs no key, and one fewer
+ * setting is one fewer thing to have forgotten on launch day.
+ *
+ * `VITE_ANALYTICS_ENDPOINT` still overrides it, so the events can be pointed
+ * somewhere else later without touching this file.
+ */
+const ENDPOINT =
+  import.meta.env.VITE_ANALYTICS_ENDPOINT || '/.netlify/functions/collect';
 
 /**
  * Events are printed to the console during development, and in a built game
