@@ -92,7 +92,7 @@ export const WAVES = [
     reward: 50,
     groups: [
       { applicant: 'graduate', count: 14, intervalMs: 900, delayMs: 0 },
-      { applicant: 'keywordStuffer', count: 7, intervalMs: 1700, delayMs: 3500 },
+      { applicant: 'keywordStuffer', count: 5, intervalMs: 1900, delayMs: 3500 },
       { applicant: 'referral', count: 3, intervalMs: 2600, delayMs: 9000 },
       { applicant: 'careerChanger', count: 6, intervalMs: 2200, delayMs: 12000 }
     ]
