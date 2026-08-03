@@ -18,6 +18,7 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
     this.definition = definition;
     this.health = definition.health;
     this.maxHealth = definition.health;
+    this.speedMultiplier = 1;
 
     scene.add.existing(this);
   }
@@ -33,7 +34,7 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
 
   /**
    * Sets the applicant walking. `onArrival` fires if it reaches the vacancy,
-   * which for now just means it is removed. Losing a life comes later.
+   * which costs the player a life.
    */
   walk(onArrival) {
     const durationMs = (this.path.getLength() / this.definition.speed) * 1000;
@@ -48,6 +49,20 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
     });
 
     return this;
+  }
+
+  /**
+   * Slows the applicant down, or lets it back up to full speed with a
+   * multiplier of 1. The walk is a tween, so scaling the tween's clock scales
+   * the walking speed without touching the path or the remaining distance.
+   */
+  setSpeedMultiplier(multiplier) {
+    if (!this.pathTween || multiplier === this.speedMultiplier) {
+      return;
+    }
+
+    this.speedMultiplier = multiplier;
+    this.pathTween.setTimeScale(multiplier);
   }
 
   /**

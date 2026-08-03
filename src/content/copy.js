@@ -10,14 +10,26 @@ export const COPY = {
   },
   towers: {
     keywordFilter: {
-      name: 'Keyword Filter'
+      name: 'Keyword Filter',
+      blurb: 'Cheap and quick. It does not read, it matches.'
+    },
+    knockoutQuestion: {
+      name: 'Knockout Question',
+      blurb: 'One question, one wrong answer, one rejection. Reloads slowly.'
+    },
+    takeHomeTask: {
+      name: 'Take-Home Task',
+      blurb: 'Harms nobody. Anyone in range slows to a crawl for a fortnight.'
     }
   },
   hints: {
-    placeTower: 'Click a free tile to install a Keyword Filter. It does not read, it matches.'
+    placeTower: 'Click a free tile to install.',
+    selectTower: 'Keys 1 to 3 also pick.'
   },
   hud: {
-    lives: 'Vacancy integrity'
+    lives: 'Vacancy integrity',
+    currency: 'Budget',
+    shortfall: 'The budget will not stretch to that.'
   },
   board: {
     leak: 'Reached a human'
