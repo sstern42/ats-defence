@@ -8,6 +8,15 @@ import { COPY } from '../content/copy.js';
 import Applicant from '../entities/Applicant.js';
 import Tower from '../entities/Tower.js';
 import Trap from '../entities/Trap.js';
+import {
+  setWaveNumber,
+  trackApplicantLeaked,
+  trackGameOver,
+  trackGameStarted,
+  trackTowerPlaced,
+  trackWaveCompleted,
+  trackWaveStarted
+} from '../services/analytics.js';
 import { resolveWaves } from '../services/experiments.js';
 
 const PATH_WIDTH = 44;
@@ -100,12 +109,17 @@ export default class GameScene extends Phaser.Scene {
     // both arms. Resolved once per run, so a restart is a fresh assignment.
     this.waves = resolveWaves();
     this.waveIndex = 0;
+    this.wavesCleared = 0;
     this.phase = 'preparing';
     this.waveTimers = [];
     this.spawnsRemaining = 0;
     this.prepSecondsLeft = 0;
     this.banner = null;
     this.notice = null;
+
+    // Read when a wave finishes, to say how long it took and what it cost.
+    this.waveStartedAt = 0;
+    this.livesAtWaveStart = this.lives;
 
     // Boomerangs waiting to come back, and the types the player has met, so a
     // type is introduced the first time it turns up and not again.
@@ -149,6 +163,10 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.input.keyboard.on('keydown-SPACE', () => this.skipPreparation());
+
+    // A restart builds this scene again, so this is also where a second and
+    // third attempt are counted.
+    trackGameStarted();
 
     this.beginPreparation();
   }
@@ -196,6 +214,20 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
+   * The run as one number, for the analytics now and the leaderboard later.
+   * The weights are data, so tuning it does not mean coming back in here.
+   */
+  get score() {
+    const { perWaveCleared, perRejection, perLifeRemaining } = GAME.scoring;
+
+    return (
+      this.wavesCleared * perWaveCleared +
+      this.rejected * perRejection +
+      this.lives * perLifeRemaining
+    );
+  }
+
+  /**
    * The pause before a wave. The player builds in it, and it counts down in
    * whole seconds rather than being tracked per frame, since a second is the
    * smallest unit the HUD shows.
@@ -206,6 +238,11 @@ export default class GameScene extends Phaser.Scene {
 
     this.phase = 'preparing';
     this.prepSecondsLeft = Math.round(prepMs / 1000);
+
+    // Towers bought in the pause belong to the wave being prepared for, not to
+    // the one that has just been screened.
+    setWaveNumber(this.waveNumber);
+
     this.announcePreparation();
 
     this.prepTimer = this.time.addEvent({
@@ -254,6 +291,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.prepTimer.remove();
     this.phase = 'running';
+    this.waveStartedAt = this.time.now;
+    this.livesAtWaveStart = this.lives;
     this.spawnsRemaining = wave.groups.reduce(
       (total, group) => total + group.count,
       0
@@ -264,6 +303,12 @@ export default class GameScene extends Phaser.Scene {
     this.events.emit('wave-started', {
       waveNumber: this.waveNumber,
       waveCount: this.waveCount
+    });
+
+    trackWaveStarted({
+      waveNumber: this.waveNumber,
+      livesRemaining: this.lives,
+      currency: this.currency
     });
 
     this.showBanner(
@@ -310,6 +355,17 @@ export default class GameScene extends Phaser.Scene {
     this.events.emit('wave-completed', {
       waveNumber: this.waveNumber,
       reward: wave.reward
+    });
+
+    this.wavesCleared += 1;
+
+    trackWaveCompleted({
+      waveNumber: this.waveNumber,
+      durationMs: this.time.now - this.waveStartedAt,
+      livesLost: this.livesAtWaveStart - this.lives,
+      // Armed traps count. They are not towers, but they are things the player
+      // put on the board and has not got back yet.
+      towersOnBoard: this.towers.length + this.traps.length
     });
 
     // The last wave gets no banner, since the game over screen is about to
@@ -1038,6 +1094,13 @@ export default class GameScene extends Phaser.Scene {
     this.towers.push(tower);
     this.occupiedCells.add(this.cellKey(gridX, gridY));
 
+    trackTowerPlaced({
+      towerType: typeKey,
+      currencyBefore: this.currency,
+      gridX,
+      gridY
+    });
+
     this.currency -= definition.cost;
     this.events.emit('currency-changed', this.currency);
 
@@ -1076,6 +1139,18 @@ export default class GameScene extends Phaser.Scene {
     trap.setDepth(DEPTHS.towers);
 
     this.traps.push(trap);
+
+    // A trap snaps to the path rather than to a cell, so the grid position
+    // recorded is the cell it landed in. Good enough to see where on the board
+    // traps get laid, which is the only thing it is for.
+    const cell = this.cellAt(onPath.x, onPath.y);
+
+    trackTowerPlaced({
+      towerType: typeKey,
+      currencyBefore: this.currency,
+      gridX: cell.gridX,
+      gridY: cell.gridY
+    });
 
     this.currency -= definition.cost;
     this.events.emit('currency-changed', this.currency);
@@ -1208,6 +1283,8 @@ export default class GameScene extends Phaser.Scene {
    * before the game over screen still tidies itself up.
    */
   leak(applicant) {
+    const typeKey = applicant.typeKey;
+
     applicant.stopFollow();
 
     // Read before the applicant is destroyed, since a Boomerang that walked in
@@ -1222,6 +1299,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.lives = Math.max(0, this.lives - GAME.livesPerLeak);
     this.events.emit('lives-changed', this.lives);
+
+    trackApplicantLeaked(typeKey);
 
     this.refreshVacancy();
     this.showLeak();
@@ -1279,6 +1358,8 @@ export default class GameScene extends Phaser.Scene {
    * than an empty board.
    */
   endRun(outcome) {
+    const score = this.score;
+
     this.runOver = true;
     this.phase = 'over';
 
@@ -1298,9 +1379,14 @@ export default class GameScene extends Phaser.Scene {
     // Nothing more can be bought, so the HUD stops offering.
     this.events.emit('run-over');
 
+    // Recorded now rather than after the pause, so a player who closes the tab
+    // on the last leak is still counted as having finished the run.
+    trackGameOver({ finalWave: this.waveNumber, score });
+
     this.time.delayedCall(GAME_OVER_DELAY_MS, () => {
       this.scene.launch('GameOverScene', {
         outcome,
+        score,
         rejected: this.rejected,
         waveNumber: this.waveNumber,
         waveCount: this.waveCount

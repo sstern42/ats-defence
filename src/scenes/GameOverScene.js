@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { COPY } from '../content/copy.js';
+import { trackRestartClicked } from '../services/analytics.js';
 
 const FONT = 'system-ui, sans-serif';
 const VEIL_COLOUR = 0x14161a;
@@ -30,6 +31,11 @@ export default class GameOverScene extends Phaser.Scene {
     const waveCount = data.waveCount ?? 1;
     const ending = COPY.gameOver[data.outcome] ?? COPY.gameOver.filled;
 
+    // Kept for the restart event, and for the leaderboard at the next step.
+    this.score = data.score ?? 0;
+    this.waveNumber = waveNumber;
+    this.restarted = false;
+
     this.add
       .rectangle(0, 0, width, height, VEIL_COLOUR, VEIL_ALPHA)
       .setOrigin(0, 0);
@@ -53,36 +59,26 @@ export default class GameOverScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.add
-      .text(
-        centreX,
-        height / 2 + 30,
-        `${COPY.gameOver.waveLabel}: ${waveNumber} ${COPY.hud.waveOf} ${waveCount}`,
-        {
+    const lines = [
+      `${COPY.gameOver.waveLabel}: ${waveNumber} ${COPY.hud.waveOf} ${waveCount}`,
+      `${COPY.gameOver.rejectedLabel}: ${rejected}`,
+      `${COPY.gameOver.scoreLabel}: ${this.score}`
+    ];
+
+    lines.forEach((line, index) => {
+      this.add
+        .text(centreX, height / 2 + 26 + index * 28, line, {
           fontFamily: FONT,
           fontSize: '18px',
           color: TITLE_COLOUR
-        }
-      )
-      .setOrigin(0.5);
+        })
+        .setOrigin(0.5);
+    });
+
+    this.createRestartButton(centreX, height / 2 + 142);
 
     this.add
-      .text(
-        centreX,
-        height / 2 + 60,
-        `${COPY.gameOver.rejectedLabel}: ${rejected}`,
-        {
-          fontFamily: FONT,
-          fontSize: '18px',
-          color: TITLE_COLOUR
-        }
-      )
-      .setOrigin(0.5);
-
-    this.createRestartButton(centreX, height / 2 + 120);
-
-    this.add
-      .text(centreX, height / 2 + 168, COPY.gameOver.restartHint, {
+      .text(centreX, height / 2 + 190, COPY.gameOver.restartHint, {
         fontFamily: FONT,
         fontSize: '14px',
         color: MUTED_COLOUR
@@ -123,6 +119,19 @@ export default class GameOverScene extends Phaser.Scene {
    * cleanly. Its create relaunches the HUD, and this scene sees itself out.
    */
   restart() {
+    // Space and the button are separate listeners, and only one restart is
+    // wanted however many of them the player reaches for.
+    if (this.restarted) {
+      return;
+    }
+
+    this.restarted = true;
+
+    trackRestartClicked({
+      fromWave: this.waveNumber,
+      previousScore: this.score
+    });
+
     this.scene.get('GameScene').scene.restart();
     this.scene.stop();
   }
