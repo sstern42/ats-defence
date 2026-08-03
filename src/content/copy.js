@@ -24,19 +24,33 @@ export const COPY = {
   },
   hints: {
     placeTower: 'Click a free tile to install.',
-    selectTower: 'Keys 1 to 3 also pick.'
+    selectTower: 'Keys 1 to 3 also pick.',
+    skipPrep: 'Space opens the intake early.'
   },
   hud: {
     lives: 'Vacancy integrity',
     currency: 'Budget',
-    shortfall: 'The budget will not stretch to that.'
+    shortfall: 'The budget will not stretch to that.',
+    wave: 'Intake',
+    waveOf: 'of',
+    waveOpensIn: 'opens in'
   },
   board: {
-    leak: 'Reached a human'
+    leak: 'Reached a human',
+    waveIncoming: 'Applications open',
+    waveCleared: 'Intake screened',
+    budgetAdded: 'added to the budget'
   },
   gameOver: {
-    title: 'Position filled',
-    body: 'Enough applicants got past screening that somebody read one properly and hired them. Requisita has been invited to a review meeting.',
+    filled: {
+      title: 'Position filled',
+      body: 'Enough applicants got past screening that somebody read one properly and hired them. Requisita has been invited to a review meeting.'
+    },
+    survived: {
+      title: 'Vacancy withdrawn',
+      body: 'Every intake screened and the vacancy is still open. It has been withdrawn pending a review of whether it was needed in the first place. Requisita is recording this as a success.'
+    },
+    waveLabel: 'Intake reached',
     rejectedLabel: 'Applicants rejected',
     restart: 'Reopen the vacancy',
     restartHint: 'or press space'

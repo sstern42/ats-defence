@@ -14,8 +14,8 @@ const BUTTON_HOVER_COLOUR = '#4a6d87';
 /**
  * The end of a run, drawn over the frozen board.
  *
- * Score and the leaderboard belong to later steps. All this does is say what
- * went wrong and offer another go.
+ * A run ends one of two ways: somebody got hired, or every wave was screened
+ * and the vacancy held. Score and the leaderboard belong to later steps.
  */
 export default class GameOverScene extends Phaser.Scene {
   constructor() {
@@ -26,13 +26,16 @@ export default class GameOverScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const centreX = width / 2;
     const rejected = data.rejected ?? 0;
+    const waveNumber = data.waveNumber ?? 1;
+    const waveCount = data.waveCount ?? 1;
+    const ending = COPY.gameOver[data.outcome] ?? COPY.gameOver.filled;
 
     this.add
       .rectangle(0, 0, width, height, VEIL_COLOUR, VEIL_ALPHA)
       .setOrigin(0, 0);
 
     this.add
-      .text(centreX, height / 2 - 130, COPY.gameOver.title, {
+      .text(centreX, height / 2 - 140, ending.title, {
         fontFamily: FONT,
         fontSize: '44px',
         color: TITLE_COLOUR
@@ -40,7 +43,7 @@ export default class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(centreX, height / 2 - 50, COPY.gameOver.body, {
+      .text(centreX, height / 2 - 60, ending.body, {
         fontFamily: FONT,
         fontSize: '17px',
         color: BODY_COLOUR,
@@ -53,7 +56,20 @@ export default class GameOverScene extends Phaser.Scene {
     this.add
       .text(
         centreX,
-        height / 2 + 40,
+        height / 2 + 30,
+        `${COPY.gameOver.waveLabel}: ${waveNumber} ${COPY.hud.waveOf} ${waveCount}`,
+        {
+          fontFamily: FONT,
+          fontSize: '18px',
+          color: TITLE_COLOUR
+        }
+      )
+      .setOrigin(0.5);
+
+    this.add
+      .text(
+        centreX,
+        height / 2 + 60,
         `${COPY.gameOver.rejectedLabel}: ${rejected}`,
         {
           fontFamily: FONT,
