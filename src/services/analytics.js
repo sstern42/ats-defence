@@ -130,6 +130,14 @@ export function setWaveNumber(waveNumber) {
   state.waveNumber = waveNumber;
 }
 
+/**
+ * The run the player has just finished, so a score can be tied to it and the
+ * same run cannot be submitted to the leaderboard twice.
+ */
+export function getRunId() {
+  return state.runId;
+}
+
 export function trackWaveStarted({ waveNumber, livesRemaining, currency }) {
   setWaveNumber(waveNumber);
 

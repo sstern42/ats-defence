@@ -1,0 +1,45 @@
+# Free tier Supabase projects pause after seven days without a request, and a
+# paused database is a leaderboard that returns an error to everybody who
+# finishes a run. This pokes it twice a week.
+#
+# It goes through the site's own leaderboard function rather than talking to
+# Supabase directly, which means no database credentials need to exist as
+# GitHub secrets at all. The function reads the table, the table counts as
+# activity, the clock resets.
+#
+# One thing to know: GitHub disables scheduled workflows on a repository after
+# sixty days without a commit. A quiet repo will therefore stop pinging at
+# roughly the point the pinging starts to matter. GitHub emails before it does
+# this and the workflow can be re-enabled in one click, and the manual trigger
+# below covers the gap. Committing a heartbeat file twice a week would prevent
+# it outright, at the cost of a commit log made of nothing.
+name: Keep the database awake
+
+on:
+  schedule:
+    # Tuesdays and Fridays, at an unremarkable time, offset off the hour to
+    # avoid the crowd that schedules everything on the hour.
+    - cron: '23 7 * * 2,5'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the leaderboard
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://ats.spencerstern.com' }}
+        run: |
+          set -euo pipefail
+
+          status=$(curl -sS -o /tmp/body.json -w '%{http_code}' \
+            --max-time 30 --retry 3 --retry-delay 10 \
+            "$SITE_URL/.netlify/functions/leaderboard")
+
+          echo "status: $status"
+          cat /tmp/body.json
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Leaderboard returned $status, the database may be paused"
+            exit 1
+          fi

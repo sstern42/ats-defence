@@ -2,5 +2,12 @@
   command = "npm run build"
   publish = "dist"
 
+# The leaderboard read and write both live here. They import wave and scoring
+# data straight from src/config, so the ceiling a submitted score is checked
+# against is the same data the game plays from.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [build.environment]
   NODE_VERSION = "22"

@@ -93,5 +93,23 @@ export const COPY = {
     scoreLabel: 'Efficiency rating',
     restart: 'Reopen the vacancy',
     restartHint: 'or press space'
+  },
+  leaderboard: {
+    heading: 'Best screeners',
+    loading: 'Asking the board.',
+    unavailable: 'The board is not answering. Your run still counted.',
+    empty: 'Nobody on it yet. The vacancy is wide open.',
+    namePrompt: 'Name for the board',
+    namePlaceholder: 'type a name',
+    submit: 'Submit',
+    submitting: 'Filing it.',
+    submitted: 'Filed.',
+    columnRank: '#',
+    columnName: 'Name',
+    columnWave: 'Intake',
+    columnScore: 'Rating',
+    typingHint: 'Enter submits. Sixteen characters, and be nice.',
+    emptyHint: 'Type a name to go on the board, or press space to start again.',
+    doneHint: 'Press space to reopen the vacancy.'
   }
 };
