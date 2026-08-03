@@ -10,7 +10,7 @@ Read these before writing anything.
 - **No em dashes.** Use commas, full stops or brackets.
 - **Tone: dry and understated.** Wry, never bitter. The system is the butt of the joke, not the applicants. If a line reads as angry about the job market, rewrite it.
 - **Parody vendor names only.** No real ATS vendors (Workday, Greenhouse, Taleo, Lever, Bullhorn and so on) anywhere in code, assets, copy or comments. The in-game product is called **Requisita**.
-- **No secrets in the repo.** Only the Supabase anon key ever touches client code. No service role key in the repo, in Netlify environment variables exposed to the build, or in any committed file.
+- **No secrets in the repo.** Only the Supabase anon key ever touches client code. No service role key in the repo, in committed files, or in any environment variable exposed to the client build.
 
 ## Stack
 
@@ -19,14 +19,20 @@ Read these before writing anything.
 | Engine | Phaser 3 |
 | Build | Vite |
 | Language | Vanilla JS (no TypeScript, no framework) |
-| Hosting | Netlify, auto-deploy from `main` |
+| Hosting | Netlify, auto-deploy from `main`, deploy previews on every PR |
 | Repo | `sstern42/ats-defence`, public, MIT |
 | Art | Kenney CC0 assets |
 | Backend | Supabase (leaderboard only) |
 | Experiments | GrowthBook |
-| Domain | ats.spencerstern.com |
+| Domain | ats.spencerstern.com (pointed at Netlify once the game runs) |
 
 Keep dependencies minimal. If a task can be done with vanilla JS in twenty lines, do not add a package.
+
+## How this project is worked on
+
+Development happens through Claude Code on the web. Sessions run in the cloud, so **there is no local dev server anyone can look at.** The Netlify deploy preview on each pull request is the only way the game gets seen.
+
+This shapes everything below. Deploy is not a late step. It is step 2, and nothing proceeds until a preview URL renders the game.
 
 ## Concept
 
@@ -73,34 +79,38 @@ src/
     waves.js           Wave definitions as data
     towers.js          Tower stats as data
     applicants.js      Applicant stats as data
+    path.js            Waypoint coordinates
   services/
     analytics.js       Event emission
     experiments.js     GrowthBook wrapper
     leaderboard.js     Supabase client
   content/
     copy.js            All user-facing strings
+netlify.toml           Build command, publish directory, Node version
 ```
 
 **Balance lives in data, not code.** `waves.js`, `towers.js` and `applicants.js` must be plain exported objects with no logic. Tuning is the longest phase of this project and it must not require touching game logic.
 
-**Path is hardcoded waypoints.** No pathfinding. An array of coordinates in `waves.js` or a dedicated `path.js`.
+**Path is hardcoded waypoints.** No pathfinding. An array of coordinates in `config/path.js`.
 
 ## Build order
 
-Do not jump ahead. Each step should leave the game running.
+Do not jump ahead. Each step should leave the game running, and each step is its own pull request.
 
-1. Vite plus Phaser scaffold, dev server, one sprite rendering.
-2. Waypoint path, applicants spawning and walking it.
-3. One tower: click to place, range detection, targeting, damage, applicant death.
-4. Lives, vacancy damage on leak, game over state.
-5. Deploy to Netlify. Get a live URL before adding anything else.
+1. Vite plus Phaser scaffold. Add `netlify.toml` pinning build command (`npm run build`), publish directory (`dist`) and Node version. One sprite rendering.
+2. **Confirm the Netlify deploy preview builds and the sprite is visible at the preview URL.** Do not proceed until this works. If the build fails, fixing it is the whole of the next step.
+3. Waypoint path, applicants spawning and walking it.
+4. One tower: click to place, range detection, targeting, damage, applicant death.
+5. Lives, vacancy damage on leak, game over state.
 6. Currency, tower cost, second and third tower types.
 7. Waves as a structure, wave counter, between-wave pause.
 8. Remaining towers and applicant types.
 9. Analytics instrumentation.
-10. Supabase leaderboard.
+10. Leaderboard.
 11. GrowthBook experiment.
 12. Balancing pass. Budget more time than seems reasonable.
+
+The custom domain (ats.spencerstern.com) gets pointed at Netlify around step 8, once there is a game worth showing at a real address.
 
 ## Analytics spec
 
@@ -158,11 +168,11 @@ Assume it will be attacked. Client-submitted scores are trivially forged.
 
 - Supabase table with Row Level Security enabled from the start.
 - Anon key may insert and select. It may not update or delete.
-- Score submission goes through a Supabase edge function that validates plausibility (score consistent with wave reached, within a sane ceiling) and rate limits by IP.
+- Score submission goes through a server-side function that validates plausibility (score consistent with wave reached, within a sane ceiling) and rate limits by IP. Either a Netlify function or a Supabase edge function. Netlify is likely simpler, since it lives in this repo and deploys with the site. Decide at implementation time and note the reasoning in the PR.
 - Display names: length capped at 16 characters, filtered against a profanity list, restricted character set.
 - Top ten read only. No full-table reads from the client.
 
-Free tier projects pause after seven days of inactivity. Add a GitHub Actions cron that pings the database twice weekly to keep it alive.
+Free tier Supabase projects pause after seven days of inactivity. Add a GitHub Actions cron that pings the database twice weekly to keep it alive.
 
 ## Accessibility and platform
 
@@ -187,6 +197,9 @@ Tower upgrades, multiple maps, sound, difficulty settings, user accounts, saved 
 
 ## Working style
 
+- **One step per branch, one branch per pull request.** Name the branch for the step. Open the PR and stop. Do not merge.
+- **Every PR must build cleanly on Netlify.** A red deploy preview is a failed step, not a detail to tidy up later.
+- In the PR description, say what to look at on the preview URL and what should be visible.
 - Small commits, present tense, UK English.
 - Do not refactor working code without being asked.
 - If a step is taking much longer than expected, say so and propose a simpler version rather than continuing.
