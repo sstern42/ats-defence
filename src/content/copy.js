@@ -90,6 +90,7 @@ export const COPY = {
     },
     waveLabel: 'Intake reached',
     rejectedLabel: 'Applicants rejected',
+    scoreLabel: 'Efficiency rating',
     restart: 'Reopen the vacancy',
     restartHint: 'or press space'
   }
