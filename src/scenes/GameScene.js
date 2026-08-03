@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { APPLICANTS } from '../config/applicants.js';
+import { GAME } from '../config/game.js';
 import { PATH_WAYPOINTS } from '../config/path.js';
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
@@ -21,6 +22,18 @@ const VALID_TINT = 0x7fb069;
 const INVALID_TINT = 0xb5553f;
 const HEALTH_BAR_WIDTH = 24;
 const HEALTH_BAR_HEIGHT = 3;
+
+/**
+ * How a leak looks, which is presentation rather than balance, so it stays
+ * here. The pause before the game over screen is there so the last applicant
+ * is seen arriving rather than being covered up mid step.
+ */
+const VACANCY_FILL_ALPHA = 0.18;
+const VACANCY_DAMAGE_ALPHA = 0.52;
+const LEAK_FLASH_ALPHA = 0.6;
+const LEAK_FLASH_MS = 340;
+const LEAK_LABEL_MS = 900;
+const GAME_OVER_DELAY_MS = 700;
 
 const DEPTHS = {
   board: 0,
@@ -43,6 +56,9 @@ export default class GameScene extends Phaser.Scene {
     this.occupiedCells = new Set();
     this.shots = [];
     this.hoveredCell = null;
+    this.lives = GAME.startingLives;
+    this.rejected = 0;
+    this.runOver = false;
 
     this.drawPath();
     this.drawVacancy();
@@ -56,13 +72,10 @@ export default class GameScene extends Phaser.Scene {
     this.shotGraphics = this.add.graphics().setDepth(DEPTHS.shots);
     this.healthGraphics = this.add.graphics().setDepth(DEPTHS.shots);
 
-    this.add
-      .text(16, 14, COPY.hints.placeTower, {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '15px',
-        color: '#6f7d8c'
-      })
-      .setDepth(DEPTHS.hint);
+    // The HUD is its own scene so it carries on drawing while this one is
+    // paused behind the game over screen. Launching restarts it, which is
+    // what a fresh run wants.
+    this.scene.launch('UIScene');
 
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer) =>
       this.updateGhost(pointer.worldX, pointer.worldY)
@@ -72,16 +85,11 @@ export default class GameScene extends Phaser.Scene {
       this.placeTower(pointer.worldX, pointer.worldY)
     );
 
-    this.time.addEvent({
+    this.spawnTimer = this.time.addEvent({
       delay: APPLICANTS.graduate.spawnIntervalMs,
       callback: () => this.spawnApplicant('graduate'),
       loop: true,
       startAt: APPLICANTS.graduate.spawnIntervalMs - 400
-    });
-
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.applicants.clear(true, true);
-      this.towers = [];
     });
   }
 
@@ -99,6 +107,7 @@ export default class GameScene extends Phaser.Scene {
 
       if (target.takeDamage(tower.definition.damage)) {
         target.reject();
+        this.rejected += 1;
       }
     });
 
@@ -136,23 +145,45 @@ export default class GameScene extends Phaser.Scene {
 
   drawVacancy() {
     const vacancy = this.path.getEndPoint();
-    const graphics = this.add.graphics().setDepth(DEPTHS.board);
 
-    graphics.fillStyle(VACANCY_COLOUR, 0.18);
-    graphics.fillRect(
-      vacancy.x - VACANCY_SIZE / 2,
-      vacancy.y - VACANCY_SIZE / 2,
-      VACANCY_SIZE,
-      VACANCY_SIZE
-    );
+    this.vacancyGraphics = this.add.graphics().setDepth(DEPTHS.board);
 
-    graphics.lineStyle(2, VACANCY_COLOUR, 1);
-    graphics.strokeRect(
-      vacancy.x - VACANCY_SIZE / 2,
-      vacancy.y - VACANCY_SIZE / 2,
-      VACANCY_SIZE,
-      VACANCY_SIZE
+    // Sat on top of the vacancy and invisible until an applicant arrives,
+    // when it is flashed and faded back out.
+    this.vacancyFlash = this.add
+      .rectangle(
+        vacancy.x,
+        vacancy.y,
+        VACANCY_SIZE,
+        VACANCY_SIZE,
+        VACANCY_COLOUR
+      )
+      .setAlpha(0)
+      .setDepth(DEPTHS.shots);
+
+    this.refreshVacancy();
+  }
+
+  /**
+   * The vacancy fills in as its integrity drops, so the board shows how a run
+   * is going without anyone having to read the HUD.
+   */
+  refreshVacancy() {
+    const vacancy = this.path.getEndPoint();
+    const damage = 1 - this.lives / GAME.startingLives;
+    const left = vacancy.x - VACANCY_SIZE / 2;
+    const top = vacancy.y - VACANCY_SIZE / 2;
+
+    this.vacancyGraphics.clear();
+
+    this.vacancyGraphics.fillStyle(
+      VACANCY_COLOUR,
+      VACANCY_FILL_ALPHA + damage * VACANCY_DAMAGE_ALPHA
     );
+    this.vacancyGraphics.fillRect(left, top, VACANCY_SIZE, VACANCY_SIZE);
+
+    this.vacancyGraphics.lineStyle(2, VACANCY_COLOUR, 1);
+    this.vacancyGraphics.strokeRect(left, top, VACANCY_SIZE, VACANCY_SIZE);
   }
 
   /**
@@ -394,16 +425,89 @@ export default class GameScene extends Phaser.Scene {
     applicant.setDepth(DEPTHS.applicants);
 
     this.applicants.add(applicant);
-    applicant.walk((arrived) => this.removeApplicant(arrived));
+    applicant.walk((arrived) => this.leak(arrived));
   }
 
   /**
-   * Reaching the vacancy currently costs nothing. Lives and the game over
-   * state arrive at step five.
+   * An applicant has reached the vacancy, which costs the player a life. The
+   * applicant is cleared either way, so a leak arriving during the pause
+   * before the game over screen still tidies itself up.
    */
-  removeApplicant(applicant) {
+  leak(applicant) {
     applicant.stopFollow();
     this.applicants.remove(applicant, true, true);
+
+    if (this.runOver) {
+      return;
+    }
+
+    this.lives = Math.max(0, this.lives - GAME.livesPerLeak);
+    this.events.emit('lives-changed', this.lives);
+
+    this.refreshVacancy();
+    this.showLeak();
+
+    if (this.lives === 0) {
+      this.endRun();
+    }
+  }
+
+  showLeak() {
+    const vacancy = this.path.getEndPoint();
+
+    this.cameras.main.shake(180, 0.005);
+
+    this.vacancyFlash.setAlpha(LEAK_FLASH_ALPHA);
+    this.tweens.add({
+      targets: this.vacancyFlash,
+      alpha: 0,
+      duration: LEAK_FLASH_MS,
+      ease: 'Quad.easeOut'
+    });
+
+    const label = this.add
+      .text(vacancy.x, vacancy.y - VACANCY_SIZE, COPY.board.leak, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '14px',
+        color: '#d98a6a'
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTHS.hint);
+
+    // The vacancy sits near the right edge, so the label is pulled back on to
+    // the board rather than being cut in half by it.
+    label.x = Phaser.Math.Clamp(
+      label.x,
+      label.displayWidth / 2,
+      this.scale.width - label.displayWidth / 2 - 8
+    );
+
+    this.tweens.add({
+      targets: label,
+      y: label.y - 28,
+      alpha: 0,
+      duration: LEAK_LABEL_MS,
+      ease: 'Quad.easeOut',
+      onComplete: () => label.destroy()
+    });
+  }
+
+  /**
+   * Out of lives. Spawning stops at once, then the board is frozen under the
+   * game over screen. Pausing this scene holds the applicants where they are,
+   * which is a more useful picture than an empty board.
+   */
+  endRun() {
+    this.runOver = true;
+    this.spawnTimer.remove();
+
+    this.ghost.setVisible(false);
+    this.ghostRange.clear();
+
+    this.time.delayedCall(GAME_OVER_DELAY_MS, () => {
+      this.scene.launch('GameOverScene', { rejected: this.rejected });
+      this.scene.pause();
+    });
   }
 
   /**

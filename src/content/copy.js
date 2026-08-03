@@ -15,5 +15,18 @@ export const COPY = {
   },
   hints: {
     placeTower: 'Click a free tile to install a Keyword Filter. It does not read, it matches.'
+  },
+  hud: {
+    lives: 'Vacancy integrity'
+  },
+  board: {
+    leak: 'Reached a human'
+  },
+  gameOver: {
+    title: 'Position filled',
+    body: 'Enough applicants got past screening that somebody read one properly and hired them. Requisita has been invited to a review meeting.',
+    rejectedLabel: 'Applicants rejected',
+    restart: 'Reopen the vacancy',
+    restartHint: 'or press space'
   }
 };
