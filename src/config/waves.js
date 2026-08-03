@@ -92,9 +92,9 @@ export const WAVES = [
     reward: 50,
     groups: [
       { applicant: 'graduate', count: 14, intervalMs: 900, delayMs: 0 },
-      { applicant: 'keywordStuffer', count: 4, intervalMs: 2000, delayMs: 3500 },
+      { applicant: 'keywordStuffer', count: 7, intervalMs: 1700, delayMs: 3500 },
       { applicant: 'referral', count: 3, intervalMs: 2600, delayMs: 9000 },
-      { applicant: 'careerChanger', count: 5, intervalMs: 2400, delayMs: 12000 }
+      { applicant: 'careerChanger', count: 6, intervalMs: 2200, delayMs: 12000 }
     ]
   },
   {
@@ -102,9 +102,9 @@ export const WAVES = [
     groups: [
       { applicant: 'graduate', count: 16, intervalMs: 850, delayMs: 0 },
       { applicant: 'boomerang', count: 5, intervalMs: 1900, delayMs: 4000 },
-      { applicant: 'careerChanger', count: 4, intervalMs: 2500, delayMs: 8000 },
+      { applicant: 'careerChanger', count: 6, intervalMs: 2200, delayMs: 8000 },
       { applicant: 'overqualified', count: 5, intervalMs: 1500, delayMs: 11000 },
-      { applicant: 'keywordStuffer', count: 5, intervalMs: 1800, delayMs: 15000 }
+      { applicant: 'keywordStuffer', count: 9, intervalMs: 1500, delayMs: 13000 }
     ]
   },
   {
@@ -113,7 +113,8 @@ export const WAVES = [
       { applicant: 'graduate', count: 18, intervalMs: 800, delayMs: 0 },
       { applicant: 'careerChanger', count: 8, intervalMs: 1900, delayMs: 3000 },
       { applicant: 'referral', count: 5, intervalMs: 1800, delayMs: 9000 },
-      { applicant: 'boomerang', count: 6, intervalMs: 1600, delayMs: 13000 }
+      { applicant: 'boomerang', count: 6, intervalMs: 1600, delayMs: 13000 },
+      { applicant: 'keywordStuffer', count: 8, intervalMs: 1500, delayMs: 6000 }
     ]
   },
   {
@@ -121,8 +122,8 @@ export const WAVES = [
     groups: [
       { applicant: 'graduate', count: 20, intervalMs: 750, delayMs: 0 },
       { applicant: 'overqualified', count: 6, intervalMs: 1400, delayMs: 3000 },
-      { applicant: 'keywordStuffer', count: 6, intervalMs: 1600, delayMs: 7000 },
-      { applicant: 'careerChanger', count: 9, intervalMs: 1700, delayMs: 10000 },
+      { applicant: 'keywordStuffer', count: 12, intervalMs: 1300, delayMs: 6000 },
+      { applicant: 'careerChanger', count: 10, intervalMs: 1500, delayMs: 10000 },
       { applicant: 'referral', count: 5, intervalMs: 1500, delayMs: 15000 },
       { applicant: 'boomerang', count: 6, intervalMs: 1400, delayMs: 18000 }
     ]
