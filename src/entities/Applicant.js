@@ -20,6 +20,10 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
     this.maxHealth = definition.health;
     this.speedMultiplier = 1;
 
+    // Set by the scene when this one is a Boomerang coming back, so it is not
+    // queued up to come back a second time.
+    this.hasReturned = false;
+
     scene.add.existing(this);
   }
 
@@ -35,11 +39,19 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
   /**
    * Sets the applicant walking. `onArrival` fires if it reaches the vacancy,
    * which costs the player a life.
+   *
+   * A type with `spawnProgress` joins the path partway along rather than at the
+   * start, which is what a referral is. Only the distance left counts towards
+   * the duration, so starting further on does not also mean walking slower.
    */
   walk(onArrival) {
-    const durationMs = (this.path.getLength() / this.definition.speed) * 1000;
+    const from = this.definition.spawnProgress ?? 0;
+    const remaining = this.path.getLength() * (1 - from);
+    const durationMs = (remaining / this.definition.speed) * 1000;
 
     this.startFollow({
+      from,
+      to: 1,
       duration: durationMs,
       positionOnPath: true,
       ease: 'Linear',
@@ -47,6 +59,15 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
         onArrival(this);
       }
     });
+
+    // startFollow puts the follower on the start of the path whatever `from`
+    // says, so a late joiner is moved up by hand rather than being seen at the
+    // gate for a frame.
+    if (from > 0) {
+      const entry = this.path.getPoint(from);
+
+      this.setPosition(entry.x, entry.y);
+    }
 
     return this;
   }
