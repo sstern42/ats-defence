@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 
 /**
- * A screening mechanism sat on the board, shooting applicants that stray into
- * range.
+ * A screening mechanism sat on the board, working on applicants that stray
+ * into range.
  *
  * The tower is a container so the barrel can turn towards its target while the
- * base stays put. It decides what to shoot and when, but it does not apply the
+ * base stays put. Towers that do not shoot have no barrel to turn.
+ *
+ * A shooting tower decides what to shoot and when, but it does not apply the
  * damage itself. `update` returns the applicant it has just hit, and the scene
  * deals with the consequences.
  */
@@ -18,20 +20,27 @@ export default class Tower extends Phaser.GameObjects.Container {
     this.nextFireAt = 0;
 
     this.base = scene.add.image(0, 0, textureKeys.base);
-    this.barrel = scene.add.image(0, 0, textureKeys.barrel);
-    this.barrel.setOrigin(0.12, 0.5);
+    this.add(this.base);
 
-    this.add([this.base, this.barrel]);
+    if (definition.behaviour === 'shoot') {
+      this.barrel = scene.add.image(0, 0, textureKeys.barrel);
+      this.barrel.setOrigin(0.12, 0.5);
+      this.add(this.barrel);
+    }
 
     scene.add.existing(this);
   }
 
   /**
    * Turns towards a target and fires if the reload has finished. Returns the
-   * applicant that was hit, or null if there was nothing to shoot at or the
-   * tower is still reloading.
+   * applicant that was hit, or null if there was nothing to shoot at, the
+   * tower is still reloading, or it is not the shooting sort.
    */
   update(time, applicants) {
+    if (this.definition.behaviour !== 'shoot') {
+      return null;
+    }
+
     const target = this.findTarget(applicants);
 
     if (!target) {

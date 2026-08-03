@@ -17,6 +17,13 @@ const VACANCY_COLOUR = 0xb5553f;
 /** Board layout, not balance, so it stays here rather than in config. */
 const CELL_SIZE = 64;
 const BUILD_CLEARANCE = 48;
+/**
+ * The strip along the top that the HUD sits in. Nothing is buildable under it,
+ * which keeps the tower palette clickable without the board reading the same
+ * click as an attempt to build behind it. Deep enough to clear the two grid
+ * rows the palette overlaps, neither of which held many tiles anyway.
+ */
+const HUD_HEIGHT = 128;
 const TILE_COLOUR = 0x2b323b;
 const VALID_TINT = 0x7fb069;
 const INVALID_TINT = 0xb5553f;
@@ -37,6 +44,7 @@ const GAME_OVER_DELAY_MS = 700;
 
 const DEPTHS = {
   board: 0,
+  fields: 5,
   towers: 10,
   applicants: 20,
   shots: 30,
@@ -57,6 +65,8 @@ export default class GameScene extends Phaser.Scene {
     this.shots = [];
     this.hoveredCell = null;
     this.lives = GAME.startingLives;
+    this.currency = GAME.startingCurrency;
+    this.selectedTowerKey = Object.keys(TOWERS)[0];
     this.rejected = 0;
     this.runOver = false;
 
@@ -69,6 +79,7 @@ export default class GameScene extends Phaser.Scene {
     this.createTowerTextures();
     this.createPlacementGhost();
 
+    this.fieldGraphics = this.add.graphics().setDepth(DEPTHS.fields);
     this.shotGraphics = this.add.graphics().setDepth(DEPTHS.shots);
     this.healthGraphics = this.add.graphics().setDepth(DEPTHS.shots);
 
@@ -85,6 +96,16 @@ export default class GameScene extends Phaser.Scene {
       this.placeTower(pointer.worldX, pointer.worldY)
     );
 
+    // Number keys pick a tower, in palette order. The HUD offers the same
+    // choice by click, and both end up in selectTower.
+    ['ONE', 'TWO', 'THREE'].forEach((key, index) => {
+      const typeKey = Object.keys(TOWERS)[index];
+
+      if (typeKey) {
+        this.input.keyboard.on(`keydown-${key}`, () => this.selectTower(typeKey));
+      }
+    });
+
     this.spawnTimer = this.time.addEvent({
       delay: APPLICANTS.graduate.spawnIntervalMs,
       callback: () => this.spawnApplicant('graduate'),
@@ -96,6 +117,8 @@ export default class GameScene extends Phaser.Scene {
   update(time) {
     const applicants = this.applicants.getChildren();
 
+    this.applySlows(applicants);
+
     this.towers.forEach((tower) => {
       const target = tower.update(time, applicants);
 
@@ -105,14 +128,58 @@ export default class GameScene extends Phaser.Scene {
 
       this.recordShot(tower, target, time);
 
-      if (target.takeDamage(tower.definition.damage)) {
-        target.reject();
-        this.rejected += 1;
+      // An instant rejection takes whatever health is left, so both sorts of
+      // tower go through the same hit.
+      const damage = tower.definition.instantReject
+        ? target.health
+        : tower.definition.damage;
+
+      if (target.takeDamage(damage)) {
+        this.rejectApplicant(target);
       }
     });
 
     this.drawShots(time);
     this.drawHealthBars(applicants);
+  }
+
+  /**
+   * Holds every applicant at the speed of the strongest field it is standing
+   * in, and lets it back up to full speed once it walks clear. Fields do not
+   * stack, since two Take-Home Tasks side by side would otherwise stop the
+   * board dead.
+   */
+  applySlows(applicants) {
+    applicants.forEach((applicant) => {
+      if (!applicant.active) {
+        return;
+      }
+
+      let multiplier = 1;
+
+      this.towers.forEach((tower) => {
+        if (
+          tower.definition.behaviour === 'slow' &&
+          tower.isInRange(applicant)
+        ) {
+          multiplier = Math.min(multiplier, tower.definition.slowMultiplier);
+        }
+      });
+
+      applicant.setSpeedMultiplier(multiplier);
+    });
+  }
+
+  /**
+   * An applicant has been screened out. That is the one thing this department
+   * gets paid for, so the bounty goes back into the budget.
+   */
+  rejectApplicant(applicant) {
+    applicant.reject();
+
+    this.rejected += 1;
+    this.currency += applicant.definition.bounty;
+    this.events.emit('currency-changed', this.currency);
   }
 
   /**
@@ -188,7 +255,7 @@ export default class GameScene extends Phaser.Scene {
 
   /**
    * Works out once, at boot, which grid cells a tower may sit on. A cell is
-   * buildable if its centre is clear of both the path and the vacancy.
+   * buildable if its centre is clear of the path, the vacancy and the HUD.
    */
   findBuildableCells() {
     const vacancy = this.path.getEndPoint();
@@ -203,8 +270,9 @@ export default class GameScene extends Phaser.Scene {
         const clearOfPath = this.distanceToPath(centre) >= BUILD_CLEARANCE;
         const clearOfVacancy =
           Phaser.Math.Distance.BetweenPoints(centre, vacancy) >= VACANCY_SIZE;
+        const clearOfHud = centre.y >= HUD_HEIGHT;
 
-        if (clearOfPath && clearOfVacancy) {
+        if (clearOfPath && clearOfVacancy && clearOfHud) {
           this.buildableCells.add(this.cellKey(gridX, gridY));
         }
       }
@@ -303,8 +371,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Bakes a base and a barrel per tower type. Also placeholder art: a box with
-   * a stick on it, which is roughly how the real thing works.
+   * Bakes a base per tower type, and a barrel for the ones that shoot. Also
+   * placeholder art: a box with a stick on it, which is roughly how the real
+   * thing works. Towers that hold a field get a ring instead of a stick.
    */
   createTowerTextures() {
     Object.entries(TOWERS).forEach(([key, definition]) => {
@@ -315,11 +384,21 @@ export default class GameScene extends Phaser.Scene {
       base.fillRoundedRect(0, 0, size, size, 8);
       base.lineStyle(2, definition.trimColour, 0.8);
       base.strokeRoundedRect(1, 1, size - 2, size - 2, 8);
+
+      if (definition.behaviour !== 'shoot') {
+        base.lineStyle(2, definition.trimColour, 0.9);
+        base.strokeCircle(size / 2, size / 2, size * 0.26);
+      }
+
       base.generateTexture(this.towerTextureKeys(key).base, size, size);
       base.destroy();
 
+      if (definition.behaviour !== 'shoot') {
+        return;
+      }
+
       const barrelLength = Math.round(size * 0.95);
-      const barrelWidth = 8;
+      const barrelWidth = definition.barrelWidth;
       const barrel = this.add.graphics();
 
       barrel.fillStyle(definition.trimColour, 1);
@@ -350,7 +429,7 @@ export default class GameScene extends Phaser.Scene {
    */
   createPlacementGhost() {
     this.ghost = this.add
-      .image(0, 0, this.towerTextureKeys('keywordFilter').base)
+      .image(0, 0, this.towerTextureKeys(this.selectedTowerKey).base)
       .setTintMode(Phaser.TintModes.FILL)
       .setAlpha(0.5)
       .setVisible(false)
@@ -361,6 +440,7 @@ export default class GameScene extends Phaser.Scene {
 
   updateGhost(x, y) {
     const { gridX, gridY } = this.cellAt(x, y);
+    const definition = TOWERS[this.selectedTowerKey];
 
     this.ghostRange.clear();
 
@@ -372,25 +452,62 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const centre = this.cellCentre(gridX, gridY);
-    const buildable = this.canBuildOn(gridX, gridY);
-    const tint = buildable ? VALID_TINT : INVALID_TINT;
+    // A cell the budget will not cover reads the same as an occupied one,
+    // since neither is going to take a tower on this click.
+    const allowed = this.canBuildOn(gridX, gridY) && this.canAfford();
+    const tint = allowed ? VALID_TINT : INVALID_TINT;
 
     this.hoveredCell = { gridX, gridY };
 
-    this.ghost.setPosition(centre.x, centre.y).setTint(tint).setVisible(true);
+    this.ghost
+      .setTexture(this.towerTextureKeys(this.selectedTowerKey).base)
+      .setPosition(centre.x, centre.y)
+      .setTint(tint)
+      .setVisible(true);
 
     this.ghostRange.lineStyle(1, tint, 0.5);
-    this.ghostRange.strokeCircle(
-      centre.x,
-      centre.y,
-      TOWERS.keywordFilter.range
-    );
+    this.ghostRange.strokeCircle(centre.x, centre.y, definition.range);
+  }
+
+  /**
+   * Changes which tower the next click installs. The HUD renders from the
+   * event rather than tracking the selection itself, so the two cannot drift.
+   */
+  selectTower(typeKey) {
+    if (this.runOver || !TOWERS[typeKey]) {
+      return;
+    }
+
+    this.selectedTowerKey = typeKey;
+    this.events.emit('tower-selected', typeKey);
+
+    if (this.hoveredCell) {
+      const centre = this.cellCentre(
+        this.hoveredCell.gridX,
+        this.hoveredCell.gridY
+      );
+
+      this.updateGhost(centre.x, centre.y);
+    }
+  }
+
+  canAfford(typeKey = this.selectedTowerKey) {
+    return TOWERS[typeKey].cost <= this.currency;
   }
 
   placeTower(x, y) {
     const { gridX, gridY } = this.cellAt(x, y);
 
-    if (!this.canBuildOn(gridX, gridY)) {
+    if (this.runOver || !this.canBuildOn(gridX, gridY)) {
+      return;
+    }
+
+    const typeKey = this.selectedTowerKey;
+    const definition = TOWERS[typeKey];
+
+    if (!this.canAfford(typeKey)) {
+      this.events.emit('purchase-failed', typeKey);
+
       return;
     }
 
@@ -399,9 +516,9 @@ export default class GameScene extends Phaser.Scene {
       this,
       centre.x,
       centre.y,
-      'keywordFilter',
-      TOWERS.keywordFilter,
-      this.towerTextureKeys('keywordFilter')
+      typeKey,
+      definition,
+      this.towerTextureKeys(typeKey)
     );
 
     tower.setDepth(DEPTHS.towers);
@@ -409,8 +526,34 @@ export default class GameScene extends Phaser.Scene {
     this.towers.push(tower);
     this.occupiedCells.add(this.cellKey(gridX, gridY));
 
+    this.currency -= definition.cost;
+    this.events.emit('currency-changed', this.currency);
+
+    this.drawFields();
+
     // The cell is taken now, so the ghost under the pointer turns red.
     this.updateGhost(x, y);
+  }
+
+  /**
+   * The reach of every field tower on the board, drawn under the towers so it
+   * is clear where applicants will be held up. Static, so it is redrawn on
+   * placement rather than every frame.
+   */
+  drawFields() {
+    this.fieldGraphics.clear();
+
+    this.towers.forEach((tower) => {
+      if (tower.definition.behaviour !== 'slow') {
+        return;
+      }
+
+      this.fieldGraphics.fillStyle(tower.definition.fieldColour, 0.07);
+      this.fieldGraphics.fillCircle(tower.x, tower.y, tower.definition.range);
+
+      this.fieldGraphics.lineStyle(1, tower.definition.fieldColour, 0.22);
+      this.fieldGraphics.strokeCircle(tower.x, tower.y, tower.definition.range);
+    });
   }
 
   spawnApplicant(typeKey) {
@@ -503,6 +646,9 @@ export default class GameScene extends Phaser.Scene {
 
     this.ghost.setVisible(false);
     this.ghostRange.clear();
+
+    // Nothing more can be bought, so the HUD stops offering.
+    this.events.emit('run-over');
 
     this.time.delayedCall(GAME_OVER_DELAY_MS, () => {
       this.scene.launch('GameOverScene', { rejected: this.rejected });
