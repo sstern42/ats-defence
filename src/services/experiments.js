@@ -18,6 +18,11 @@
  * rather than being quietly counted as control, because a forced preview run
  * and an unreachable CDN both look exactly like a control player otherwise,
  * and both would bias whichever arm they were folded into.
+ *
+ * GrowthBook also reports the bucketing itself, through the tracking callback
+ * below, and that goes out as an `experiment_viewed` event. It is a stronger
+ * record than the arm on every other event: the arm string says what the game
+ * played, the exposure says the player was genuinely put in the experiment.
  */
 import { GrowthBook } from '@growthbook/growthbook';
 
@@ -54,6 +59,15 @@ let ready = false;
 let assignment = null;
 
 /**
+ * Where exposures go once something is listening, and the ones that arrived
+ * before anything was. Analytics registers the handler, so this file never
+ * imports analytics and the two cannot end up importing each other.
+ */
+let exposureHandler = null;
+let flushQueued = false;
+const pendingExposures = [];
+
+/**
  * Starts GrowthBook and waits, briefly, for the feature definitions. Called
  * once from main.js before anything else, since every analytics event carries
  * the assignment and an event sent before this resolves would carry the wrong
@@ -68,6 +82,7 @@ export async function initExperiments() {
     apiHost: API_HOST,
     clientKey: CLIENT_KEY,
     attributes: { id: participantId() },
+    trackingCallback: recordExposure,
     // Nothing here reacts to a flag changing mid run, so there is no reason to
     // hold a streaming connection open for the length of a session.
     backgroundSync: false
@@ -85,6 +100,61 @@ export async function initExperiments() {
 
     return { assigned: false, source: 'error' };
   }
+}
+
+/**
+ * Registers what to do with exposures, and hands over any that GrowthBook has
+ * already reported. Called once by analytics, which is the only thing that
+ * knows how to send an event.
+ */
+export function setExposureHandler(handler) {
+  exposureHandler = handler;
+
+  flushExposures();
+}
+
+/**
+ * GrowthBook's own record that a player was bucketed. It fires once per
+ * experiment, and only when the value came from an experiment rule the player
+ * was actually in, which is the part worth having: a forced preview run and a
+ * run that never reached the CDN both produce an arm, and neither produces one
+ * of these.
+ *
+ * The bucketing id is deliberately not on it. It is in local storage and never
+ * leaves the browser, which is the posture the rest of this file already takes.
+ * The exposure carries `session_id` like every other event, so it joins to the
+ * rest of the run that way instead.
+ */
+function recordExposure(experiment, result) {
+  pendingExposures.push({
+    experiment_key: experiment.key,
+    variation_id: result.variationId,
+    arm: result.value
+  });
+
+  flushExposures();
+}
+
+/**
+ * Exposures are handed on in a microtask rather than straight away, because
+ * the callback fires in the middle of the feature lookup, and the lookup is
+ * usually made by an analytics event asking what the assignment is. Sending an
+ * event from inside the sending of an event is a knot not worth tying.
+ */
+function flushExposures() {
+  if (!exposureHandler || flushQueued || pendingExposures.length === 0) {
+    return;
+  }
+
+  flushQueued = true;
+
+  queueMicrotask(() => {
+    flushQueued = false;
+
+    while (pendingExposures.length > 0) {
+      exposureHandler(pendingExposures.shift());
+    }
+  });
 }
 
 /**
