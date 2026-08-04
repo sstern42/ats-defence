@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 
+import { KOFI_URL } from '../config/links.js';
 import { COPY } from '../content/copy.js';
+import { trackKofiClicked } from '../services/analytics.js';
 import LeaderboardPanel from './LeaderboardPanel.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -10,6 +12,8 @@ const MUTED_COLOUR = '#6f7d8c';
 const BUTTON_COLOUR = '#39566b';
 const BUTTON_HOVER_COLOUR = '#4a6d87';
 const DIVIDER_COLOUR = 0x2f3742;
+const KOFI_COLOUR = '#7d8a99';
+const KOFI_HOVER_COLOUR = '#c7d94a';
 
 /** The two columns: the pitch on the left, the board on the right. */
 const LEFT_X = 72;
@@ -18,6 +22,9 @@ const BOARD_X = 600;
 
 const DIVIDER_TOP = 132;
 const DIVIDER_BOTTOM = 620;
+
+/** Under the ten rows, at the same height it sits at on the game over screen. */
+const KOFI_Y = 470;
 
 /**
  * The how it works list. One line each, and they have to stay one line each:
@@ -71,6 +78,8 @@ export default class HomeScene extends Phaser.Scene {
     });
 
     this.board.load();
+
+    this.createKofiLink();
 
     // Space and enter both start, so a player who has just read the last line
     // of the how it works list does not have to go and find the button.
@@ -142,6 +151,40 @@ export default class HomeScene extends Phaser.Scene {
         color: MUTED_COLOUR,
         wordWrap: { width: HOW_TO_WIDTH }
       });
+    });
+  }
+
+  /**
+   * The tip jar, under the board and in the same muted grey it wears on the
+   * game over screen. It sits in the same place on both, so it is the one
+   * thing that does not move when a run ends.
+   */
+  createKofiLink() {
+    const link = this.add
+      .text(BOARD_X, KOFI_Y, COPY.kofi.link, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: KOFI_COLOUR
+      })
+      .setInteractive({ useHandCursor: true });
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
+      link.setColor(KOFI_HOVER_COLOUR)
+    );
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
+      link.setColor(KOFI_COLOUR)
+    );
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
+      // No run has been played, so there is no final wave to report. Null
+      // rather than nothing, since a click from here is a real click and the
+      // property should say it had no wave behind it rather than go missing.
+      trackKofiClicked({ fromScreen: 'home', finalWave: null });
+
+      // A new tab, and noopener, so the game is not left reachable through
+      // window.opener by whatever is on the other end.
+      window.open(KOFI_URL, '_blank', 'noopener,noreferrer');
     });
   }
 

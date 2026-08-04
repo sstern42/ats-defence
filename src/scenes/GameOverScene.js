@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { NAME_CHARACTER, NAME_MAX_LENGTH } from '../config/leaderboard.js';
+import { KOFI_URL } from '../config/links.js';
 import { COPY } from '../content/copy.js';
 import {
   getRunId,
@@ -36,11 +37,6 @@ const FIELD_HEIGHT = 38;
 /** How fast the caret in the name box blinks. */
 const CARET_MS = 530;
 
-/**
- * The tip jar. Named for the person rather than the game, so the same page
- * still makes sense if anything else ever gets one.
- */
-const KOFI_URL = 'https://ko-fi.com/spencer_stern';
 const KOFI_COLOUR = '#7d8a99';
 const KOFI_HOVER_COLOUR = '#c7d94a';
 
