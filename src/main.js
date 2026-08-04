@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { COPY } from './content/copy.js';
+import BootScene from './scenes/BootScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
 import GameScene from './scenes/GameScene.js';
 import UIScene from './scenes/UIScene.js';
@@ -17,8 +18,9 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  // Only the first scene starts on boot. GameScene launches the other two.
-  scene: [GameScene, UIScene, GameOverScene]
+  // Only the first scene starts on boot. BootScene loads the art and starts
+  // GameScene, which launches the other two.
+  scene: [BootScene, GameScene, UIScene, GameOverScene]
 };
 
 /**

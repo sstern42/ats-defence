@@ -7,7 +7,7 @@ import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
 import Applicant from '../entities/Applicant.js';
 import Tower from '../entities/Tower.js';
-import Trap from '../entities/Trap.js';
+import Trap, { TRAP_SPRITE_SCALE } from '../entities/Trap.js';
 import {
   setWaveNumber,
   trackApplicantLeaked,
@@ -52,6 +52,12 @@ const LEAK_FLASH_ALPHA = 0.6;
 const LEAK_FLASH_MS = 340;
 const LEAK_LABEL_MS = 900;
 const GAME_OVER_DELAY_MS = 700;
+
+/**
+ * How long the spark sits on an applicant that has just been hit. Shorter than
+ * the shortest reload, so a fast tower does not stack sparks on one target.
+ */
+const IMPACT_MS = 220;
 
 /** How long a wave banner fades up, sits there and fades out again. */
 const BANNER_FADE_MS = 220;
@@ -131,8 +137,6 @@ export default class GameScene extends Phaser.Scene {
     this.findBuildableCells();
     this.drawBuildableCells();
 
-    this.createApplicantTextures();
-    this.createTowerTextures();
     this.createPlacementGhost();
 
     this.fieldGraphics = this.add.graphics().setDepth(DEPTHS.fields);
@@ -523,6 +527,7 @@ export default class GameScene extends Phaser.Scene {
     this.recordShot(tower, target, time);
 
     if (!splashRadius) {
+      this.showImpact('spark', target.x, target.y, tracerColour, IMPACT_MS);
       this.applyDamage(tower, target);
 
       return;
@@ -851,86 +856,16 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Bakes a plain coloured disc per applicant type, with a ring inside it for
-   * the two types that are easiest to mistake for something harmless.
-   * Placeholder art, same as the last step. Kenney sprites replace these later.
+   * Which art a type is drawn with. Both read straight off the config, which is
+   * the only place that decides, and BootScene has already loaded everything
+   * the manifest lists by the time either is asked.
    */
-  createApplicantTextures() {
-    Object.entries(APPLICANTS).forEach(([key, definition]) => {
-      const radius = definition.radius;
-      const size = radius * 2;
-      const graphics = this.add.graphics();
-
-      graphics.fillStyle(definition.colour, 1);
-      graphics.fillCircle(radius, radius, radius);
-
-      if (definition.ringColour) {
-        graphics.lineStyle(2, definition.ringColour, 0.9);
-        graphics.strokeCircle(radius, radius, radius * 0.55);
-      }
-
-      graphics.generateTexture(this.textureKeyFor(key), size, size);
-      graphics.destroy();
-    });
-  }
-
-  /**
-   * Bakes a base per tower type, and a barrel for the ones that shoot. Also
-   * placeholder art: a box with a stick on it, which is roughly how the real
-   * thing works. Towers that hold a field get a ring instead of a stick, and
-   * the trap gets a smaller box with a dot in the middle of it.
-   */
-  createTowerTextures() {
-    Object.entries(TOWERS).forEach(([key, definition]) => {
-      const size = definition.footprint;
-      const base = this.add.graphics();
-
-      base.fillStyle(definition.baseColour, 1);
-      base.fillRoundedRect(0, 0, size, size, 8);
-      base.lineStyle(2, definition.trimColour, 0.8);
-      base.strokeRoundedRect(1, 1, size - 2, size - 2, 8);
-
-      if (definition.behaviour === 'slow') {
-        base.lineStyle(2, definition.trimColour, 0.9);
-        base.strokeCircle(size / 2, size / 2, size * 0.26);
-      }
-
-      if (definition.behaviour === 'trap') {
-        base.fillStyle(definition.trimColour, 0.9);
-        base.fillCircle(size / 2, size / 2, size * 0.16);
-      }
-
-      base.generateTexture(this.towerTextureKeys(key).base, size, size);
-      base.destroy();
-
-      if (definition.behaviour !== 'shoot') {
-        return;
-      }
-
-      const barrelLength = Math.round(size * 0.95);
-      const barrelWidth = definition.barrelWidth;
-      const barrel = this.add.graphics();
-
-      barrel.fillStyle(definition.trimColour, 1);
-      barrel.fillRoundedRect(0, 0, barrelLength, barrelWidth, 3);
-      barrel.generateTexture(
-        this.towerTextureKeys(key).barrel,
-        barrelLength,
-        barrelWidth
-      );
-      barrel.destroy();
-    });
-  }
-
   textureKeyFor(typeKey) {
-    return `applicant-${typeKey}`;
+    return APPLICANTS[typeKey].sprite;
   }
 
   towerTextureKeys(typeKey) {
-    return {
-      base: `tower-${typeKey}-base`,
-      barrel: `tower-${typeKey}-barrel`
-    };
+    return TOWERS[typeKey].sprite;
   }
 
   /**
@@ -962,8 +897,18 @@ export default class GameScene extends Phaser.Scene {
 
     const tint = spot.allowed ? VALID_TINT : INVALID_TINT;
 
+    const definition = TOWERS[this.selectedTowerKey];
+    // Sized here as well as on the real thing, because the sprites are not all
+    // the same size and a preview that does not match what lands is worse than
+    // no preview.
+    const size =
+      definition.behaviour === 'trap'
+        ? definition.footprint * TRAP_SPRITE_SCALE
+        : definition.footprint;
+
     this.ghost
       .setTexture(this.towerTextureKeys(this.selectedTowerKey).base)
+      .setDisplaySize(size, size)
       .setPosition(spot.x, spot.y)
       .setTint(tint)
       .setVisible(true);
@@ -1417,6 +1362,10 @@ export default class GameScene extends Phaser.Scene {
    * from the applicant's side are much the same experience.
    */
   recordBurst(x, y, radius, colour, durationMs, time) {
+    // The flame keeps Kenney's own orange rather than taking the tower's
+    // colour. A burst wants to look like the same event whoever caused it.
+    this.showImpact('flame', x, y, null, durationMs);
+
     this.bursts.push({
       x,
       y,
@@ -1424,6 +1373,33 @@ export default class GameScene extends Phaser.Scene {
       colour,
       durationMs,
       expiresAt: time + durationMs
+    });
+  }
+
+  /**
+   * A sprite dropped where a hit landed, which opens out a little and fades.
+   *
+   * Kept apart from the tracers and rings in `drawShots`, because those are
+   * drawn afresh every frame from a list and this is a game object that tweens
+   * itself and then tidies itself up. A tint of null leaves the art alone.
+   */
+  showImpact(key, x, y, tint, durationMs) {
+    const impact = this.add
+      .image(x, y, key)
+      .setDepth(DEPTHS.shots)
+      .setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
+
+    if (tint !== null) {
+      impact.setTint(tint);
+    }
+
+    this.tweens.add({
+      targets: impact,
+      alpha: 0,
+      scale: 1.5,
+      duration: durationMs,
+      ease: 'Quad.easeOut',
+      onComplete: () => impact.destroy()
     });
   }
 

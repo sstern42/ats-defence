@@ -17,8 +17,12 @@
  * - `spawnProgress` starts it partway along the path, from 0 to 1.
  * - `returns` means it comes back once at the end of the wave, whether it was
  *   rejected or reached the vacancy.
- * - `ringColour` is the only presentation field, and it is here because the
- *   colour already is: it draws a second ring inside the disc.
+ *
+ * Two fields are presentation, and they are here because the numbers next to
+ * them already decide how the thing looks. `sprite` names the art, from the
+ * manifest in art.js, and `colour` tints it and draws the health bar. The art
+ * is greyscale so one sprite can serve more than one type. `radius` is what the
+ * sprite is scaled to, as well as being where the health bar sits.
  */
 export const APPLICANTS = {
   graduate: {
@@ -26,6 +30,7 @@ export const APPLICANTS = {
     speed: 110,
     radius: 11,
     colour: 0xc7d94a,
+    sprite: 'unit-round',
     bounty: 6
   },
   careerChanger: {
@@ -33,6 +38,7 @@ export const APPLICANTS = {
     speed: 55,
     radius: 15,
     colour: 0x6a8fd9,
+    sprite: 'vehicle-wide',
     bounty: 20
   },
   overqualified: {
@@ -40,6 +46,7 @@ export const APPLICANTS = {
     speed: 190,
     radius: 10,
     colour: 0xd9c46a,
+    sprite: 'unit-finned',
     bounty: 12,
     priorityFor: 'knockoutQuestion'
   },
@@ -48,7 +55,7 @@ export const APPLICANTS = {
     speed: 95,
     radius: 12,
     colour: 0xd96a9b,
-    ringColour: 0xf0b8d0,
+    sprite: 'unit-plain',
     bounty: 15,
     immuneTo: ['keywordFilter']
   },
@@ -57,6 +64,7 @@ export const APPLICANTS = {
     speed: 120,
     radius: 12,
     colour: 0x9b6ad9,
+    sprite: 'unit-slim',
     bounty: 14,
     spawnProgress: 0.28
   },
@@ -65,7 +73,7 @@ export const APPLICANTS = {
     speed: 105,
     radius: 12,
     colour: 0x6ad9c4,
-    ringColour: 0xd9f0ea,
+    sprite: 'vehicle-boxy',
     bounty: 11,
     returns: true
   }

@@ -1,6 +1,15 @@
 import Phaser from 'phaser';
 
 /**
+ * How big the barrel is drawn against the base it is bolted to. Kenney draws
+ * them at close to the same size, which at board scale leaves a grey gun
+ * covering a coloured body and six towers that all look alike. Shrinking the
+ * gun puts the type's colour back around the outside, where it can be read at
+ * a glance.
+ */
+const BARREL_SCALE = 0.8;
+
+/**
  * A screening mechanism sat on the board, working on applicants that stray
  * into range.
  *
@@ -25,12 +34,22 @@ export default class Tower extends Phaser.GameObjects.Container {
     this.gridY = 0;
     this.adjacent = false;
 
-    this.base = scene.add.image(0, 0, textureKeys.base);
+    // The base carries the type's colour, the barrel is left as it came, which
+    // is grey. Colouring both makes a tower one shape at board size.
+    this.base = scene.add
+      .image(0, 0, textureKeys.base)
+      .setTint(definition.bodyTint)
+      .setDisplaySize(definition.footprint, definition.footprint);
     this.add(this.base);
 
-    if (definition.behaviour === 'shoot') {
+    // Whether there is a barrel is a question for the art, not the behaviour.
+    // The Take-Home Task has one and never turns it, and the trap has none.
+    if (textureKeys.barrel) {
       this.barrel = scene.add.image(0, 0, textureKeys.barrel);
+      // The art points right and mounts near its left edge, so this is the
+      // collar it swings around rather than the middle of the gun.
       this.barrel.setOrigin(0.12, 0.5);
+      this.barrel.setScale(BARREL_SCALE);
       this.add(this.barrel);
     }
 

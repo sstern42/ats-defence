@@ -1,6 +1,13 @@
 import Phaser from 'phaser';
 
 /**
+ * How much bigger than the old disc an applicant is drawn. A sprite with a
+ * soft edge reads smaller than a solid circle of the same size, so matching
+ * `radius` exactly makes everybody look as though they have shrunk.
+ */
+const SPRITE_SCALE = 1.25;
+
+/**
  * An applicant walking the path towards the vacancy.
  *
  * Movement is handled by Phaser's PathFollower, which is driven by a tween
@@ -23,6 +30,22 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
     // Set by the scene when this one is a Boomerang coming back, so it is not
     // queued up to come back a second time.
     this.hasReturned = false;
+
+    // The art is shared and greyscale, so the type's colour is what tells one
+    // applicant from another. Sizing off the sprite rather than off a number
+    // in the config means a type can be given different art without also
+    // needing its radius retuned.
+    //
+    // Scaled to cover the area the old disc covered, rather than to match it
+    // on one side. The sprites are not all the same shape: a vehicle is half
+    // as long again as it is wide, and matching heights makes it enormous
+    // while matching lengths makes it a sliver. Area is the only measure that
+    // gives a walking applicant the same visual weight whichever it is drawn
+    // with.
+    const area = (definition.radius * 2 * SPRITE_SCALE) ** 2;
+
+    this.setTint(definition.colour);
+    this.setScale(Math.sqrt(area / (this.width * this.height)));
 
     scene.add.existing(this);
   }
@@ -54,6 +77,9 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
       to: 1,
       duration: durationMs,
       positionOnPath: true,
+      // Every applicant sprite is drawn facing right, so following the path's
+      // angle points them the way they are walking with no offset to apply.
+      rotateToPath: true,
       ease: 'Linear',
       onComplete: () => {
         onArrival(this);
@@ -104,10 +130,13 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
     this.stopFollow();
     this.setActive(false);
 
+    // Relative to whatever the sprite was already scaled to, since that is no
+    // longer 1 and a fixed target would make small applicants jump on the way
+    // out.
     this.scene.tweens.add({
       targets: this,
       alpha: 0,
-      scale: 1.8,
+      scale: this.scale * 1.8,
       duration: 180,
       ease: 'Quad.easeOut',
       onComplete: () => this.destroy()
