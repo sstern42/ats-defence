@@ -94,6 +94,9 @@ export const COPY = {
     restart: 'Reopen the vacancy',
     restartHint: 'or press space'
   },
+  kofi: {
+    link: 'Requisita cannot be bribed. The developer can.'
+  },
   unsupported: {
     title: 'Desktop only, for now',
     body: 'The board wants a mouse and more room than this. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
