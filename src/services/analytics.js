@@ -23,6 +23,13 @@ import { getVariantAssignments } from './experiments.js';
 /** Sixty seconds of nothing at all counts as the player having wandered off. */
 const IDLE_MS = 60000;
 
+/**
+ * How long a tab may sit hidden before the player counts as gone. Long enough
+ * to check something in another tab and come back, short enough that somebody
+ * who has actually left is recorded before they close the browser.
+ */
+const HIDDEN_GRACE_MS = 30000;
+
 /** How many events are kept on `window` for looking at. Enough for a run. */
 const LOG_LIMIT = 200;
 
@@ -75,6 +82,7 @@ const state = {
   runInProgress: false,
   abandoned: false,
   idleTimer: null,
+  hiddenTimer: null,
   started: false
 };
 
@@ -123,6 +131,7 @@ export function trackGameStarted() {
   state.abandoned = false;
 
   writeStored(ATTEMPT_KEY, String(state.attemptNumber));
+  clearHiddenTimer();
   resetIdleTimer();
 
   track('game_started', {
@@ -198,6 +207,7 @@ export function trackGameOver({ finalWave, score }) {
 
   state.runInProgress = false;
   clearIdleTimer();
+  clearHiddenTimer();
 
   track('game_over', {
     final_wave: finalWave,
@@ -232,41 +242,85 @@ export function trackKofiClicked({ fromScreen, finalWave }) {
 }
 
 /**
- * The player has gone: the tab is hidden, the page is closing, or nothing has
- * been touched for a minute. It fires once per run at most, and only while a
- * run is actually in progress.
+ * The player has gone: the page is closing, the tab has been hidden and stayed
+ * hidden, or nothing has been touched for a minute. It fires once per run at
+ * most, and only while a run is actually in progress.
  *
- * This will be lossy. A tab closed from a background window may never run any
- * of it, and a player who sits and watches a long wave without touching
- * anything is counted as having left. Both are stated in the write-up rather
- * than papered over.
+ * `reason` is not in the original spec and is here because the first real run
+ * through the collector produced a `run_abandoned` at wave five from a player
+ * who went on to reach wave eight. Firing the moment the tab was hidden meant
+ * the event recorded the first time somebody glanced away, and since it fires
+ * once per run, their actual exit was then never recorded at all. That makes it
+ * useless for the question it exists to answer, which is where players quit.
+ *
+ * It is still lossy, and always will be. A tab closed from a background window
+ * may never run any of this. That much is stated in the write-up rather than
+ * papered over.
  */
-function abandonRun() {
+function abandonRun(reason) {
   if (!state.runInProgress || state.abandoned) {
     return;
   }
 
   state.abandoned = true;
   clearIdleTimer();
+  clearHiddenTimer();
 
   track('run_abandoned', {
     final_wave: state.waveNumber,
-    run_duration_ms: Math.round(clock() - state.runStartedAt)
+    run_duration_ms: Math.round(clock() - state.runStartedAt),
+    reason
   });
 }
 
 function watchForDeparture() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      abandonRun();
+      // Not abandoned yet. Somebody checking another tab for a moment is not
+      // somebody who has left, so the clock starts and is cancelled if they
+      // come back.
+      startHiddenTimer();
+
+      return;
     }
+
+    clearHiddenTimer();
+    resetIdleTimer();
   });
 
-  window.addEventListener('beforeunload', abandonRun);
+  // No grace period here. The page is going whether we like it or not, and
+  // sendBeacon is the only thing with a chance of delivering.
+  window.addEventListener('beforeunload', () => abandonRun('unload'));
 
   INPUT_EVENTS.forEach((name) =>
     window.addEventListener(name, resetIdleTimer, { passive: true })
   );
+}
+
+function startHiddenTimer() {
+  clearHiddenTimer();
+
+  if (!state.runInProgress || state.abandoned) {
+    return;
+  }
+
+  // The idle clock is meaningless while the tab is in the background, since
+  // there is no input to be had, so it comes off until they return.
+  clearIdleTimer();
+
+  state.hiddenTimer = window.setTimeout(
+    () => abandonRun('hidden'),
+    HIDDEN_GRACE_MS
+  );
+}
+
+function clearHiddenTimer() {
+  if (state.hiddenTimer === null) {
+    return;
+  }
+
+  window.clearTimeout(state.hiddenTimer);
+  state.hiddenTimer = null;
 }
 
 function resetIdleTimer() {
@@ -276,7 +330,7 @@ function resetIdleTimer() {
     return;
   }
 
-  state.idleTimer = window.setTimeout(abandonRun, IDLE_MS);
+  state.idleTimer = window.setTimeout(() => abandonRun('idle'), IDLE_MS);
 }
 
 function clearIdleTimer() {
