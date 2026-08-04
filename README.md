@@ -58,7 +58,11 @@ Desktop only. Placing a tower means hovering a tile to see its range before comm
 
 ## Art
 
-There isn't any yet. Every sprite is a coloured shape generated at runtime, which is why the towers are boxes with sticks on them and the applicants are discs. [Kenney](https://kenney.nl) CC0 assets are the plan, and swapping them in touches only the two texture functions in `GameScene`, since nothing else knows what anything looks like.
+Sprites from [Kenney](https://kenney.nl)'s Tower Defense (top-down) pack, CC0. Towers, applicants, traps and the two hit effects are his. The board itself is not: the path, the grid, the vacancy and the range rings are all still drawn at runtime, because the pack is bright cartoon grass and this game is meant to look like a piece of software nobody enjoys using.
+
+The art is greyscale on disk and tinted per type at runtime, so a tower's colour is a number in `towers.js` rather than a file, and one sprite can serve two applicants. Which sprite anything uses is data too. `art.js` lists the files, `BootScene` loads them, and `towers.js` and `applicants.js` name the one they want.
+
+Every file was cropped, most were greyscaled and the turrets were turned a quarter turn. `public/assets/kenney/ATTRIBUTION.md` records what was done to each one and which original it came from.
 
 ## Licence
 
