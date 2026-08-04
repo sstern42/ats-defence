@@ -198,7 +198,7 @@ export default class UIScene extends Phaser.Scene {
     this.pauseControl = this.plainControl(
       this.scale.width - 16,
       bottom,
-      COPY.hud.pause,
+      HAS_KEYBOARD ? COPY.hud.pause : COPY.hud.pauseTouch,
       () => this.gameScene.openPause()
     );
 
@@ -247,9 +247,10 @@ export default class UIScene extends Phaser.Scene {
   }
 
   showSoundState() {
-    this.soundToggle.setText(
-      soundEnabled() ? COPY.hud.soundOn : COPY.hud.soundOff
-    );
+    const on = HAS_KEYBOARD ? COPY.hud.soundOn : COPY.hud.soundOnTouch;
+    const off = HAS_KEYBOARD ? COPY.hud.soundOff : COPY.hud.soundOffTouch;
+
+    this.soundToggle.setText(soundEnabled() ? on : off);
   }
 
   /**

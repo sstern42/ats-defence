@@ -67,6 +67,19 @@ export const COPY = {
       'Keys 1 to 6 pick which one, and the budget decides the rest.',
       'Salary Expectations goes on the path itself, and only once.',
       'Space opens each intake early, if you are ready for it.'
+    ],
+    // The same four for a screen with no keys to name. The gesture is
+    // described instead of a click, the palette stands in for the number keys,
+    // and the last line reports that the intake opens on its own rather than
+    // offering a way to hurry it that is not there without a space bar.
+    //
+    // Each has to hold one line at the width the list is drawn at, since the
+    // lines are laid out on a fixed gap and a wrapped one runs into the next.
+    howToTouch: [
+      'Press a free tile, slide to aim, then lift to install.',
+      'The six along the top pick which one, budget permitting.',
+      'Salary Expectations goes on the path itself, and only once.',
+      'Each intake opens on its own once the countdown runs out.'
     ]
   },
   hints: {
@@ -95,7 +108,12 @@ export const COPY = {
     waveOpensIn: 'opens in',
     soundOn: 'M. Sound on',
     soundOff: 'M. Sound off',
-    pause: 'Esc. Pause'
+    pause: 'Esc. Pause',
+    // The same three with the key taken off the front. Both controls are
+    // tapped either way, so only the shortcut goes.
+    soundOnTouch: 'Sound on',
+    soundOffTouch: 'Sound off',
+    pauseTouch: 'Pause'
   },
   pause: {
     title: 'Screening on hold',

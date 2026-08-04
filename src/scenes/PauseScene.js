@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { COPY } from '../content/copy.js';
+import { HAS_KEYBOARD } from '../services/device.js';
 
 const FONT = 'system-ui, sans-serif';
 const VEIL_COLOUR = 0x14161a;
@@ -93,13 +94,17 @@ export default class PauseScene extends Phaser.Scene {
 
     this.createNote(centreX, EXIT_Y + NOTE_OFFSET, COPY.pause.exitNote);
 
-    this.add
-      .text(centreX, HINT_Y, COPY.pause.hint, {
-        fontFamily: FONT,
-        fontSize: '13px',
-        color: MUTED_COLOUR
-      })
-      .setOrigin(0.5);
+    // The hint only names the key. The three choices above it are buttons
+    // whatever the device, so without a keyboard it has nothing to add.
+    if (HAS_KEYBOARD) {
+      this.add
+        .text(centreX, HINT_Y, COPY.pause.hint, {
+          fontFamily: FONT,
+          fontSize: '13px',
+          color: MUTED_COLOUR
+        })
+        .setOrigin(0.5);
+    }
 
     this.input.keyboard.on('keydown-ESC', () => this.resume());
   }
