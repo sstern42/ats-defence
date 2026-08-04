@@ -13,6 +13,7 @@
  * clean up, which is the same bargain as the leaderboard.
  */
 import { addressFrom, hashAddress } from './lib/address.js';
+import { classifyAgent } from './lib/agent.js';
 import { checkEvent } from './lib/events.js';
 import { insert, isConfigured, select } from './lib/supabase.js';
 
@@ -98,7 +99,9 @@ export default async (request, context) => {
     await insert('analytics_events', {
       ...row,
       ip_hash: ipHash,
-      country: countryOf(context)
+      country: countryOf(context),
+      // Read here and thrown away. The header never reaches the database.
+      ...classifyAgent(request.headers.get('user-agent'))
     });
   } catch (failure) {
     console.error('event collection failed', failure);
