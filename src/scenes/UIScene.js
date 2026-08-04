@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
 import { soundEnabled, toggleSound } from '../services/audio.js';
+import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
 import { HUD_HEIGHT } from './GameScene.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -197,7 +198,7 @@ export default class UIScene extends Phaser.Scene {
     this.pauseControl = this.plainControl(
       this.scale.width - 16,
       bottom,
-      COPY.hud.pause,
+      HAS_KEYBOARD ? COPY.hud.pause : COPY.hud.pauseTouch,
       () => this.gameScene.openPause()
     );
 
@@ -246,17 +247,28 @@ export default class UIScene extends Phaser.Scene {
   }
 
   showSoundState() {
-    this.soundToggle.setText(
-      soundEnabled() ? COPY.hud.soundOn : COPY.hud.soundOff
-    );
+    const on = HAS_KEYBOARD ? COPY.hud.soundOn : COPY.hud.soundOnTouch;
+    const off = HAS_KEYBOARD ? COPY.hud.soundOff : COPY.hud.soundOffTouch;
+
+    this.soundToggle.setText(soundEnabled() ? on : off);
   }
 
   /**
    * What the hint line says when it has nothing more pressing to report. It
-   * depends on the selection, since a trap goes somewhere a tower cannot.
+   * depends on the selection, since a trap goes somewhere a tower cannot, and
+   * on whether there is a mouse, since the gesture is not the same one.
+   *
+   * The number key line is dropped on a touch device, where there are no
+   * number keys to offer. Space is still mentioned elsewhere and still has no
+   * touch equivalent, which is a gap the palette work closes rather than this.
    */
   defaultHint() {
     const trap = TOWERS[this.selectedTowerKey].behaviour === 'trap';
+
+    if (COARSE_POINTER) {
+      return trap ? COPY.hints.layTrapTouch : COPY.hints.placeTowerTouch;
+    }
+
     const placing = trap ? COPY.hints.layTrap : COPY.hints.placeTower;
 
     return `${placing} ${COPY.hints.selectTower}`;
@@ -329,13 +341,18 @@ export default class UIScene extends Phaser.Scene {
   /**
    * Between waves. The counter says what is coming and how long there is to
    * get ready for it, and the hint line offers the way to cut that short.
+   *
+   * Only where there is a key to cut it short with. Without one the offer is
+   * advice nobody can take, so the line goes back to saying how to build, which
+   * is the more useful thing to be reading during a pause anyway. The wave still
+   * opens on its own either way.
    */
   showPreparation({ waveNumber, waveCount, secondsLeft }) {
     this.waveText.setText(
       `${COPY.hud.wave} ${waveNumber} ${COPY.hud.waveOf} ${waveCount}, ${COPY.hud.waveOpensIn} ${secondsLeft}s`
     );
 
-    this.setHint(COPY.hints.skipPrep);
+    this.setHint(HAS_KEYBOARD ? COPY.hints.skipPrep : this.defaultHint());
   }
 
   showWaveOpen({ waveNumber, waveCount }) {

@@ -104,6 +104,19 @@ const CARD_POP_MS = 280;
 const TRAP_SNAP_DISTANCE = 46;
 
 /**
+ * How far above a finger the preview sits, in CSS pixels rather than board
+ * ones. A fingertip covers about nine millimetres of glass, which is most of a
+ * cell once the board has been scaled down to a phone, so a preview drawn under
+ * the finger is a preview nobody can see. Lifting it clear is what makes the
+ * range circle and the valid tint worth drawing at all.
+ *
+ * Held in CSS pixels because the distance that matters is the physical one. The
+ * board pixels it works out as depend on how far the board has been scaled, so
+ * the conversion happens per event in `placementPoint`.
+ */
+const TOUCH_LIFT_CSS = 64;
+
+/**
  * The pause before the Boomerangs come back, and the gap between them. Long
  * enough that the board is visibly clear first, so the return reads as a
  * return rather than as a wave that would not end.
@@ -141,6 +154,8 @@ export default class GameScene extends Phaser.Scene {
     this.shots = [];
     this.bursts = [];
     this.hoveredPoint = null;
+    // Whether a finger is currently dragging a preview around the board.
+    this.touchPlacing = false;
     this.lives = GAME.startingLives;
     this.currency = GAME.startingCurrency;
     this.selectedTowerKey = Object.keys(TOWERS)[0];
@@ -184,13 +199,7 @@ export default class GameScene extends Phaser.Scene {
     // what a fresh run wants.
     this.scene.launch('UIScene');
 
-    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer) =>
-      this.updateGhost(pointer.worldX, pointer.worldY)
-    );
-
-    this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer) =>
-      this.placeTower(pointer.worldX, pointer.worldY)
-    );
+    this.bindPlacementInput();
 
     // Number keys pick a tower, in palette order. The HUD offers the same
     // choice by click, and both end up in selectTower.
@@ -1041,6 +1050,113 @@ export default class GameScene extends Phaser.Scene {
 
   towerTextureKeys(typeKey) {
     return TOWERS[typeKey].sprite;
+  }
+
+  /**
+   * Placing something, by mouse and by finger.
+   *
+   * A mouse hovers to see what a cell would take and clicks to commit, which is
+   * two separate events and the reason placement reads the way it does. A
+   * finger cannot hover: the first thing it does is arrive at the tile it is
+   * asking about. So on touch the same two halves are pressing and lifting,
+   * with the preview following the finger in between and the tower going down
+   * where it was released.
+   *
+   * Both routes end in the same `updateGhost` and `placeTower`. The gesture is
+   * the only thing that differs, so there is no second placement path to keep
+   * in step with this one.
+   *
+   * `wasTouch` is read per event rather than once at boot, because a laptop
+   * with a touchscreen has both and whichever the player just used is the one
+   * they want to be answered.
+   */
+  bindPlacementInput() {
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer) => {
+      // A finger that is not touching the glass is not anywhere, so a stale
+      // preview is left alone until it comes back down.
+      if (pointer.wasTouch && !this.touchPlacing) {
+        return;
+      }
+
+      const point = this.placementPoint(pointer);
+
+      this.updateGhost(point.x, point.y);
+    });
+
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer) => {
+      if (!pointer.wasTouch) {
+        this.placeTower(pointer.worldX, pointer.worldY);
+
+        return;
+      }
+
+      // A press that starts on the HUD is the palette being used, and a finger
+      // that then slides onto the board is not a request to build. Only a press
+      // that starts on the board arms the gesture.
+      this.touchPlacing = pointer.worldY >= HUD_HEIGHT;
+
+      if (this.touchPlacing) {
+        const point = this.placementPoint(pointer);
+
+        this.updateGhost(point.x, point.y);
+      }
+    });
+
+    this.input.on(Phaser.Input.Events.POINTER_UP, (pointer) => {
+      if (!pointer.wasTouch || !this.touchPlacing) {
+        return;
+      }
+
+      const point = this.placementPoint(pointer);
+
+      this.touchPlacing = false;
+      this.placeTower(point.x, point.y);
+      this.clearGhost();
+    });
+
+    // Lifting off the edge of the canvas, or a call taking the touch away
+    // mid drag. Nothing is placed and the preview goes with it.
+    [
+      Phaser.Input.Events.POINTER_UP_OUTSIDE,
+      Phaser.Input.Events.GAME_OUT
+    ].forEach((event) =>
+      this.input.on(event, () => {
+        if (this.touchPlacing) {
+          this.touchPlacing = false;
+          this.clearGhost();
+        }
+      })
+    );
+  }
+
+  /**
+   * Where a pointer is asking about, which for a finger is not where it is.
+   *
+   * The lift is converted from CSS pixels to board ones through the scale
+   * manager's `displayScale`, which is the same factor Phaser uses to turn a
+   * page coordinate into a board coordinate. A board shown at half size needs
+   * twice the board pixels to clear the same finger.
+   */
+  placementPoint(pointer) {
+    if (!pointer.wasTouch) {
+      return { x: pointer.worldX, y: pointer.worldY };
+    }
+
+    return {
+      x: pointer.worldX,
+      y: pointer.worldY - TOUCH_LIFT_CSS * this.scale.displayScale.y
+    };
+  }
+
+  /**
+   * Takes the preview off the board. A mouse leaves one behind on purpose,
+   * since the pointer is still over the tile it describes, but a finger that
+   * has been lifted is no longer pointing at anything.
+   */
+  clearGhost() {
+    this.hoveredPoint = null;
+    this.ghost.setVisible(false);
+    this.ghostRange.clear();
   }
 
   /**

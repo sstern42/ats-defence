@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { KOFI_URL } from '../config/links.js';
 import { COPY } from '../content/copy.js';
 import { trackKofiClicked } from '../services/analytics.js';
+import { HAS_KEYBOARD } from '../services/device.js';
 import LeaderboardPanel from './LeaderboardPanel.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -130,11 +131,16 @@ export default class HomeScene extends Phaser.Scene {
 
     button.once(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.start());
 
-    this.add.text(LEFT_X, 430, COPY.home.startHint, {
-      fontFamily: FONT,
-      fontSize: '13px',
-      color: MUTED_COLOUR
-    });
+    // The line under the button only offers the key. Without one there is
+    // nothing left for it to say that the button has not said already, so it
+    // is left off rather than emptied.
+    if (HAS_KEYBOARD) {
+      this.add.text(LEFT_X, 430, COPY.home.startHint, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: MUTED_COLOUR
+      });
+    }
   }
 
   createHowTo() {
@@ -144,7 +150,9 @@ export default class HomeScene extends Phaser.Scene {
       color: TITLE_COLOUR
     });
 
-    COPY.home.howTo.forEach((line, index) => {
+    const howTo = HAS_KEYBOARD ? COPY.home.howTo : COPY.home.howToTouch;
+
+    howTo.forEach((line, index) => {
       this.add.text(LEFT_X, HOW_TO_TOP + index * HOW_TO_GAP, line, {
         fontFamily: FONT,
         fontSize: '14px',

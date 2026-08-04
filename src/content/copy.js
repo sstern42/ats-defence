@@ -67,13 +67,32 @@ export const COPY = {
       'Keys 1 to 6 pick which one, and the budget decides the rest.',
       'Salary Expectations goes on the path itself, and only once.',
       'Space opens each intake early, if you are ready for it.'
+    ],
+    // The same four for a screen with no keys to name. The gesture is
+    // described instead of a click, the palette stands in for the number keys,
+    // and the last line reports that the intake opens on its own rather than
+    // offering a way to hurry it that is not there without a space bar.
+    //
+    // Each has to hold one line at the width the list is drawn at, since the
+    // lines are laid out on a fixed gap and a wrapped one runs into the next.
+    howToTouch: [
+      'Press a free tile, slide to aim, then lift to install.',
+      'The six along the top pick which one, budget permitting.',
+      'Salary Expectations goes on the path itself, and only once.',
+      'Each intake opens on its own once the countdown runs out.'
     ]
   },
   hints: {
     placeTower: 'Click a free tile to install.',
     selectTower: 'Keys 1 to 6 also pick.',
     skipPrep: 'Space opens the intake early.',
-    layTrap: 'Click the path itself to set it.'
+    layTrap: 'Click the path itself to set it.',
+    // Said instead of the two above where there is no mouse to click with. The
+    // preview sits above the finger rather than under it, so the instruction
+    // has to mention lifting, otherwise a player presses, sees the tower
+    // hovering somewhere else and lets go in the wrong place.
+    placeTowerTouch: 'Press a free tile, slide to aim, lift to install.',
+    layTrapTouch: 'Press the path itself, slide to aim, lift to set it.'
   },
   hud: {
     lives: 'Vacancy integrity',
@@ -89,7 +108,12 @@ export const COPY = {
     waveOpensIn: 'opens in',
     soundOn: 'M. Sound on',
     soundOff: 'M. Sound off',
-    pause: 'Esc. Pause'
+    pause: 'Esc. Pause',
+    // The same three with the key taken off the front. Both controls are
+    // tapped either way, so only the shortcut goes.
+    soundOnTouch: 'Sound on',
+    soundOffTouch: 'Sound off',
+    pauseTouch: 'Pause'
   },
   pause: {
     title: 'Screening on hold',
@@ -128,9 +152,9 @@ export const COPY = {
     link: 'Requisita cannot be bribed. The developer can.'
   },
   unsupported: {
-    title: 'Desktop only, for now',
-    body: 'The board wants a mouse and more room than this. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
-    note: 'Come back on a laptop.'
+    title: 'Not on a phone, for now',
+    body: 'The board wants more room than this. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
+    note: 'Come back on a tablet or a laptop.'
   },
   leaderboard: {
     heading: 'Best screeners',
@@ -149,6 +173,10 @@ export const COPY = {
     columnScore: 'Rating',
     typingHint: 'Enter submits. Sixteen characters, and be nice.',
     emptyHint: 'Type a name to go on the board, or press space to start again.',
+    // Said where there is no keyboard to type a name with. The board is still
+    // shown, the run still counted, and the restart button is still a button.
+    // Only the filing is off the table, and the joke writes itself.
+    emptyHintTouch: 'The board takes written applications only. Yours cannot be filed from here.',
     doneHint: 'Press space to reopen the vacancy.'
   }
 };

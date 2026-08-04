@@ -32,21 +32,23 @@ const config = {
 /**
  * Whether this screen can have the game at all.
  *
- * Two ways to fail. A board scaled down to phone width is unreadable, and
- * placing a tower means hovering a tile to see its range before committing,
- * which a finger cannot do. Mobile controls are explicitly out of scope, so
- * the honest answer is to say so rather than to ship something that technically
- * loads.
+ * Room is the whole test. There used to be a second one, for a fine pointer,
+ * because placing a tower meant hovering a tile to read its range before
+ * committing and a finger cannot hover. The drag gesture gave the finger a way
+ * to do that, so the reason for the test went and the test went with it.
  *
- * A touch laptop is not caught by the pointer test alone, since it also reports
- * a fine pointer, which is the right way round: those work.
+ * What is left turns away phones without having to ask what anything is. No
+ * phone in landscape has six hundred pixels of height, and none in portrait has
+ * nine hundred of width, so the shape of the screen answers it. A tablet clears
+ * both and renders the fixed 1024 by 768 board at close to its own size, which
+ * is the case this was opened up for.
+ *
+ * What it does not test is the HUD, which is still drawn at a size that suits a
+ * mouse. That is the thing to watch on a tablet, and the reason phones stay out
+ * even once they are big enough.
  */
 function isSupported() {
-  const bigEnough = window.innerWidth >= 900 && window.innerHeight >= 600;
-  const finePointer =
-    window.matchMedia?.('(pointer: fine)').matches ?? true;
-
-  return bigEnough && finePointer;
+  return window.innerWidth >= 900 && window.innerHeight >= 600;
 }
 
 function showUnsupported() {
