@@ -83,6 +83,12 @@ once per run, their actual exit was then never recorded. Hiding the tab now
 starts a thirty second clock that is cancelled if they come back, and the reason
 is recorded so a departure can be told from a glance.
 
+The filter also keeps the pause screen out of this number. Leaving a run from it
+records `run_abandoned` with a reason of `quit` or `restart`, which is a player
+deciding something rather than a player disappearing, and is a different
+question from the one this metric asks. It is a real quit and worth reading, but
+not here, and not mixed in with the two the filter keeps.
+
 This is still the lossiest thing measured here. A tab closed from a background
 window may never run the handler at all, and a player who watches a long wave
 without touching anything is counted as idle after sixty seconds. Both failure

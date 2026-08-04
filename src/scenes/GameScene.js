@@ -13,6 +13,8 @@ import {
   trackApplicantLeaked,
   trackGameOver,
   trackGameStarted,
+  trackRestartClicked,
+  trackRunQuit,
   trackTowerPlaced,
   trackWaveCompleted,
   trackWaveStarted
@@ -177,6 +179,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.input.keyboard.on('keydown-SPACE', () => this.skipPreparation());
+    this.input.keyboard.on('keydown-ESC', () => this.openPause());
 
     // A restart builds this scene again, so this is also where a second and
     // third attempt are counted.
@@ -294,6 +297,71 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.startWave();
+  }
+
+  /**
+   * Holds the run where it is and puts the pause screen over it. Pausing this
+   * scene stops its clock as well as its update, so the wave, the countdown and
+   * every trap waiting to be reset all pick up where they left off.
+   *
+   * A pause is not an analytics event. Nothing in the spec asks how often a
+   * player looks away, and a feature existing is not a reason for an event.
+   */
+  openPause() {
+    if (this.runOver || this.scene.isPaused()) {
+      return;
+    }
+
+    // The ghost is drawn from the last pointer position, and the pointer is
+    // about to be somewhere else entirely.
+    this.ghost.setVisible(false);
+    this.ghostRange.clear();
+
+    this.scene.launch('PauseScene');
+    this.scene.pause();
+  }
+
+  /**
+   * Back to the board, with nothing changed by the visit.
+   */
+  resumeRun() {
+    this.scene.stop('PauseScene');
+    this.scene.resume();
+  }
+
+  /**
+   * The player would rather start again than play this one out. The run ends
+   * here without a game over, so it is reported as abandoned before the restart
+   * is counted, which keeps a run from simply disappearing from the funnel.
+   *
+   * Restarting this scene runs create again, which relaunches the HUD and takes
+   * a fresh experiment assignment, the same as a restart from the game over
+   * screen.
+   */
+  restartRun() {
+    trackRunQuit('restart');
+    trackRestartClicked({
+      fromWave: this.waveNumber,
+      previousScore: this.score
+    });
+
+    this.scene.stop('PauseScene');
+    this.scene.restart();
+  }
+
+  /**
+   * Out of the run altogether and back to the front page. The score is not
+   * offered to the leaderboard, because a run that was walked out of halfway is
+   * not a run anybody screened.
+   */
+  leaveRun() {
+    trackRunQuit('quit');
+
+    this.scene.stop('PauseScene');
+    this.scene.stop('UIScene');
+
+    // Stops this scene and starts the front page in its place.
+    this.scene.start('HomeScene');
   }
 
   /**
@@ -988,7 +1056,10 @@ export default class GameScene extends Phaser.Scene {
    * event rather than tracking the selection itself, so the two cannot drift.
    */
   selectTower(typeKey) {
-    if (this.runOver || !TOWERS[typeKey]) {
+    // The HUD carries on drawing while this scene is paused, so a click on a
+    // palette button behind the pause screen still arrives here. Nothing is
+    // being placed while the board is held, so nothing is being chosen either.
+    if (this.runOver || this.scene.isPaused() || !TOWERS[typeKey]) {
       return;
     }
 

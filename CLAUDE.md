@@ -181,6 +181,8 @@ reached GrowthBook.
 
 `run_abandoned` fires on `beforeunload`, after 30 seconds of the tab staying hidden, and after 60 seconds of no input. It fires at most once per run, and `reason` says which of the three it was: `unload`, `hidden` or `idle`.
 
+Two more reasons arrived with the pause screen, which gave a run in progress a way out that it did not have before: `restart` when the player starts another run from it, and `quit` when they go back to the home screen. Both are the same thing the other three are, a run that ended without a `game_over`, so they are reasons rather than a fourteenth event. The early abandonment metric already filters on reason, so nothing it was measuring moves.
+
 The delay on hidden and the `reason` property were both added after launch preparation, because firing the instant the tab was hidden meant the event recorded the first time somebody glanced away, and since it only fires once, their real exit was never recorded at all. A player abandoned at wave five and went on to reach wave eight.
 
 It will still be lossy. A tab closed from a background window may never run the handler, and a player watching a long wave without moving the mouse is counted as idle. That is expected and will be stated in the write-up rather than hidden.

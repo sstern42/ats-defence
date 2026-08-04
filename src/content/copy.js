@@ -88,7 +88,18 @@ export const COPY = {
     waveOf: 'of',
     waveOpensIn: 'opens in',
     soundOn: 'M. Sound on',
-    soundOff: 'M. Sound off'
+    soundOff: 'M. Sound off',
+    pause: 'Esc. Pause'
+  },
+  pause: {
+    title: 'Screening on hold',
+    body: 'The board is held where it is and nobody is being processed. Requisita has stepped away from the desk, which is within policy.',
+    resume: 'Back to screening',
+    restart: 'Repost the vacancy',
+    restartNote: 'Starts again at the first intake. This run stops here, unrated.',
+    exit: 'Close the vacancy',
+    exitNote: 'Back to the front page. This run stops here, unrated.',
+    hint: 'Esc also goes back to the board.'
   },
   board: {
     leak: 'Reached a human',

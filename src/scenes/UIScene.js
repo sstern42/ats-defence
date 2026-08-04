@@ -37,6 +37,9 @@ const PALETTE_ROW_GAP = 6;
 const PALETTE_COLUMNS = 3;
 const BUTTON_WIDTH = 232;
 
+/** Between the pause control and the sound toggle along the bottom. */
+const CONTROL_GAP = 20;
+
 /**
  * The HUD, run as its own scene on top of GameScene so it keeps rendering
  * while the game underneath is paused.
@@ -71,7 +74,7 @@ export default class UIScene extends Phaser.Scene {
 
     this.createPalette();
     this.createReadouts();
-    this.createSoundToggle();
+    this.createControls();
 
     this.showSelection(this.selectedTowerKey);
     this.showCurrency(this.currency);
@@ -179,18 +182,44 @@ export default class UIScene extends Phaser.Scene {
   }
 
   /**
-   * The sound toggle, pinned to the bottom of the HUD strip under the hint
-   * line, which is the last free corner of it.
+   * The two controls that are not part of playing, pinned along the bottom of
+   * the HUD strip under the hint line, which is the last free corner of it.
    *
-   * It is deliberately plain text rather than a button, since it is the one
-   * control here that is not part of playing. The state lives in the audio
-   * service and is remembered between visits, so this reads it rather than
-   * holding an idea of its own, and the label carries the key that does the
-   * same thing.
+   * Both are deliberately plain text rather than buttons, and both carry the
+   * key that does the same thing. Pause is anchored to the right edge and the
+   * sound toggle sits along from it, rather than the other way round, because
+   * the sound label changes width when it is flipped and the pause one does
+   * not, so nothing has to be moved when it changes.
    */
-  createSoundToggle() {
-    this.soundToggle = this.add
-      .text(this.scale.width - 16, HUD_HEIGHT - 6, '', {
+  createControls() {
+    const bottom = HUD_HEIGHT - 6;
+
+    this.pauseControl = this.plainControl(
+      this.scale.width - 16,
+      bottom,
+      COPY.hud.pause,
+      () => this.gameScene.openPause()
+    );
+
+    this.soundToggle = this.plainControl(
+      this.scale.width - 16 - this.pauseControl.width - CONTROL_GAP,
+      bottom,
+      '',
+      () => this.flipSound()
+    );
+
+    this.showSoundState();
+
+    this.input.keyboard.on('keydown-M', () => this.flipSound());
+  }
+
+  /**
+   * A line of text that lights up under the pointer and does one thing when it
+   * is clicked. Bottom right aligned, since that is the corner both live in.
+   */
+  plainControl(x, y, label, onClick) {
+    const control = this.add
+      .text(x, y, label, {
         fontFamily: FONT,
         fontSize: '13px',
         color: MUTED_COLOUR
@@ -198,21 +227,17 @@ export default class UIScene extends Phaser.Scene {
       .setOrigin(1, 1)
       .setInteractive({ useHandCursor: true });
 
-    this.showSoundState();
-
-    this.soundToggle.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
-      this.soundToggle.setColor(BODY_COLOUR)
+    control.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
+      control.setColor(BODY_COLOUR)
     );
 
-    this.soundToggle.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
-      this.soundToggle.setColor(MUTED_COLOUR)
+    control.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
+      control.setColor(MUTED_COLOUR)
     );
 
-    this.soundToggle.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
-      this.flipSound()
-    );
+    control.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, onClick);
 
-    this.input.keyboard.on('keydown-M', () => this.flipSound());
+    return control;
   }
 
   flipSound() {
