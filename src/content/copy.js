@@ -59,7 +59,13 @@ export const COPY = {
     placeTower: 'Click a free tile to install.',
     selectTower: 'Keys 1 to 6 also pick.',
     skipPrep: 'Space opens the intake early.',
-    layTrap: 'Click the path itself to set it.'
+    layTrap: 'Click the path itself to set it.',
+    // Said instead of the two above where there is no mouse to click with. The
+    // preview sits above the finger rather than under it, so the instruction
+    // has to mention lifting, otherwise a player presses, sees the tower
+    // hovering somewhere else and lets go in the wrong place.
+    placeTowerTouch: 'Press a free tile, slide to aim, lift to install.',
+    layTrapTouch: 'Press the path itself, slide to aim, lift to set it.'
   },
   hud: {
     lives: 'Vacancy integrity',

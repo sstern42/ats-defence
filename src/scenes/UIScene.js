@@ -20,6 +20,15 @@ const BUTTON_DISABLED = '#1c2128';
 /** Lives left at which the readout starts looking worried. */
 const WARNING_LIVES = 3;
 
+/**
+ * Whether the thing being played with is a finger, which only decides what the
+ * hint line says. The gesture itself is chosen per event in GameScene, since a
+ * laptop with a touchscreen has both and this asks about the primary one only.
+ * That is the right way round: such a laptop reads as fine here and gets the
+ * mouse wording, while its touchscreen still works if anybody uses it.
+ */
+const COARSE_POINTER = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+
 /** How long the HUD stays cross about something it will not do. */
 const WARNING_MS = 1400;
 
@@ -172,10 +181,20 @@ export default class UIScene extends Phaser.Scene {
 
   /**
    * What the hint line says when it has nothing more pressing to report. It
-   * depends on the selection, since a trap goes somewhere a tower cannot.
+   * depends on the selection, since a trap goes somewhere a tower cannot, and
+   * on whether there is a mouse, since the gesture is not the same one.
+   *
+   * The number key line is dropped on a touch device, where there are no
+   * number keys to offer. Space is still mentioned elsewhere and still has no
+   * touch equivalent, which is a gap the palette work closes rather than this.
    */
   defaultHint() {
     const trap = TOWERS[this.selectedTowerKey].behaviour === 'trap';
+
+    if (COARSE_POINTER) {
+      return trap ? COPY.hints.layTrapTouch : COPY.hints.placeTowerTouch;
+    }
+
     const placing = trap ? COPY.hints.layTrap : COPY.hints.placeTower;
 
     return `${placing} ${COPY.hints.selectTower}`;
