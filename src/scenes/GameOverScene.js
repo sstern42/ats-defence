@@ -13,6 +13,7 @@ import {
   trackRestartClicked,
   trackScoreSubmitted
 } from '../services/analytics.js';
+import { HAS_KEYBOARD } from '../services/device.js';
 import { fetchTopTen, submitScore } from '../services/leaderboard.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -47,6 +48,21 @@ const CARET_MS = 530;
 const KOFI_URL = 'https://ko-fi.com/spencer_stern';
 const KOFI_COLOUR = '#7d8a99';
 const KOFI_HOVER_COLOUR = '#c7d94a';
+
+/**
+ * What the line under the name box says while the box is empty.
+ *
+ * The name box is drawn on the canvas and fed by key presses, so without a
+ * keyboard there is no way to fill it in. That is a real hole and the copy says
+ * so rather than instructing a player to type. The score screen, the board and
+ * the restart button all still work, so it is the filing that is missing and
+ * not the ending.
+ */
+function emptyHint() {
+  return HAS_KEYBOARD
+    ? COPY.leaderboard.emptyHint
+    : COPY.leaderboard.emptyHintTouch;
+}
 
 /**
  * The end of a run, drawn over the frozen board.
@@ -89,7 +105,7 @@ export default class GameOverScene extends Phaser.Scene {
 
     // Before the name box, which writes to it as soon as it is built.
     this.hintText = this.add
-      .text(LEFT_X, 666, COPY.leaderboard.emptyHint, {
+      .text(LEFT_X, 666, emptyHint(), {
         fontFamily: FONT,
         fontSize: '13px',
         color: MUTED_COLOUR,
@@ -245,7 +261,7 @@ export default class GameOverScene extends Phaser.Scene {
       this.hintText.setText(
         this.playerName.length > 0
           ? COPY.leaderboard.typingHint
-          : COPY.leaderboard.emptyHint
+          : emptyHint()
       );
     }
   }

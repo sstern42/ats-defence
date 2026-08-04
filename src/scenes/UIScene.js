@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
+import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
 
 const FONT = 'system-ui, sans-serif';
 const MUTED_COLOUR = '#6f7d8c';
@@ -19,15 +20,6 @@ const BUTTON_DISABLED = '#1c2128';
 
 /** Lives left at which the readout starts looking worried. */
 const WARNING_LIVES = 3;
-
-/**
- * Whether the thing being played with is a finger, which only decides what the
- * hint line says. The gesture itself is chosen per event in GameScene, since a
- * laptop with a touchscreen has both and this asks about the primary one only.
- * That is the right way round: such a laptop reads as fine here and gets the
- * mouse wording, while its touchscreen still works if anybody uses it.
- */
-const COARSE_POINTER = window.matchMedia?.('(pointer: coarse)').matches ?? false;
 
 /** How long the HUD stays cross about something it will not do. */
 const WARNING_MS = 1400;
@@ -264,13 +256,18 @@ export default class UIScene extends Phaser.Scene {
   /**
    * Between waves. The counter says what is coming and how long there is to
    * get ready for it, and the hint line offers the way to cut that short.
+   *
+   * Only where there is a key to cut it short with. Without one the offer is
+   * advice nobody can take, so the line goes back to saying how to build, which
+   * is the more useful thing to be reading during a pause anyway. The wave still
+   * opens on its own either way.
    */
   showPreparation({ waveNumber, waveCount, secondsLeft }) {
     this.waveText.setText(
       `${COPY.hud.wave} ${waveNumber} ${COPY.hud.waveOf} ${waveCount}, ${COPY.hud.waveOpensIn} ${secondsLeft}s`
     );
 
-    this.setHint(COPY.hints.skipPrep);
+    this.setHint(HAS_KEYBOARD ? COPY.hints.skipPrep : this.defaultHint());
   }
 
   showWaveOpen({ waveNumber, waveCount }) {

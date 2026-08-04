@@ -104,9 +104,9 @@ export const COPY = {
     link: 'Requisita cannot be bribed. The developer can.'
   },
   unsupported: {
-    title: 'Desktop only, for now',
-    body: 'The board wants a mouse and more room than this. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
-    note: 'Come back on a laptop.'
+    title: 'Not on a phone, for now',
+    body: 'The board wants more room than this. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
+    note: 'Come back on a tablet or a laptop.'
   },
   leaderboard: {
     heading: 'Best screeners',
@@ -124,6 +124,10 @@ export const COPY = {
     columnScore: 'Rating',
     typingHint: 'Enter submits. Sixteen characters, and be nice.',
     emptyHint: 'Type a name to go on the board, or press space to start again.',
+    // Said where there is no keyboard to type a name with. The board is still
+    // shown, the run still counted, and the restart button is still a button.
+    // Only the filing is off the table, and the joke writes itself.
+    emptyHintTouch: 'The board takes written applications only. Yours cannot be filed from here.',
     doneHint: 'Press space to reopen the vacancy.'
   }
 };
