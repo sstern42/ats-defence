@@ -2,6 +2,13 @@ import Phaser from 'phaser';
 
 import { ART_DIRECTORY, ART_KEYS } from '../config/art.js';
 import { AUDIO_DIRECTORY, SOUNDS } from '../config/audio.js';
+import {
+  INTRO_DIRECTORY,
+  INTRO_FRAME_COUNT,
+  INTRO_FRAME_RATE,
+  INTRO_FRAME_SIZE,
+  INTRO_KEYS
+} from '../config/intros.js';
 import { initSound } from '../services/audio.js';
 
 /**
@@ -28,6 +35,18 @@ export default class BootScene extends Phaser.Scene {
 
     ART_KEYS.forEach((key) => this.load.image(key, `${key}.png`));
 
+    // The applicant introductions, one strip of frames per type, all the same
+    // shape, which is why the frame size comes from the manifest rather than
+    // from anything here.
+    this.load.setPath(INTRO_DIRECTORY);
+
+    INTRO_KEYS.forEach((key) =>
+      this.load.spritesheet(key, `${key}.png`, {
+        frameWidth: INTRO_FRAME_SIZE,
+        frameHeight: INTRO_FRAME_SIZE
+      })
+    );
+
     // Sixteen bit PCM, which every browser the game is tested in decodes, so
     // there is one file per sound and no fallback list.
     this.load.setPath(AUDIO_DIRECTORY);
@@ -36,8 +55,33 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create() {
+    this.createIntroAnimations();
+
     initSound(this);
 
     this.scene.start('HomeScene');
+  }
+
+  /**
+   * One looping animation per introduction, named after the texture it plays.
+   * Animations belong to the game rather than to a scene, so these are made
+   * once here and survive every restart of the board.
+   */
+  createIntroAnimations() {
+    INTRO_KEYS.forEach((key) => {
+      if (this.anims.exists(key)) {
+        return;
+      }
+
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(key, {
+          start: 0,
+          end: INTRO_FRAME_COUNT - 1
+        }),
+        frameRate: INTRO_FRAME_RATE,
+        repeat: -1
+      });
+    });
   }
 }

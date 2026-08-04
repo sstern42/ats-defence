@@ -25,6 +25,7 @@ Read these before writing anything.
 | Hosting | Netlify, auto-deploy from `main`, deploy previews on every PR |
 | Repo | `sstern42/ats-defence`, public, MIT |
 | Art | Kenney CC0 assets |
+| Applicant introductions | Drawn by `tools/make-intros.mjs`, committed as sprite strips |
 | Sound | Synthesised by `tools/make-sounds.mjs`, committed as WAV |
 | Backend | Supabase (leaderboard and analytics, both behind Netlify functions) |
 | Experiments | GrowthBook |
@@ -90,6 +91,7 @@ src/
     path.js            Waypoint coordinates
     art.js             Sprite manifest
     audio.js           Sound manifest, levels and repeat gaps
+    intros.js          Applicant introduction manifest, frames and rate
     leaderboard.js     Name rules and read limits
     links.js           Outbound links
   services/
@@ -102,6 +104,7 @@ src/
 netlify/functions/     collect, leaderboard, submit-score, and their lib
 supabase/migrations/   Tables, RLS policies and later columns
 tools/make-sounds.mjs  Draws the sound effects, run by hand
+tools/make-intros.mjs  Draws the applicant introductions, run by hand
 docs/                  Experiment analysis and its queries
 netlify.toml           Build command, publish directory, Node version
 ```
