@@ -55,6 +55,20 @@ export const COPY = {
       blurb: 'Free to ask, and asked once. Goes on the path itself, and only one at a time.'
     }
   },
+  home: {
+    title: 'ATS Defence',
+    subtitle: 'You are Requisita, an applicant tracking system.',
+    body: 'One vacancy, and a great many people walking towards it. Install screening along the way and reject them before one of them reaches a human, who might read it properly and hire them.',
+    start: 'Open the vacancy',
+    startHint: 'or press space',
+    howToHeading: 'How the screening works',
+    howTo: [
+      'Click a free tile to install a screening process.',
+      'Keys 1 to 6 pick which one, and the budget decides the rest.',
+      'Salary Expectations goes on the path itself, and only once.',
+      'Space opens each intake early, if you are ready for it.'
+    ]
+  },
   hints: {
     placeTower: 'Click a free tile to install.',
     selectTower: 'Keys 1 to 6 also pick.',
@@ -106,6 +120,7 @@ export const COPY = {
     heading: 'Best screeners',
     loading: 'Asking the board.',
     unavailable: 'The board is not answering. Your run still counted.',
+    unavailableHome: 'The board is not answering. The vacancy is open regardless.',
     empty: 'Nobody on it yet. The vacancy is wide open.',
     namePrompt: 'Name for the board',
     namePlaceholder: 'type a name',
