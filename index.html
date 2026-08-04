@@ -50,12 +50,34 @@
         margin: 0;
         height: 100%;
         background: #14161a;
+        /* There is nothing on this page to scroll to, so scrolling is only
+           ever the page being dragged about by somebody trying to play. */
+        overflow: hidden;
+        overscroll-behavior: none;
       }
 
       /* Phaser's autoCenter handles the centring itself, by setting margins on
          the canvas. Centring here as well would apply the offset twice. */
       #game {
         height: 100%;
+      }
+
+      /* The board reads its own pointers, so the browser is asked to keep its
+         gestures off it. All three of these are the placement drag being taken
+         away halfway through: a slide read as a scroll or a pinch, and a press
+         and hold answered with the selection callout rather than a tower.
+
+         Phaser ships a helper that sets touch-action and never calls it, and
+         its own touch capture only reaches as far as preventDefault, which
+         does not cover the callout. So it is set here.
+
+         Scoped to the canvas rather than the page, so the message shown to
+         anything too small for the game stays selectable. */
+      #game canvas {
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
       }
 
       /* Shown instead of the game on a screen it will not work on. Styled here
