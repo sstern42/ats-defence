@@ -9,10 +9,13 @@
  */
 
 /**
- * The twelve events in the analytics spec, and nothing else. An event name not
- * on this list is refused rather than stored, which means a typo in the game
+ * The events in the analytics spec, and nothing else. An event name not on
+ * this list is refused rather than stored, which means a typo in the game
  * shows up as a rejected event rather than as a column of quiet rubbish nobody
  * notices until they try to analyse it.
+ *
+ * Twelve of them are the game reporting itself. The thirteenth,
+ * `experiment_viewed`, is GrowthBook reporting that a player was bucketed.
  */
 export const ALLOWED_EVENTS = new Set([
   'session_started',
@@ -26,7 +29,8 @@ export const ALLOWED_EVENTS = new Set([
   'restart_clicked',
   'score_submitted',
   'leaderboard_viewed',
-  'kofi_clicked'
+  'kofi_clicked',
+  'experiment_viewed'
 ]);
 
 /** Long enough for the largest real event several times over. */

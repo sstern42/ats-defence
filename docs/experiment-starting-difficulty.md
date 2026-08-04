@@ -42,6 +42,20 @@ preview query parameter, `unassigned:control` when GrowthBook did not answer).
 **Every analysis below excludes any run whose assignment string contains a
 colon.** Those are previews and failures, not players.
 
+GrowthBook also reports the bucketing itself, through its tracking callback,
+and that goes out as an `experiment_viewed` event carrying `experiment_key`,
+`variation_id` and `arm`. It fires once per session and only for a genuine
+assignment, so it is the stronger record of the two: the arm string says what
+the game played, the exposure says the player was really put in the experiment.
+
+It is a cross-check rather than the definition of an assigned run, because it
+only exists from the deploy that added it and runs before that have none. The
+bucketing id is not on it. That id stays in local storage, so an exposure joins
+to the rest of a run by `session_id` like everything else, which means a player
+who comes back tomorrow appears as two sessions rather than one person. The
+arm is the same in both, so nothing crosses between arms, but any per-person
+count read off exposures would be an overcount.
+
 ## Metrics
 
 ### Primary: wave-by-wave survival
@@ -88,6 +102,17 @@ Two-proportion z-test on the secondary metric, and on the survival proportion
 at wave 3 as the single summary of the primary curve. Significance at p < 0.05,
 two-tailed. No interim peeking: the numbers get looked at once, at the stopping
 point below.
+
+The queries are in `docs/experiment-starting-difficulty.sql`, written against
+the `analytics_events` table and meant to be run in the Supabase SQL editor.
+They are committed so the readout is the same one every time it is taken,
+rather than reassembled from this document on the day. Postgres has no normal
+distribution function, so they report the z statistic and the 95% interval
+rather than a p-value.
+
+Nothing computes any of this on a schedule. GrowthBook is doing assignment
+only, with no data source behind it, so its own results page stays empty and
+the numbers below exist when somebody runs the file.
 
 ## Power, honestly
 

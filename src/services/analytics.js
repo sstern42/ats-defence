@@ -12,13 +12,17 @@
  * them and the experiment assignment will be asynchronous once GrowthBook
  * arrives at step 11.
  *
+ * The one exception is `experiment_viewed`, which has no call site because it
+ * is not something the game does: it is GrowthBook saying a player was
+ * bucketed, so it arrives through a handler registered below.
+ *
  * Where the events are posted is set by `VITE_ANALYTICS_ENDPOINT` at build
  * time. With no endpoint set, nothing is posted and everything still runs:
  * events are kept on `window.requisita.events` and, with `?analytics` in the
  * query string, printed to the console. That is how a deploy preview gets
  * checked before any store exists.
  */
-import { getVariantAssignments } from './experiments.js';
+import { getVariantAssignments, setExposureHandler } from './experiments.js';
 
 /** Sixty seconds of nothing at all counts as the player having wandered off. */
 const IDLE_MS = 60000;
@@ -121,6 +125,10 @@ export function initAnalytics() {
   }
 
   watchForDeparture();
+
+  // Registered before the first event, since sending one is what makes
+  // GrowthBook evaluate the feature and so report the exposure.
+  setExposureHandler((exposure) => track('experiment_viewed', exposure));
 
   // A reload is the same session carrying on, so it is not announced twice.
   if (!existing) {

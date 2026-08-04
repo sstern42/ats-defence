@@ -150,6 +150,15 @@ Attached to every event without exception:
 | `score_submitted` | score, final_wave |
 | `leaderboard_viewed` | from_screen |
 | `kofi_clicked` | from_screen, final_wave |
+| `experiment_viewed` | experiment_key, variation_id, arm |
+
+`experiment_viewed` is the one event the game does not send. It comes from
+GrowthBook's tracking callback, fires once per session, and only when a player
+was genuinely bucketed, which is the difference between it and the arm string
+carried on everything else. It was added after the twelve above, because
+without it there is no record of an exposure anywhere and a variant assignment
+read back off an event cannot tell a real control player from a run that never
+reached GrowthBook.
 
 `run_abandoned` fires on `beforeunload`, after 30 seconds of the tab staying hidden, and after 60 seconds of no input. It fires at most once per run, and `reason` says which of the three it was: `unload`, `hidden` or `idle`.
 
