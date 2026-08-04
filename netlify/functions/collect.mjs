@@ -30,6 +30,20 @@ const json = (body, status = 200) =>
     headers: { 'Content-Type': 'application/json' }
   });
 
+/**
+ * The caller's country, from the platform's own geo lookup rather than from
+ * anything the browser claims. Country and no finer: it answers "did this
+ * reach anybody outside my own network" and stops there.
+ *
+ * Missing or malformed is null rather than an error. A row without a country
+ * is still worth having.
+ */
+function countryOf(context) {
+  const code = context?.geo?.country?.code;
+
+  return typeof code === 'string' && /^[A-Z]{2}$/.test(code) ? code : null;
+}
+
 async function isOverRateLimit(ipHash) {
   const since = new Date(
     Date.now() - RATE_WINDOW_MINUTES * 60 * 1000
@@ -81,7 +95,11 @@ export default async (request, context) => {
       return json({ error: 'too many events' }, 429);
     }
 
-    await insert('analytics_events', { ...row, ip_hash: ipHash });
+    await insert('analytics_events', {
+      ...row,
+      ip_hash: ipHash,
+      country: countryOf(context)
+    });
   } catch (failure) {
     console.error('event collection failed', failure);
 
