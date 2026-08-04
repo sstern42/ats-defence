@@ -8,6 +8,7 @@ import {
 import { COPY } from '../content/copy.js';
 import {
   getRunId,
+  trackKofiClicked,
   trackLeaderboardViewed,
   trackRestartClicked,
   trackScoreSubmitted
@@ -38,6 +39,14 @@ const FIELD_HEIGHT = 38;
 
 /** How fast the caret in the name box blinks. */
 const CARET_MS = 530;
+
+/**
+ * The tip jar. Named for the person rather than the game, so the same page
+ * still makes sense if anything else ever gets one.
+ */
+const KOFI_URL = 'https://ko-fi.com/spencer_stern';
+const KOFI_COLOUR = '#7d8a99';
+const KOFI_HOVER_COLOUR = '#c7d94a';
 
 /**
  * The end of a run, drawn over the frozen board.
@@ -92,6 +101,7 @@ export default class GameOverScene extends Phaser.Scene {
     this.createNameEntry();
     this.createRestartButton(LEFT_X, 624);
     this.createBoard();
+    this.createKofiLink();
     this.loadBoard();
 
     this.input.keyboard.on('keydown', (event) => this.handleKey(event));
@@ -452,6 +462,39 @@ export default class GameOverScene extends Phaser.Scene {
     this.boardRows.forEach((row) => row.setVisible(false));
     this.boardHeader.setVisible(false);
     this.boardStatus.setText(message).setVisible(true);
+  }
+
+  /**
+   * Sat under the board, in the same muted grey as everything else that is not
+   * asking for attention. It brightens on hover and does nothing otherwise,
+   * which is as much as a tip jar should do on a screen that has just told
+   * somebody they lost.
+   */
+  createKofiLink() {
+    const link = this.add
+      .text(BOARD_X, 470, COPY.kofi.link, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: KOFI_COLOUR
+      })
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
+      link.setColor(KOFI_HOVER_COLOUR)
+    );
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
+      link.setColor(KOFI_COLOUR)
+    );
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
+      trackKofiClicked({ fromScreen: 'game_over', finalWave: this.waveNumber });
+
+      // A new tab, and noopener, so the game is not left reachable through
+      // window.opener by whatever is on the other end.
+      window.open(KOFI_URL, '_blank', 'noopener,noreferrer');
+    });
   }
 
   createRestartButton(x, y) {
