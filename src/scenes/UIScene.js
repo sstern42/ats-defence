@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
+import { soundEnabled, toggleSound } from '../services/audio.js';
+import { HUD_HEIGHT } from './GameScene.js';
 
 const FONT = 'system-ui, sans-serif';
 const MUTED_COLOUR = '#6f7d8c';
@@ -64,6 +66,7 @@ export default class UIScene extends Phaser.Scene {
 
     this.createPalette();
     this.createReadouts();
+    this.createSoundToggle();
 
     this.showSelection(this.selectedTowerKey);
     this.showCurrency(this.currency);
@@ -168,6 +171,54 @@ export default class UIScene extends Phaser.Scene {
         color: MUTED_COLOUR
       })
       .setOrigin(1, 0);
+  }
+
+  /**
+   * The sound toggle, pinned to the bottom of the HUD strip under the hint
+   * line, which is the last free corner of it.
+   *
+   * It is deliberately plain text rather than a button, since it is the one
+   * control here that is not part of playing. The state lives in the audio
+   * service and is remembered between visits, so this reads it rather than
+   * holding an idea of its own, and the label carries the key that does the
+   * same thing.
+   */
+  createSoundToggle() {
+    this.soundToggle = this.add
+      .text(this.scale.width - 16, HUD_HEIGHT - 6, '', {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: MUTED_COLOUR
+      })
+      .setOrigin(1, 1)
+      .setInteractive({ useHandCursor: true });
+
+    this.showSoundState();
+
+    this.soundToggle.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
+      this.soundToggle.setColor(BODY_COLOUR)
+    );
+
+    this.soundToggle.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
+      this.soundToggle.setColor(MUTED_COLOUR)
+    );
+
+    this.soundToggle.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      this.flipSound()
+    );
+
+    this.input.keyboard.on('keydown-M', () => this.flipSound());
+  }
+
+  flipSound() {
+    toggleSound();
+    this.showSoundState();
+  }
+
+  showSoundState() {
+    this.soundToggle.setText(
+      soundEnabled() ? COPY.hud.soundOn : COPY.hud.soundOff
+    );
   }
 
   /**

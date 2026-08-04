@@ -83,7 +83,9 @@ export const COPY = {
     trapArmed: 'One set of salary expectations at a time.',
     wave: 'Intake',
     waveOf: 'of',
-    waveOpensIn: 'opens in'
+    waveOpensIn: 'opens in',
+    soundOn: 'M. Sound on',
+    soundOff: 'M. Sound off'
   },
   board: {
     leak: 'Reached a human',
