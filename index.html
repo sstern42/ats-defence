@@ -4,6 +4,46 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ATS Defence</title>
+    <meta
+      name="description"
+      content="A browser tower defence game where you play the applicant tracking system. Screen the applicants out before one of them reaches the vacancy."
+    />
+    <meta name="theme-color" content="#14161a" />
+    <link rel="canonical" href="https://ats.spencerstern.com/" />
+
+    <!-- The launch happens on LinkedIn, so the card preview is the first thing
+         most people will see of this. Absolute URLs, because a relative one is
+         not resolved by the scrapers. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ATS Defence" />
+    <meta property="og:title" content="ATS Defence" />
+    <meta
+      property="og:description"
+      content="A tower defence game where you are the applicant tracking system. Reject them before one of them reaches the vacancy and somebody has to read it properly."
+    />
+    <meta property="og:url" content="https://ats.spencerstern.com/" />
+    <meta
+      property="og:image"
+      content="https://ats.spencerstern.com/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A tower defence board with screening towers placed along a winding path, applicants walking towards a vacancy."
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ATS Defence" />
+    <meta
+      name="twitter:description"
+      content="A tower defence game where you are the applicant tracking system. Reject them before one of them reaches the vacancy and somebody has to read it properly."
+    />
+    <meta
+      name="twitter:image"
+      content="https://ats.spencerstern.com/og-image.png"
+    />
+
     <style>
       html,
       body {
@@ -16,6 +56,36 @@
          the canvas. Centring here as well would apply the offset twice. */
       #game {
         height: 100%;
+      }
+
+      /* Shown instead of the game on a screen it will not work on. Styled here
+         rather than in the game, because the game is never started. */
+      .unsupported {
+        box-sizing: border-box;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 14px;
+        padding: 32px;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+        color: #8b98a6;
+      }
+
+      .unsupported h1 {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 600;
+        color: #e6ebf0;
+      }
+
+      .unsupported p {
+        margin: 0;
+        max-width: 34ch;
+        font-size: 15px;
+        line-height: 1.5;
       }
     </style>
   </head>
