@@ -145,13 +145,17 @@ Attached to every event without exception:
 | `tower_placed` | tower_type, wave_number, currency_before, grid_x, grid_y |
 | `applicant_leaked` | applicant_type, wave_number |
 | `game_over` | final_wave, score, run_duration_ms |
-| `run_abandoned` | final_wave, run_duration_ms |
+| `run_abandoned` | final_wave, run_duration_ms, reason |
 | `restart_clicked` | from_wave, previous_score |
 | `score_submitted` | score, final_wave |
 | `leaderboard_viewed` | from_screen |
 | `kofi_clicked` | from_screen, final_wave |
 
-`run_abandoned` fires on `visibilitychange` and `beforeunload`, and after 60 seconds of no input. It will be lossy. That is expected and will be stated in the write-up rather than hidden.
+`run_abandoned` fires on `beforeunload`, after 30 seconds of the tab staying hidden, and after 60 seconds of no input. It fires at most once per run, and `reason` says which of the three it was: `unload`, `hidden` or `idle`.
+
+The delay on hidden and the `reason` property were both added after launch preparation, because firing the instant the tab was hidden meant the event recorded the first time somebody glanced away, and since it only fires once, their real exit was never recorded at all. A player abandoned at wave five and went on to reach wave eight.
+
+It will still be lossy. A tab closed from a background window may never run the handler, and a player watching a long wave without moving the mouse is counted as idle. That is expected and will be stated in the write-up rather than hidden.
 
 Send every event. No sampling at this traffic level.
 

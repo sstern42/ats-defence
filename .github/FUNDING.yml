@@ -1,0 +1,8 @@
+# Puts a Sponsor button at the top of the repository, pointing at the same tip
+# jar the game over screen links to. Named for the person rather than the game,
+# so the page still makes sense if anything else ever gets one.
+#
+# Note that clicks here are not instrumented. The kofi_clicked event covers the
+# in-game link only, so anything arriving from GitHub is invisible to the
+# analytics. That is a limitation of the button, not an oversight.
+ko_fi: spencer_stern
