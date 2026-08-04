@@ -58,15 +58,23 @@ costs players at the start and nothing after.
 
 ### Secondary: early abandonment
 
-Proportion of runs with a `run_abandoned` event where `final_wave <= 3`,
-divided by all runs with a `game_started` event, per arm.
+Proportion of runs with a `run_abandoned` event where `final_wave <= 3` **and
+`reason` is `unload` or `idle`**, divided by all runs with a `game_started`
+event, per arm.
 
-This is the metric the experiment exists to move. It is also the lossiest: a
-tab closed from the background may never fire it, and a player who watches a
-long wave without touching anything is counted as having left after sixty
-seconds. Both failure modes should be roughly equal across arms, since nothing
-about the arms changes how the event fires, so a difference between arms is
-still readable even though neither absolute number is trustworthy.
+The `reason` filter matters. The first real run through the collector produced
+a `run_abandoned` at wave five from a player who went on to reach wave eight:
+the event fired the moment they glanced at another tab. Since it fires at most
+once per run, their actual exit was then never recorded. Hiding the tab now
+starts a thirty second clock that is cancelled if they come back, and the reason
+is recorded so a departure can be told from a glance.
+
+This is still the lossiest thing measured here. A tab closed from a background
+window may never run the handler at all, and a player who watches a long wave
+without touching anything is counted as idle after sixty seconds. Both failure
+modes should fall roughly equally on both arms, since nothing about the arms
+changes how the event fires, so a difference between arms remains readable even
+though neither absolute number is trustworthy.
 
 ### Guardrail: reaching the end
 
