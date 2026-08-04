@@ -54,6 +54,10 @@ One experiment runs at launch, on whether a busier first wave reduces early aban
 
 Desktop only. Placing a tower means hovering a tile to see its range before committing, and a finger cannot hover. Smaller screens get an honest message instead of a broken board.
 
+## Art
+
+There isn't any yet. Every sprite is a coloured shape generated at runtime, which is why the towers are boxes with sticks on them and the applicants are discs. [Kenney](https://kenney.nl) CC0 assets are the plan, and swapping them in touches only the two texture functions in `GameScene`, since nothing else knows what anything looks like.
+
 ## Licence
 
-MIT. Art from [Kenney](https://kenney.nl) under CC0.
+MIT.
