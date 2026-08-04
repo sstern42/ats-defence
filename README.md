@@ -64,6 +64,21 @@ The art is greyscale on disk and tinted per type at runtime, so a tower's colour
 
 Every file was cropped, most were greyscaled and the turrets were turned a quarter turn. `public/assets/kenney/ATTRIBUTION.md` records what was done to each one and which original it came from.
 
+## Sound
+
+Six clips: a stamp when a process is installed, a flat two tone blip for a
+rejection, a low buzz when somebody reaches a human, notes up when applications
+open and down when the intake is screened, and a dead thud when the budget will
+not stretch to it. On by default, at a volume set for a browser tab next to
+other things, and turned off by the toggle in the corner of the HUD or the M
+key. The choice is remembered.
+
+None of it is recorded. `tools/make-sounds.mjs` draws all six out of sine waves
+and envelopes, using Node built-ins and no dependency, which means each sound is
+a readable recipe rather than a binary and the whole set is 68kB. Levels and the
+gap between repeats are data in `src/config/audio.js`, on the same principle as
+the balance. See `public/assets/audio/README.md`.
+
 ## Licence
 
 MIT.
