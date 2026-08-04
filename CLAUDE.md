@@ -25,9 +25,10 @@ Read these before writing anything.
 | Hosting | Netlify, auto-deploy from `main`, deploy previews on every PR |
 | Repo | `sstern42/ats-defence`, public, MIT |
 | Art | Kenney CC0 assets |
-| Backend | Supabase (leaderboard only) |
+| Sound | Synthesised by `tools/make-sounds.mjs`, committed as WAV |
+| Backend | Supabase (leaderboard and analytics, both behind Netlify functions) |
 | Experiments | GrowthBook |
-| Domain | ats.spencerstern.com (pointed at Netlify once the game runs) |
+| Domain | ats.spencerstern.com |
 
 Keep dependencies minimal. If a task can be done with vanilla JS in twenty lines, do not add a package.
 
@@ -35,7 +36,7 @@ Keep dependencies minimal. If a task can be done with vanilla JS in twenty lines
 
 Development happens through Claude Code on the web. Sessions run in the cloud, so **there is no local dev server anyone can look at.** The Netlify deploy preview on each pull request is the only way the game gets seen.
 
-This shapes everything below. Deploy is not a late step. It is step 2, and nothing proceeds until a preview URL renders the game.
+This shapes everything below. Deploy is not a late step. It was step 2, nothing proceeded until a preview URL rendered the game, and the same rule applies to every change made since.
 
 ## Concept
 
@@ -69,26 +70,39 @@ Names and flavour text are content, not code. Keep all strings in a single `src/
 
 ```
 src/
-  main.js              Phaser config and boot
+  main.js              Phaser config, support check and boot
   scenes/
-    BootScene.js       Asset loading
+    BootScene.js       Asset loading, art and sound
+    HomeScene.js       The page the game opens on
     GameScene.js       Core loop
     UIScene.js         HUD, overlaid on GameScene
     GameOverScene.js   Score, leaderboard, restart
+    LeaderboardPanel.js  Top ten, shared by home and game over
   entities/
     Applicant.js
     Tower.js
+    Trap.js
   config/
     waves.js           Wave definitions as data
     towers.js          Tower stats as data
     applicants.js      Applicant stats as data
+    game.js            Lives, budget, prep times, scoring
     path.js            Waypoint coordinates
+    art.js             Sprite manifest
+    audio.js           Sound manifest, levels and repeat gaps
+    leaderboard.js     Name rules and read limits
+    links.js           Outbound links
   services/
     analytics.js       Event emission
+    audio.js           Playback, throttling and the on or off state
     experiments.js     GrowthBook wrapper
-    leaderboard.js     Supabase client
+    leaderboard.js     Score submission and top ten
   content/
     copy.js            All user-facing strings
+netlify/functions/     collect, leaderboard, submit-score, and their lib
+supabase/migrations/   Tables, RLS policies and later columns
+tools/make-sounds.mjs  Draws the sound effects, run by hand
+docs/                  Experiment analysis and its queries
 netlify.toml           Build command, publish directory, Node version
 ```
 
@@ -98,7 +112,12 @@ netlify.toml           Build command, publish directory, Node version
 
 ## Build order
 
-Do not jump ahead. Each step should leave the game running, and each step is its own pull request.
+All twelve steps are done and the game has shipped. The list is kept as the
+record of the order things were built in, not as a plan to follow. Work from
+here is post-MVP, and there is no numbered list for it: see "Beyond the MVP".
+
+The rule the list existed to enforce still holds. Each change leaves the game
+running, and each change is its own pull request.
 
 1. Vite plus Phaser scaffold. Add `netlify.toml` pinning build command (`npm run build`), publish directory (`dist`) and Node version. One sprite rendering.
 2. **Confirm the Netlify deploy preview builds and the sprite is visible at the preview URL.** Do not proceed until this works. If the build fails, fixing it is the whole of the next step.
@@ -113,7 +132,7 @@ Do not jump ahead. Each step should leave the game running, and each step is its
 11. GrowthBook experiment.
 12. Balancing pass. Budget more time than seems reasonable.
 
-The custom domain (ats.spencerstern.com) gets pointed at Netlify around step 8, once there is a game worth showing at a real address.
+The custom domain went to Netlify around step 8, once there was a game worth showing at a real address.
 
 ## Analytics spec
 
@@ -174,7 +193,7 @@ One experiment at launch, via GrowthBook.
 
 **Starting difficulty.** Control: gentle wave one. Variant: wave one already busy. Measured on the wave-by-wave survival curve and on `run_abandoned` rate in the first three waves.
 
-This requires wave one parameters to be read from the GrowthBook assignment at run start, not hardcoded. Build it that way from step 7 onward.
+Wave one parameters are read from the GrowthBook assignment at run start rather than hardcoded, which is what makes this possible. Keep it that way.
 
 Record the intended analysis before launch. An inconclusive result is a valid outcome and will be reported as one.
 
@@ -198,6 +217,9 @@ Free tier Supabase projects pause after seven days of inactivity. Add a GitHub A
 
 ## Definition of done for MVP
 
+Met. Kept as the record of what finished meant, and as the thing any post-MVP
+change has to leave intact.
+
 - Playable start to finish, win and lose states both reachable.
 - Six towers, six applicant types, at least ten waves.
 - Deployed at ats.spencerstern.com over HTTPS.
@@ -207,9 +229,34 @@ Free tier Supabase projects pause after seven days of inactivity. Add a GitHub A
 - Ko-fi link present and unobtrusive.
 - README with a one-line pitch, a screenshot and a link to play.
 
-## Explicitly out of scope
+## Beyond the MVP
 
-Tower upgrades, multiple maps, sound, difficulty settings, user accounts, saved progress, mobile-specific controls, achievements. These are post-launch decisions to be informed by the data. Do not add them because they seem easy.
+The game has shipped and the work is now past the MVP. There is no roadmap for
+this phase. What gets built is decided one thing at a time, and the list below
+is the mechanism rather than a ban: something comes off it when there is a
+reason, not because it is easy.
+
+### Still deferred
+
+Tower upgrades, multiple maps, difficulty settings, user accounts, saved
+progress, mobile-specific controls, achievements. Post-launch decisions to be
+informed by the data. Do not add them because they seem easy.
+
+Sound was on this list and came off it after launch, on request. Six clips,
+synthesised rather than licensed, with a toggle in the HUD and the choice
+remembered. It is the worked example of how something leaves the list: asked
+for, kept small, and self-contained enough that nothing already working had to
+move to fit it.
+
+### Still true whatever gets built
+
+- Deploy is not a late step, and a red deploy preview is a failed step.
+- Balance lives in data. A post-MVP feature that puts a number in the game loop
+  is the wrong shape.
+- The event list stays at thirteen unless there is a question that needs a
+  fourteenth. The thirteenth was added because an exposure could not be
+  recorded any other way, and that is the bar. A feature existing is not a
+  reason on its own. Sound shipped without one.
 
 ## Working style
 
