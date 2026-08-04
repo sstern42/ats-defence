@@ -1,19 +1,15 @@
 import Phaser from 'phaser';
 
-import {
-  NAME_CHARACTER,
-  NAME_MAX_LENGTH,
-  TOP_N
-} from '../config/leaderboard.js';
+import { NAME_CHARACTER, NAME_MAX_LENGTH } from '../config/leaderboard.js';
 import { COPY } from '../content/copy.js';
 import {
   getRunId,
   trackKofiClicked,
-  trackLeaderboardViewed,
   trackRestartClicked,
   trackScoreSubmitted
 } from '../services/analytics.js';
-import { fetchTopTen, submitScore } from '../services/leaderboard.js';
+import { submitScore } from '../services/leaderboard.js';
+import LeaderboardPanel from './LeaderboardPanel.js';
 
 const FONT = 'system-ui, sans-serif';
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
@@ -100,9 +96,13 @@ export default class GameOverScene extends Phaser.Scene {
 
     this.createNameEntry();
     this.createRestartButton(LEFT_X, 624);
-    this.createBoard();
     this.createKofiLink();
-    this.loadBoard();
+
+    this.board = new LeaderboardPanel(this, BOARD_X, 150, {
+      fromScreen: 'game_over'
+    });
+
+    this.board.load();
 
     this.input.keyboard.on('keydown', (event) => this.handleKey(event));
   }
@@ -339,129 +339,7 @@ export default class GameOverScene extends Phaser.Scene {
     this.refreshName();
 
     // The board is read again so the player sees where they landed.
-    this.loadBoard();
-  }
-
-  createBoard() {
-    this.add
-      .text(BOARD_X, 150, COPY.leaderboard.heading, {
-        fontFamily: FONT,
-        fontSize: '17px',
-        color: TITLE_COLOUR
-      })
-      .setOrigin(0, 0.5);
-
-    this.boardStatus = this.add
-      .text(BOARD_X, 184, COPY.leaderboard.loading, {
-        fontFamily: FONT,
-        fontSize: '13px',
-        color: MUTED_COLOUR,
-        wordWrap: { width: 400 },
-        lineSpacing: 4
-      })
-      .setOrigin(0, 0);
-
-    this.boardHeader = this.add
-      .text(
-        BOARD_X,
-        184,
-        this.boardRow(
-          COPY.leaderboard.columnRank,
-          COPY.leaderboard.columnName,
-          COPY.leaderboard.columnWave,
-          COPY.leaderboard.columnScore
-        ),
-        {
-          fontFamily: MONO,
-          fontSize: '12px',
-          color: MUTED_COLOUR
-        }
-      )
-      .setOrigin(0, 0)
-      .setVisible(false);
-
-    this.boardRows = [];
-
-    for (let index = 0; index < TOP_N; index += 1) {
-      this.boardRows.push(
-        this.add
-          .text(BOARD_X, 208 + index * 23, '', {
-            fontFamily: MONO,
-            fontSize: '13px',
-            color: BODY_COLOUR
-          })
-          .setOrigin(0, 0)
-          .setVisible(false)
-      );
-    }
-  }
-
-  /**
-   * One line of the board, in fixed columns. Monospace and padding rather than
-   * four text objects per row, which would be forty objects to keep in step.
-   */
-  boardRow(rank, name, wave, score) {
-    return (
-      `${rank}`.padEnd(4) +
-      `${name}`.padEnd(NAME_MAX_LENGTH + 2) +
-      `${wave}`.padEnd(8) +
-      `${score}`
-    );
-  }
-
-  async loadBoard() {
-    const result = await fetchTopTen();
-
-    // The scene can be gone by the time this resolves, if the player restarted
-    // while the request was in flight.
-    if (!this.scene.isActive()) {
-      return;
-    }
-
-    if (!result.ok) {
-      this.showBoardStatus(COPY.leaderboard.unavailable);
-
-      return;
-    }
-
-    if (result.entries.length === 0) {
-      this.showBoardStatus(COPY.leaderboard.empty);
-
-      return;
-    }
-
-    this.boardStatus.setVisible(false);
-    this.boardHeader.setVisible(true);
-
-    this.boardRows.forEach((row, index) => {
-      const entry = result.entries[index];
-
-      if (!entry) {
-        row.setVisible(false);
-
-        return;
-      }
-
-      row
-        .setText(
-          this.boardRow(
-            `${index + 1}.`,
-            entry.display_name,
-            entry.final_wave,
-            entry.score
-          )
-        )
-        .setColor(index === 0 ? GOOD_COLOUR : BODY_COLOUR)
-        .setVisible(true);
-    });
-
-    trackLeaderboardViewed('game_over');
-  }
-
-  showBoardStatus(message) {
-    this.boardRows.forEach((row) => row.setVisible(false));
-    this.boardHeader.setVisible(false);
-    this.boardStatus.setText(message).setVisible(true);
+    this.board.load();
   }
 
   /**
