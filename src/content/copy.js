@@ -86,7 +86,9 @@ export const COPY = {
     trapWaiting: 'Salary bands under review, ready in',
     wave: 'Intake',
     waveOf: 'of',
-    waveOpensIn: 'opens in'
+    waveOpensIn: 'opens in',
+    soundOn: 'M. Sound on',
+    soundOff: 'M. Sound off'
   },
   board: {
     leak: 'Reached a human',

@@ -17,6 +17,7 @@ import {
   trackWaveCompleted,
   trackWaveStarted
 } from '../services/analytics.js';
+import { playSound } from '../services/audio.js';
 import { resolveWaves } from '../services/experiments.js';
 
 const PATH_WIDTH = 44;
@@ -33,8 +34,11 @@ const BUILD_CLEARANCE = 48;
  * which keeps the tower palette clickable without the board reading the same
  * click as an attempt to build behind it. Deep enough to clear the two grid
  * rows the palette overlaps, neither of which held many tiles anyway.
+ *
+ * Exported so the HUD can pin things to the bottom of the strip and be certain
+ * they are not hanging over the board, where a click would do two things.
  */
-const HUD_HEIGHT = 128;
+export const HUD_HEIGHT = 128;
 const TILE_COLOUR = 0x2b323b;
 const VALID_TINT = 0x7fb069;
 const INVALID_TINT = 0xb5553f;
@@ -321,6 +325,8 @@ export default class GameScene extends Phaser.Scene {
       currency: this.currency
     });
 
+    playSound('wave-open');
+
     this.showBanner(
       `${COPY.hud.wave} ${this.waveNumber}`,
       COPY.board.waveIncoming
@@ -368,6 +374,10 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.wavesCleared += 1;
+
+    // Before the last wave check below, so every intake screened sounds the
+    // same, including the one that wins the run.
+    playSound('wave-clear');
 
     trackWaveCompleted({
       waveNumber: this.waveNumber,
@@ -631,6 +641,8 @@ export default class GameScene extends Phaser.Scene {
     this.queueReturn(applicant);
 
     applicant.reject();
+
+    playSound('reject');
 
     this.rejected += 1;
     this.currency += applicant.definition.bounty;
@@ -1037,6 +1049,8 @@ export default class GameScene extends Phaser.Scene {
     if (!this.canAfford(typeKey)) {
       this.events.emit('purchase-failed', typeKey);
 
+      playSound('denied');
+
       return;
     }
 
@@ -1056,6 +1070,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.towers.push(tower);
     this.occupiedCells.add(this.cellKey(gridX, gridY));
+
+    playSound('place');
 
     trackTowerPlaced({
       towerType: typeKey,
@@ -1087,6 +1103,8 @@ export default class GameScene extends Phaser.Scene {
     if (!this.canLayTrap(typeKey)) {
       this.events.emit('trap-limit', typeKey);
 
+      playSound('denied');
+
       return;
     }
 
@@ -1114,6 +1132,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.traps.push(trap);
     this.startTrapDelay(typeKey, definition);
+
+    playSound('place');
 
     // A trap snaps to the path rather than to a cell, so the grid position
     // recorded is the cell it landed in. Good enough to see where on the board
@@ -1313,6 +1333,8 @@ export default class GameScene extends Phaser.Scene {
 
   showLeak() {
     const vacancy = this.path.getEndPoint();
+
+    playSound('leak');
 
     this.cameras.main.shake(180, 0.005);
 
