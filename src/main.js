@@ -4,6 +4,8 @@ import { COPY } from './content/copy.js';
 import BootScene from './scenes/BootScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
 import GameScene from './scenes/GameScene.js';
+import HomeScene from './scenes/HomeScene.js';
+import PauseScene from './scenes/PauseScene.js';
 import UIScene from './scenes/UIScene.js';
 import { initAnalytics } from './services/analytics.js';
 import { initExperiments } from './services/experiments.js';
@@ -19,8 +21,12 @@ const config = {
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
   // Only the first scene starts on boot. BootScene loads the art and starts
-  // GameScene, which launches the other two.
-  scene: [BootScene, GameScene, UIScene, GameOverScene]
+  // HomeScene, which starts GameScene when the player asks for a run, which
+  // launches the rest of them.
+  //
+  // The order is the drawing order, so the two scenes that go over a held board
+  // come after the HUD they have to cover.
+  scene: [BootScene, HomeScene, GameScene, UIScene, GameOverScene, PauseScene]
 };
 
 /**

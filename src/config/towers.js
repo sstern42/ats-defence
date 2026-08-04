@@ -6,7 +6,8 @@
  * and fire on a reload. 'slow' towers never fire, they just hold a field that
  * drags anything inside it down to `slowMultiplier` of its walking speed.
  * 'trap' is not a tower at all: it is laid on the path, waits, and goes off
- * once.
+ * once. `maxArmed` is how many of it can be on the board, and `rearmDelayMs`
+ * how long after setting one before another will go down.
  *
  * A shooting tower does a flat `damage`, unless it has `damageMin` and
  * `damageMax`, in which case every hit is rolled between the two. `splashRadius`
@@ -95,10 +96,14 @@ export const TOWERS = {
   },
   salaryExpectations: {
     // Free, because asking costs nothing. `maxArmed` is what stops the board
-    // being paved with them.
+    // being paved with them, and `rearmDelayMs` is what stops one being set the
+    // instant the last one goes off. Measured from setting rather than from
+    // springing, so it caps how often the question can be asked however the
+    // player clicks.
     behaviour: 'trap',
     cost: 0,
     maxArmed: 1,
+    rearmDelayMs: 4000,
     triggerRadius: 34,
     damage: 140,
     footprint: 30,

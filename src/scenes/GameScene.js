@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { APPLICANTS } from '../config/applicants.js';
 import { GAME } from '../config/game.js';
+import { introKeyFor } from '../config/intros.js';
 import { PATH_WAYPOINTS } from '../config/path.js';
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
@@ -13,10 +14,13 @@ import {
   trackApplicantLeaked,
   trackGameOver,
   trackGameStarted,
+  trackRestartClicked,
+  trackRunQuit,
   trackTowerPlaced,
   trackWaveCompleted,
   trackWaveStarted
 } from '../services/analytics.js';
+import { playSound } from '../services/audio.js';
 import { resolveWaves } from '../services/experiments.js';
 
 const PATH_WIDTH = 44;
@@ -33,8 +37,11 @@ const BUILD_CLEARANCE = 48;
  * which keeps the tower palette clickable without the board reading the same
  * click as an attempt to build behind it. Deep enough to clear the two grid
  * rows the palette overlaps, neither of which held many tiles anyway.
+ *
+ * Exported so the HUD can pin things to the bottom of the strip and be certain
+ * they are not hanging over the board, where a click would do two things.
  */
-const HUD_HEIGHT = 128;
+export const HUD_HEIGHT = 128;
 const TILE_COLOUR = 0x2b323b;
 const VALID_TINT = 0x7fb069;
 const INVALID_TINT = 0xb5553f;
@@ -65,6 +72,29 @@ const BANNER_HOLD_MS = 1100;
 
 /** A new face is introduced for longer, since there is more to read. */
 const NOTICE_HOLD_MS = 2600;
+
+/**
+ * The card a new applicant type is introduced on. It sits just under the HUD,
+ * clear of the path, and it does not stop the wave: a type turns up in the
+ * middle of an intake and holding the board for it would be worse than not
+ * introducing it at all.
+ *
+ * The card is not interactive, so a click on it is a click on the board
+ * underneath, the same as the plain notice it replaced. It is sized and placed
+ * to finish above the path's highest leg, since an applicant walking behind an
+ * opaque card is an applicant the player cannot shoot at.
+ */
+const CARD_WIDTH = 404;
+const CARD_HEIGHT = 92;
+const CARD_PADDING = 8;
+const CARD_ART_SIZE = 76;
+const CARD_RADIUS = 10;
+const CARD_FILL = 0x1a1f26;
+const CARD_EDGE = 0x39566b;
+
+/** How far the card rises as it pops in, and how long it takes about it. */
+const CARD_RISE = 12;
+const CARD_POP_MS = 280;
 
 /**
  * How close the pointer has to be to the path before a trap will go down.
@@ -114,6 +144,12 @@ export default class GameScene extends Phaser.Scene {
     this.applicants = this.add.group();
     this.towers = [];
     this.traps = [];
+
+    // When each trap type may next be set, keyed by type. A trap is free and
+    // is spent on contact, so without this a player can lay one, watch it go
+    // off and lay the next in the same second, which turns a one-off into a
+    // rather effective machine gun.
+    this.trapReadyAt = {};
     this.occupiedCells = new Set();
     this.shots = [];
     this.bursts = [];
@@ -176,6 +212,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.input.keyboard.on('keydown-SPACE', () => this.skipPreparation());
+    this.input.keyboard.on('keydown-ESC', () => this.openPause());
 
     // A restart builds this scene again, so this is also where a second and
     // third attempt are counted.
@@ -296,6 +333,71 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Holds the run where it is and puts the pause screen over it. Pausing this
+   * scene stops its clock as well as its update, so the wave, the countdown and
+   * every trap waiting to be reset all pick up where they left off.
+   *
+   * A pause is not an analytics event. Nothing in the spec asks how often a
+   * player looks away, and a feature existing is not a reason for an event.
+   */
+  openPause() {
+    if (this.runOver || this.scene.isPaused()) {
+      return;
+    }
+
+    // The ghost is drawn from the last pointer position, and the pointer is
+    // about to be somewhere else entirely.
+    this.ghost.setVisible(false);
+    this.ghostRange.clear();
+
+    this.scene.launch('PauseScene');
+    this.scene.pause();
+  }
+
+  /**
+   * Back to the board, with nothing changed by the visit.
+   */
+  resumeRun() {
+    this.scene.stop('PauseScene');
+    this.scene.resume();
+  }
+
+  /**
+   * The player would rather start again than play this one out. The run ends
+   * here without a game over, so it is reported as abandoned before the restart
+   * is counted, which keeps a run from simply disappearing from the funnel.
+   *
+   * Restarting this scene runs create again, which relaunches the HUD and takes
+   * a fresh experiment assignment, the same as a restart from the game over
+   * screen.
+   */
+  restartRun() {
+    trackRunQuit('restart');
+    trackRestartClicked({
+      fromWave: this.waveNumber,
+      previousScore: this.score
+    });
+
+    this.scene.stop('PauseScene');
+    this.scene.restart();
+  }
+
+  /**
+   * Out of the run altogether and back to the front page. The score is not
+   * offered to the leaderboard, because a run that was walked out of halfway is
+   * not a run anybody screened.
+   */
+  leaveRun() {
+    trackRunQuit('quit');
+
+    this.scene.stop('PauseScene');
+    this.scene.stop('UIScene');
+
+    // Stops this scene and starts the front page in its place.
+    this.scene.start('HomeScene');
+  }
+
+  /**
    * Opens the wave. Every group is scheduled up front, since a wave is a fixed
    * list of arrivals and nothing during it changes what is coming.
    */
@@ -323,6 +425,8 @@ export default class GameScene extends Phaser.Scene {
       livesRemaining: this.lives,
       currency: this.currency
     });
+
+    playSound('wave-open');
 
     this.showBanner(
       `${COPY.hud.wave} ${this.waveNumber}`,
@@ -371,6 +475,10 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.wavesCleared += 1;
+
+    // Before the last wave check below, so every intake screened sounds the
+    // same, including the one that wins the run.
+    playSound('wave-clear');
 
     trackWaveCompleted({
       waveNumber: this.waveNumber,
@@ -460,31 +568,89 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * A smaller line, just under the HUD, for the things that are worth knowing
-   * but not worth stopping for. It sits away from the middle so a wave banner
-   * and a new face can both be up at once.
+   * The card a new face arrives on, just under the HUD, out of the way of the
+   * middle so a wave banner and an introduction can both be up at once.
+   *
+   * The animation is tinted with the applicant's own colour, the same colour
+   * the thing walking down the path is drawn in, so the two are recognisably
+   * the same person. A type with nothing drawn for it still gets the card, with
+   * the text spread across the whole of it.
    */
-  showNotice(text) {
+  showNotice(typeKey, name, trait) {
+    const artKey = introKeyFor(typeKey);
+    const left = -CARD_WIDTH / 2;
+    const textLeft = artKey
+      ? CARD_PADDING * 2 + CARD_ART_SIZE
+      : CARD_PADDING * 2;
+    const resting = HUD_HEIGHT + 4;
+
     this.clearNotice();
 
-    this.notice = this.add
-      .text(this.scale.width / 2, HUD_HEIGHT + 22, text, {
+    const card = this.add.container(this.scale.width / 2, resting + CARD_RISE);
+    const panel = this.add.graphics();
+
+    panel.fillStyle(CARD_FILL, 0.94);
+    panel.fillRoundedRect(left, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
+    panel.lineStyle(1, CARD_EDGE, 0.8);
+    panel.strokeRoundedRect(left, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
+
+    card.add(panel);
+
+    if (artKey) {
+      const art = this.add
+        .sprite(
+          left + CARD_PADDING + CARD_ART_SIZE / 2,
+          CARD_HEIGHT / 2,
+          artKey
+        )
+        .setDisplaySize(CARD_ART_SIZE, CARD_ART_SIZE)
+        .setTint(APPLICANTS[typeKey].colour);
+
+      art.play(artKey);
+      card.add(art);
+    }
+
+    card.add(
+      this.add
+        .text(left + textLeft, 30, name, {
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '18px',
+          color: '#e6ebf0'
+        })
+        .setOrigin(0, 0.5)
+    );
+
+    card.add(
+      this.add.text(left + textLeft, 46, trait, {
         fontFamily: 'system-ui, sans-serif',
-        fontSize: '15px',
-        color: '#c8d2dc',
-        align: 'center',
-        lineSpacing: 4
+        fontSize: '13px',
+        color: '#8b98a6',
+        lineSpacing: 4,
+        wordWrap: { width: CARD_WIDTH - textLeft - CARD_PADDING }
       })
-      .setOrigin(0.5, 0)
-      .setAlpha(0)
-      .setDepth(DEPTHS.hint);
+    );
+
+    card.setAlpha(0).setScale(0.94).setDepth(DEPTHS.hint);
+
+    this.notice = card;
+
+    // In with a little overshoot, which is the whole of the pop, then a plain
+    // fade out once it has been up long enough to read.
+    this.tweens.add({
+      targets: card,
+      alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
+      y: resting,
+      duration: CARD_POP_MS,
+      ease: 'Back.easeOut'
+    });
 
     this.tweens.add({
-      targets: this.notice,
-      alpha: 1,
+      targets: card,
+      alpha: 0,
+      delay: CARD_POP_MS + NOTICE_HOLD_MS,
       duration: BANNER_FADE_MS,
-      hold: NOTICE_HOLD_MS,
-      yoyo: true,
       onComplete: () => this.clearNotice()
     });
   }
@@ -494,7 +660,14 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.notice.destroy();
+    // The pop and the fade are taken off first. Phaser leaves a tween pointing
+    // at a destroyed target, so without this a card cleared early would still
+    // run its own fade out afterwards and clear whatever had replaced it.
+    this.tweens.killTweensOf(this.notice);
+
+    // Destroying the container takes the panel, the animation and both lines of
+    // text with it.
+    this.notice.destroy(true);
     this.notice = null;
   }
 
@@ -634,6 +807,8 @@ export default class GameScene extends Phaser.Scene {
     this.queueReturn(applicant);
 
     applicant.reject();
+
+    playSound('reject');
 
     this.rejected += 1;
     this.currency += applicant.definition.bounty;
@@ -1057,7 +1232,9 @@ export default class GameScene extends Phaser.Scene {
       return {
         x: onPath.x,
         y: onPath.y,
-        allowed: this.canLayTrap(),
+        // A trap still cooling off reads the same as one already armed, since
+        // neither is going down on this click.
+        allowed: this.canLayTrap() && this.trapWaitRemaining() === 0,
         radius: definition.triggerRadius
       };
     }
@@ -1084,7 +1261,10 @@ export default class GameScene extends Phaser.Scene {
    * event rather than tracking the selection itself, so the two cannot drift.
    */
   selectTower(typeKey) {
-    if (this.runOver || !TOWERS[typeKey]) {
+    // The HUD carries on drawing while this scene is paused, so a click on a
+    // palette button behind the pause screen still arrives here. Nothing is
+    // being placed while the board is held, so nothing is being chosen either.
+    if (this.runOver || this.scene.isPaused() || !TOWERS[typeKey]) {
       return;
     }
 
@@ -1108,6 +1288,16 @@ export default class GameScene extends Phaser.Scene {
     const armed = this.traps.filter((trap) => trap.typeKey === typeKey).length;
 
     return armed < TOWERS[typeKey].maxArmed;
+  }
+
+  /**
+   * How much longer this trap type has to wait, in milliseconds, and zero once
+   * it is ready. The clock starts when one is set rather than when it goes off,
+   * so it is a cap on how often the question gets asked rather than something
+   * a well timed click can shorten.
+   */
+  trapWaitRemaining(typeKey = this.selectedTowerKey) {
+    return Math.max(0, (this.trapReadyAt[typeKey] ?? 0) - this.time.now);
   }
 
   placeTower(x, y) {
@@ -1135,6 +1325,8 @@ export default class GameScene extends Phaser.Scene {
     if (!this.canAfford(typeKey)) {
       this.events.emit('purchase-failed', typeKey);
 
+      playSound('denied');
+
       return;
     }
 
@@ -1154,6 +1346,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.towers.push(tower);
     this.occupiedCells.add(this.cellKey(gridX, gridY));
+
+    playSound('place');
 
     trackTowerPlaced({
       towerType: typeKey,
@@ -1185,6 +1379,19 @@ export default class GameScene extends Phaser.Scene {
     if (!this.canLayTrap(typeKey)) {
       this.events.emit('trap-limit', typeKey);
 
+      playSound('denied');
+
+      return;
+    }
+
+    const waiting = this.trapWaitRemaining(typeKey);
+
+    if (waiting > 0) {
+      this.events.emit('trap-waiting', {
+        typeKey,
+        secondsLeft: Math.ceil(waiting / 1000)
+      });
+
       return;
     }
 
@@ -1200,6 +1407,9 @@ export default class GameScene extends Phaser.Scene {
     trap.setDepth(DEPTHS.towers);
 
     this.traps.push(trap);
+    this.startTrapDelay(typeKey, definition);
+
+    playSound('place');
 
     // A trap snaps to the path rather than to a cell, so the grid position
     // recorded is the cell it landed in. Good enough to see where on the board
@@ -1218,6 +1428,32 @@ export default class GameScene extends Phaser.Scene {
 
     this.drawFields();
     this.updateGhost(x, y);
+  }
+
+  /**
+   * Shuts the trap type off for a moment after one has been set, and says so,
+   * so the palette can grey the button rather than leaving the player to work
+   * out why their clicks are doing nothing.
+   */
+  startTrapDelay(typeKey, definition) {
+    const delay = definition.rearmDelayMs ?? 0;
+
+    if (delay <= 0) {
+      return;
+    }
+
+    this.trapReadyAt[typeKey] = this.time.now + delay;
+    this.events.emit('trap-waiting-started', { typeKey, delay });
+
+    this.time.delayedCall(delay, () => {
+      this.events.emit('trap-ready', typeKey);
+
+      // The pointer may not have moved since, so the ghost is repainted here
+      // rather than waiting for it to.
+      if (this.hoveredPoint) {
+        this.updateGhost(this.hoveredPoint.x, this.hoveredPoint.y);
+      }
+    });
   }
 
   /**
@@ -1321,8 +1557,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * The first time a type turns up, it is named and its one awkward habit is
-   * said out loud. After that the player is on their own.
+   * The first time a type turns up, it is named, its one awkward habit is said
+   * out loud, and it gets a moment to itself on the card. After that the player
+   * is on their own.
    */
   introduceType(typeKey) {
     if (this.seenTypes.has(typeKey)) {
@@ -1334,7 +1571,7 @@ export default class GameScene extends Phaser.Scene {
     const applicant = COPY.applicants[typeKey];
 
     if (applicant) {
-      this.showNotice(`${applicant.name}\n${applicant.trait}`);
+      this.showNotice(typeKey, applicant.name, applicant.trait);
     }
   }
 
@@ -1373,6 +1610,8 @@ export default class GameScene extends Phaser.Scene {
 
   showLeak() {
     const vacancy = this.path.getEndPoint();
+
+    playSound('leak');
 
     this.cameras.main.shake(180, 0.005);
 

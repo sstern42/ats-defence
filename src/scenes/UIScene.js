@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
+import { soundEnabled, toggleSound } from '../services/audio.js';
 import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
+import { HUD_HEIGHT } from './GameScene.js';
 
 const FONT = 'system-ui, sans-serif';
 const MUTED_COLOUR = '#6f7d8c';
@@ -36,6 +38,9 @@ const PALETTE_ROW_GAP = 6;
 const PALETTE_COLUMNS = 3;
 const BUTTON_WIDTH = 232;
 
+/** Between the pause control and the sound toggle along the bottom. */
+const CONTROL_GAP = 20;
+
 /**
  * The HUD, run as its own scene on top of GameScene so it keeps rendering
  * while the game underneath is paused.
@@ -58,6 +63,11 @@ export default class UIScene extends Phaser.Scene {
     this.buttons = new Map();
     this.warningTimer = null;
 
+    // Trap types that have just been set and will not take another yet. Kept
+    // as a set rather than as timers, since GameScene owns the clock and says
+    // when each one is ready again.
+    this.waitingTraps = new Set();
+
     // Mirrored from GameScene so the first paint has something to read. Both
     // are kept up to date by its events from here on.
     this.currency = this.gameScene.currency;
@@ -65,6 +75,7 @@ export default class UIScene extends Phaser.Scene {
 
     this.createPalette();
     this.createReadouts();
+    this.createControls();
 
     this.showSelection(this.selectedTowerKey);
     this.showCurrency(this.currency);
@@ -172,6 +183,76 @@ export default class UIScene extends Phaser.Scene {
   }
 
   /**
+   * The two controls that are not part of playing, pinned along the bottom of
+   * the HUD strip under the hint line, which is the last free corner of it.
+   *
+   * Both are deliberately plain text rather than buttons, and both carry the
+   * key that does the same thing. Pause is anchored to the right edge and the
+   * sound toggle sits along from it, rather than the other way round, because
+   * the sound label changes width when it is flipped and the pause one does
+   * not, so nothing has to be moved when it changes.
+   */
+  createControls() {
+    const bottom = HUD_HEIGHT - 6;
+
+    this.pauseControl = this.plainControl(
+      this.scale.width - 16,
+      bottom,
+      COPY.hud.pause,
+      () => this.gameScene.openPause()
+    );
+
+    this.soundToggle = this.plainControl(
+      this.scale.width - 16 - this.pauseControl.width - CONTROL_GAP,
+      bottom,
+      '',
+      () => this.flipSound()
+    );
+
+    this.showSoundState();
+
+    this.input.keyboard.on('keydown-M', () => this.flipSound());
+  }
+
+  /**
+   * A line of text that lights up under the pointer and does one thing when it
+   * is clicked. Bottom right aligned, since that is the corner both live in.
+   */
+  plainControl(x, y, label, onClick) {
+    const control = this.add
+      .text(x, y, label, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: MUTED_COLOUR
+      })
+      .setOrigin(1, 1)
+      .setInteractive({ useHandCursor: true });
+
+    control.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
+      control.setColor(BODY_COLOUR)
+    );
+
+    control.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
+      control.setColor(MUTED_COLOUR)
+    );
+
+    control.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, onClick);
+
+    return control;
+  }
+
+  flipSound() {
+    toggleSound();
+    this.showSoundState();
+  }
+
+  showSoundState() {
+    this.soundToggle.setText(
+      soundEnabled() ? COPY.hud.soundOn : COPY.hud.soundOff
+    );
+  }
+
+  /**
    * What the hint line says when it has nothing more pressing to report. It
    * depends on the selection, since a trap goes somewhere a tower cannot, and
    * on whether there is a mouse, since the gesture is not the same one.
@@ -203,6 +284,9 @@ export default class UIScene extends Phaser.Scene {
       'tower-selected': this.showSelection,
       'purchase-failed': this.showShortfall,
       'trap-limit': this.showTrapLimit,
+      'trap-waiting': this.showTrapWait,
+      'trap-waiting-started': this.startTrapWait,
+      'trap-ready': this.endTrapWait,
       'wave-preparing': this.showPreparation,
       'wave-started': this.showWaveOpen,
       'run-over': this.stopPalette
@@ -309,19 +393,23 @@ export default class UIScene extends Phaser.Scene {
   }
 
   /**
-   * Repaints every button from the current selection and budget. Cheap enough
+   * Repaints every button from the current selection, the budget and any trap
+   * still waiting to be reset. Cheap enough
    * to do wholesale, and it means there is only one place that decides how a
    * button looks.
    */
   refreshButtons() {
     this.buttons.forEach((button, typeKey) => {
       const selected = typeKey === this.selectedTowerKey;
-      const affordable = TOWERS[typeKey].cost <= this.currency;
+      const placeable = this.available(typeKey);
 
       if (selected) {
         button.setBackgroundColor(BUTTON_SELECTED);
-        button.setColor(SELECTED_TEXT_COLOUR);
-      } else if (affordable) {
+        // Still the selection, but greyed while it cannot be placed, so a
+        // trap waiting to be reset shows on the button the player is most
+        // likely looking at.
+        button.setColor(placeable ? SELECTED_TEXT_COLOUR : DISABLED_TEXT_COLOUR);
+      } else if (placeable) {
         button.setBackgroundColor(BUTTON_IDLE);
         button.setColor(BODY_COLOUR);
       } else {
@@ -332,13 +420,24 @@ export default class UIScene extends Phaser.Scene {
   }
 
   /**
+   * Whether clicking the board with this selected would put anything down.
+   * The budget answers it for towers, and for a trap so does the wait after
+   * the last one was set.
+   */
+  available(typeKey) {
+    return (
+      TOWERS[typeKey].cost <= this.currency && !this.waitingTraps.has(typeKey)
+    );
+  }
+
+  /**
    * An unaffordable tower can still be selected, so the player can see what
    * they are saving up for. Hover only lights up the ones they could take now.
    */
   hover(typeKey, over) {
     const button = this.buttons.get(typeKey);
 
-    if (typeKey === this.selectedTowerKey || TOWERS[typeKey].cost > this.currency) {
+    if (typeKey === this.selectedTowerKey || !this.available(typeKey)) {
       return;
     }
 
@@ -372,6 +471,29 @@ export default class UIScene extends Phaser.Scene {
    */
   showTrapLimit() {
     this.flashWarning(COPY.hud.trapArmed);
+  }
+
+  /**
+   * The player has clicked for another set of expectations too soon after the
+   * last. Same as the limit above, this is not a budget problem, so the budget
+   * is left alone.
+   */
+  showTrapWait({ secondsLeft }) {
+    this.flashWarning(`${COPY.hud.trapWaiting} ${secondsLeft}s.`);
+  }
+
+  /**
+   * A trap has gone down and its type is shut off for a moment. The button
+   * greys out so the wait is visible before anybody clicks into it.
+   */
+  startTrapWait({ typeKey }) {
+    this.waitingTraps.add(typeKey);
+    this.refreshButtons();
+  }
+
+  endTrapWait(typeKey) {
+    this.waitingTraps.delete(typeKey);
+    this.refreshButtons();
   }
 
   /**

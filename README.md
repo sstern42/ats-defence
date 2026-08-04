@@ -64,6 +64,41 @@ The art is greyscale on disk and tinted per type at runtime, so a tower's colour
 
 Every file was cropped, most were greyscaled and the turrets were turned a quarter turn. `public/assets/kenney/ATTRIBUTION.md` records what was done to each one and which original it came from.
 
+## Introductions
+
+The first time an applicant type turns up, it gets a card under the HUD with its
+name, its one awkward habit and a short looping animation of it. The Graduate
+throws a cap that does not come back. The Career Changer's CV is still unrolling
+when the frame runs out. The Overqualified stacks qualifications past the
+ceiling, the Keyword Stuffer fills a page in until there is nothing left on it to
+read, the Referral's barrier lifts well before they reach it, and the Boomerang
+comes back. The card does not stop the wave, since a type usually arrives in the
+middle of one.
+
+A found clip would have been funnier and was not an option: this repository is
+public, every other asset in it is CC0, and stock footage of somebody's actual
+graduation is neither ours to ship nor especially kind to the person in it. So
+`tools/make-intros.mjs` draws all six out of circles and rectangles, using Node
+built-ins and no dependency, and writes them out as sprite strips. They are
+greyscale like the rest of the art and tinted with the applicant's own colour, so
+the card and the thing walking down the path are recognisably the same person.
+See `public/assets/intros/README.md`.
+
+## Sound
+
+Six clips: a stamp when a process is installed, a flat two tone blip for a
+rejection, a low buzz when somebody reaches a human, notes up when applications
+open and down when the intake is screened, and a dead thud when the budget will
+not stretch to it. On by default, at a volume set for a browser tab next to
+other things, and turned off by the toggle in the corner of the HUD or the M
+key. The choice is remembered.
+
+None of it is recorded. `tools/make-sounds.mjs` draws all six out of sine waves
+and envelopes, using Node built-ins and no dependency, which means each sound is
+a readable recipe rather than a binary and the whole set is 68kB. Levels and the
+gap between repeats are data in `src/config/audio.js`, on the same principle as
+the balance. See `public/assets/audio/README.md`.
+
 ## Licence
 
 MIT.

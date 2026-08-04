@@ -52,8 +52,22 @@ export const COPY = {
     },
     salaryExpectations: {
       name: 'Salary Expectations',
-      blurb: 'Free to ask, and asked once. Goes on the path itself, and only one at a time.'
+      blurb: 'Free to ask, and asked once. Goes on the path itself, one at a time, and not again straight away.'
     }
+  },
+  home: {
+    title: 'ATS Defence',
+    subtitle: 'You are Requisita, an applicant tracking system.',
+    body: 'One vacancy, and a great many people walking towards it. Install screening along the way and reject them before one of them reaches a human, who might read it properly and hire them.',
+    start: 'Open the vacancy',
+    startHint: 'or press space',
+    howToHeading: 'How the screening works',
+    howTo: [
+      'Click a free tile to install a screening process.',
+      'Keys 1 to 6 pick which one, and the budget decides the rest.',
+      'Salary Expectations goes on the path itself, and only once.',
+      'Space opens each intake early, if you are ready for it.'
+    ]
   },
   hints: {
     placeTower: 'Click a free tile to install.',
@@ -73,9 +87,25 @@ export const COPY = {
     free: 'free',
     shortfall: 'The budget will not stretch to that.',
     trapArmed: 'One set of salary expectations at a time.',
+    // The seconds left are added on after, so the wait is a number rather than
+    // a mystery.
+    trapWaiting: 'Salary bands under review, ready in',
     wave: 'Intake',
     waveOf: 'of',
-    waveOpensIn: 'opens in'
+    waveOpensIn: 'opens in',
+    soundOn: 'M. Sound on',
+    soundOff: 'M. Sound off',
+    pause: 'Esc. Pause'
+  },
+  pause: {
+    title: 'Screening on hold',
+    body: 'The board is held where it is and nobody is being processed. Requisita has stepped away from the desk, which is within policy.',
+    resume: 'Back to screening',
+    restart: 'Repost the vacancy',
+    restartNote: 'Starts again at the first intake. This run stops here, unrated.',
+    exit: 'Close the vacancy',
+    exitNote: 'Back to the front page. This run stops here, unrated.',
+    hint: 'Esc also goes back to the board.'
   },
   board: {
     leak: 'Reached a human',
@@ -112,6 +142,7 @@ export const COPY = {
     heading: 'Best screeners',
     loading: 'Asking the board.',
     unavailable: 'The board is not answering. Your run still counted.',
+    unavailableHome: 'The board is not answering. The vacancy is open regardless.',
     empty: 'Nobody on it yet. The vacancy is wide open.',
     namePrompt: 'Name for the board',
     namePlaceholder: 'type a name',
