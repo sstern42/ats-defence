@@ -239,6 +239,21 @@ export function trackGameOver({ finalWave, score }) {
   });
 }
 
+/**
+ * The player has ended a run themselves, from the pause screen, rather than
+ * playing it out or wandering off. `reason` is `restart` if they went straight
+ * into another run and `quit` if they went back to the front page.
+ *
+ * It is `run_abandoned` rather than a fourteenth event because that is exactly
+ * what it is: a run that ended without a `game_over`, which without this would
+ * leave a run in the data with no ending at all. The two new reasons sit
+ * alongside `unload`, `hidden` and `idle`, and the early abandonment metric
+ * already filters on reason, so nothing that was being measured moves.
+ */
+export function trackRunQuit(reason) {
+  abandonRun(reason);
+}
+
 export function trackRestartClicked({ fromWave, previousScore }) {
   track('restart_clicked', {
     from_wave: fromWave,
@@ -266,8 +281,9 @@ export function trackKofiClicked({ fromScreen, finalWave }) {
 
 /**
  * The player has gone: the page is closing, the tab has been hidden and stayed
- * hidden, or nothing has been touched for a minute. It fires once per run at
- * most, and only while a run is actually in progress.
+ * hidden, nothing has been touched for a minute, or they have ended the run
+ * from the pause screen. It fires once per run at most, and only while a run is
+ * actually in progress.
  *
  * `reason` is not in the original spec and is here because the first real run
  * through the collector produced a `run_abandoned` at wave five from a player
