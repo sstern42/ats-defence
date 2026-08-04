@@ -101,6 +101,12 @@ export default class GameScene extends Phaser.Scene {
     this.applicants = this.add.group();
     this.towers = [];
     this.traps = [];
+
+    // When each trap type may next be set, keyed by type. A trap is free and
+    // is spent on contact, so without this a player can lay one, watch it go
+    // off and lay the next in the same second, which turns a one-off into a
+    // rather effective machine gun.
+    this.trapReadyAt = {};
     this.occupiedCells = new Set();
     this.shots = [];
     this.bursts = [];
@@ -941,7 +947,9 @@ export default class GameScene extends Phaser.Scene {
       return {
         x: onPath.x,
         y: onPath.y,
-        allowed: this.canLayTrap(),
+        // A trap still cooling off reads the same as one already armed, since
+        // neither is going down on this click.
+        allowed: this.canLayTrap() && this.trapWaitRemaining() === 0,
         radius: definition.triggerRadius
       };
     }
@@ -992,6 +1000,16 @@ export default class GameScene extends Phaser.Scene {
     const armed = this.traps.filter((trap) => trap.typeKey === typeKey).length;
 
     return armed < TOWERS[typeKey].maxArmed;
+  }
+
+  /**
+   * How much longer this trap type has to wait, in milliseconds, and zero once
+   * it is ready. The clock starts when one is set rather than when it goes off,
+   * so it is a cap on how often the question gets asked rather than something
+   * a well timed click can shorten.
+   */
+  trapWaitRemaining(typeKey = this.selectedTowerKey) {
+    return Math.max(0, (this.trapReadyAt[typeKey] ?? 0) - this.time.now);
   }
 
   placeTower(x, y) {
@@ -1072,6 +1090,17 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
+    const waiting = this.trapWaitRemaining(typeKey);
+
+    if (waiting > 0) {
+      this.events.emit('trap-waiting', {
+        typeKey,
+        secondsLeft: Math.ceil(waiting / 1000)
+      });
+
+      return;
+    }
+
     const trap = new Trap(
       this,
       onPath.x,
@@ -1084,6 +1113,7 @@ export default class GameScene extends Phaser.Scene {
     trap.setDepth(DEPTHS.towers);
 
     this.traps.push(trap);
+    this.startTrapDelay(typeKey, definition);
 
     // A trap snaps to the path rather than to a cell, so the grid position
     // recorded is the cell it landed in. Good enough to see where on the board
@@ -1102,6 +1132,32 @@ export default class GameScene extends Phaser.Scene {
 
     this.drawFields();
     this.updateGhost(x, y);
+  }
+
+  /**
+   * Shuts the trap type off for a moment after one has been set, and says so,
+   * so the palette can grey the button rather than leaving the player to work
+   * out why their clicks are doing nothing.
+   */
+  startTrapDelay(typeKey, definition) {
+    const delay = definition.rearmDelayMs ?? 0;
+
+    if (delay <= 0) {
+      return;
+    }
+
+    this.trapReadyAt[typeKey] = this.time.now + delay;
+    this.events.emit('trap-waiting-started', { typeKey, delay });
+
+    this.time.delayedCall(delay, () => {
+      this.events.emit('trap-ready', typeKey);
+
+      // The pointer may not have moved since, so the ghost is repainted here
+      // rather than waiting for it to.
+      if (this.hoveredPoint) {
+        this.updateGhost(this.hoveredPoint.x, this.hoveredPoint.y);
+      }
+    });
   }
 
   /**

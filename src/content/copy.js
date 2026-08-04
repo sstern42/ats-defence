@@ -52,7 +52,7 @@ export const COPY = {
     },
     salaryExpectations: {
       name: 'Salary Expectations',
-      blurb: 'Free to ask, and asked once. Goes on the path itself, and only one at a time.'
+      blurb: 'Free to ask, and asked once. Goes on the path itself, one at a time, and not again straight away.'
     }
   },
   home: {
@@ -81,6 +81,9 @@ export const COPY = {
     free: 'free',
     shortfall: 'The budget will not stretch to that.',
     trapArmed: 'One set of salary expectations at a time.',
+    // The seconds left are added on after, so the wait is a number rather than
+    // a mystery.
+    trapWaiting: 'Salary bands under review, ready in',
     wave: 'Intake',
     waveOf: 'of',
     waveOpensIn: 'opens in'
