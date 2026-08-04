@@ -33,6 +33,20 @@ const HIDDEN_GRACE_MS = 30000;
 /** How many events are kept on `window` for looking at. Enough for a run. */
 const LOG_LIMIT = 200;
 
+/**
+ * Campaign parameters, read once when the session opens. They go on
+ * `session_started` rather than on every event, because attribution belongs to
+ * a session and repeating it a dozen times would bloat every row to say the
+ * same thing. Join on `session_id` to attribute anything else.
+ */
+const UTM_KEYS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term'
+];
+
 /** Anything the player does that says they are still sitting there. */
 const INPUT_EVENTS = [
   'pointerdown',
@@ -112,7 +126,8 @@ export function initAnalytics() {
   if (!existing) {
     track('session_started', {
       referrer: referrer(),
-      device_type: deviceType()
+      device_type: deviceType(),
+      ...campaign()
     });
   }
 }
@@ -424,6 +439,25 @@ function send(event) {
 
 function referrer() {
   return document.referrer || 'direct';
+}
+
+/**
+ * Whichever campaign parameters are actually present, truncated. A direct
+ * visit adds nothing at all rather than five nulls.
+ */
+function campaign() {
+  const params = new URLSearchParams(window.location.search);
+  const found = {};
+
+  UTM_KEYS.forEach((key) => {
+    const value = params.get(key);
+
+    if (value) {
+      found[key] = value.slice(0, 100);
+    }
+  });
+
+  return found;
 }
 
 /**
