@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { APPLICANTS } from '../config/applicants.js';
 import { GAME } from '../config/game.js';
+import { introKeyFor } from '../config/intros.js';
 import { PATH_WAYPOINTS } from '../config/path.js';
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
@@ -71,6 +72,29 @@ const BANNER_HOLD_MS = 1100;
 
 /** A new face is introduced for longer, since there is more to read. */
 const NOTICE_HOLD_MS = 2600;
+
+/**
+ * The card a new applicant type is introduced on. It sits just under the HUD,
+ * clear of the path, and it does not stop the wave: a type turns up in the
+ * middle of an intake and holding the board for it would be worse than not
+ * introducing it at all.
+ *
+ * The card is not interactive, so a click on it is a click on the board
+ * underneath, the same as the plain notice it replaced. It is sized and placed
+ * to finish above the path's highest leg, since an applicant walking behind an
+ * opaque card is an applicant the player cannot shoot at.
+ */
+const CARD_WIDTH = 404;
+const CARD_HEIGHT = 92;
+const CARD_PADDING = 8;
+const CARD_ART_SIZE = 76;
+const CARD_RADIUS = 10;
+const CARD_FILL = 0x1a1f26;
+const CARD_EDGE = 0x39566b;
+
+/** How far the card rises as it pops in, and how long it takes about it. */
+const CARD_RISE = 12;
+const CARD_POP_MS = 280;
 
 /**
  * How close the pointer has to be to the path before a trap will go down.
@@ -535,31 +559,89 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * A smaller line, just under the HUD, for the things that are worth knowing
-   * but not worth stopping for. It sits away from the middle so a wave banner
-   * and a new face can both be up at once.
+   * The card a new face arrives on, just under the HUD, out of the way of the
+   * middle so a wave banner and an introduction can both be up at once.
+   *
+   * The animation is tinted with the applicant's own colour, the same colour
+   * the thing walking down the path is drawn in, so the two are recognisably
+   * the same person. A type with nothing drawn for it still gets the card, with
+   * the text spread across the whole of it.
    */
-  showNotice(text) {
+  showNotice(typeKey, name, trait) {
+    const artKey = introKeyFor(typeKey);
+    const left = -CARD_WIDTH / 2;
+    const textLeft = artKey
+      ? CARD_PADDING * 2 + CARD_ART_SIZE
+      : CARD_PADDING * 2;
+    const resting = HUD_HEIGHT + 4;
+
     this.clearNotice();
 
-    this.notice = this.add
-      .text(this.scale.width / 2, HUD_HEIGHT + 22, text, {
+    const card = this.add.container(this.scale.width / 2, resting + CARD_RISE);
+    const panel = this.add.graphics();
+
+    panel.fillStyle(CARD_FILL, 0.94);
+    panel.fillRoundedRect(left, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
+    panel.lineStyle(1, CARD_EDGE, 0.8);
+    panel.strokeRoundedRect(left, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
+
+    card.add(panel);
+
+    if (artKey) {
+      const art = this.add
+        .sprite(
+          left + CARD_PADDING + CARD_ART_SIZE / 2,
+          CARD_HEIGHT / 2,
+          artKey
+        )
+        .setDisplaySize(CARD_ART_SIZE, CARD_ART_SIZE)
+        .setTint(APPLICANTS[typeKey].colour);
+
+      art.play(artKey);
+      card.add(art);
+    }
+
+    card.add(
+      this.add
+        .text(left + textLeft, 30, name, {
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '18px',
+          color: '#e6ebf0'
+        })
+        .setOrigin(0, 0.5)
+    );
+
+    card.add(
+      this.add.text(left + textLeft, 46, trait, {
         fontFamily: 'system-ui, sans-serif',
-        fontSize: '15px',
-        color: '#c8d2dc',
-        align: 'center',
-        lineSpacing: 4
+        fontSize: '13px',
+        color: '#8b98a6',
+        lineSpacing: 4,
+        wordWrap: { width: CARD_WIDTH - textLeft - CARD_PADDING }
       })
-      .setOrigin(0.5, 0)
-      .setAlpha(0)
-      .setDepth(DEPTHS.hint);
+    );
+
+    card.setAlpha(0).setScale(0.94).setDepth(DEPTHS.hint);
+
+    this.notice = card;
+
+    // In with a little overshoot, which is the whole of the pop, then a plain
+    // fade out once it has been up long enough to read.
+    this.tweens.add({
+      targets: card,
+      alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
+      y: resting,
+      duration: CARD_POP_MS,
+      ease: 'Back.easeOut'
+    });
 
     this.tweens.add({
-      targets: this.notice,
-      alpha: 1,
+      targets: card,
+      alpha: 0,
+      delay: CARD_POP_MS + NOTICE_HOLD_MS,
       duration: BANNER_FADE_MS,
-      hold: NOTICE_HOLD_MS,
-      yoyo: true,
       onComplete: () => this.clearNotice()
     });
   }
@@ -569,7 +651,14 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.notice.destroy();
+    // The pop and the fade are taken off first. Phaser leaves a tween pointing
+    // at a destroyed target, so without this a card cleared early would still
+    // run its own fade out afterwards and clear whatever had replaced it.
+    this.tweens.killTweensOf(this.notice);
+
+    // Destroying the container takes the panel, the animation and both lines of
+    // text with it.
+    this.notice.destroy(true);
     this.notice = null;
   }
 
@@ -1352,8 +1441,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * The first time a type turns up, it is named and its one awkward habit is
-   * said out loud. After that the player is on their own.
+   * The first time a type turns up, it is named, its one awkward habit is said
+   * out loud, and it gets a moment to itself on the card. After that the player
+   * is on their own.
    */
   introduceType(typeKey) {
     if (this.seenTypes.has(typeKey)) {
@@ -1365,7 +1455,7 @@ export default class GameScene extends Phaser.Scene {
     const applicant = COPY.applicants[typeKey];
 
     if (applicant) {
-      this.showNotice(`${applicant.name}\n${applicant.trait}`);
+      this.showNotice(typeKey, applicant.name, applicant.trait);
     }
   }
 
