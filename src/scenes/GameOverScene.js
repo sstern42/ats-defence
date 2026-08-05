@@ -9,8 +9,9 @@ import {
   trackRestartClicked,
   trackScoreSubmitted
 } from '../services/analytics.js';
-import { HAS_KEYBOARD } from '../services/device.js';
+import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
 import { submitScore } from '../services/leaderboard.js';
+import NameInput from '../services/nameInput.js';
 import LeaderboardPanel from './LeaderboardPanel.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -34,6 +35,7 @@ const BOARD_X = 588;
 
 const FIELD_WIDTH = 300;
 const FIELD_HEIGHT = 38;
+const FIELD_Y = 476;
 
 /** How fast the caret in the name box blinks. */
 const CARET_MS = 530;
@@ -42,18 +44,18 @@ const KOFI_COLOUR = '#7d8a99';
 const KOFI_HOVER_COLOUR = '#c7d94a';
 
 /**
- * What the line under the name box says while the box is empty.
+ * Picks the wording that suits what the player is holding.
  *
- * The name box is drawn on the canvas and fed by key presses, so without a
- * keyboard there is no way to fill it in. That is a real hole and the copy says
- * so rather than instructing a player to type. The score screen, the board and
- * the restart button all still work, so it is the filing that is missing and
- * not the ending.
+ * Both routes reach the same box and the same button, so these differ in what
+ * they ask for and never in what is offered. The test is the one NameInput is
+ * built on, so the line and the field it describes cannot disagree.
  */
+function hint(typed, tapped) {
+  return HAS_KEYBOARD ? typed : tapped;
+}
+
 function emptyHint() {
-  return HAS_KEYBOARD
-    ? COPY.leaderboard.emptyHint
-    : COPY.leaderboard.emptyHintTouch;
+  return hint(COPY.leaderboard.emptyHint, COPY.leaderboard.emptyHintTouch);
 }
 
 /**
@@ -63,10 +65,11 @@ function emptyHint() {
  * offered to the leaderboard. The offer is optional: a player who types
  * nothing and presses space gets the old behaviour and starts again.
  *
- * There is no HTML input over the canvas. The name box is drawn like
- * everything else and fed by keyboard events, which keeps the whole screen in
- * one coordinate system and avoids a DOM element that has to be positioned
- * against a scaled canvas.
+ * The name box is drawn like everything else on the screen, which keeps it in
+ * one coordinate system, and there is a real form field over it on a
+ * touchscreen because a soft keyboard opens for nothing else. That field is
+ * invisible and holds no state of its own: it hands its text back here, and
+ * what the player sees is still the box below it. See NameInput.
  */
 export default class GameOverScene extends Phaser.Scene {
   constructor() {
@@ -174,11 +177,11 @@ export default class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.field = this.add
-      .rectangle(LEFT_X, 476, FIELD_WIDTH, FIELD_HEIGHT, FIELD_COLOUR)
+      .rectangle(LEFT_X, FIELD_Y, FIELD_WIDTH, FIELD_HEIGHT, FIELD_COLOUR)
       .setStrokeStyle(1, FIELD_EDGE);
 
     this.nameText = this.add
-      .text(LEFT_X - FIELD_WIDTH / 2 + 12, 476, '', {
+      .text(LEFT_X - FIELD_WIDTH / 2 + 12, FIELD_Y, '', {
         fontFamily: MONO,
         fontSize: '16px',
         color: TITLE_COLOUR
@@ -227,7 +230,47 @@ export default class GameOverScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
+    this.createNameField();
     this.refreshName();
+  }
+
+  /**
+   * The invisible form field that gives a touchscreen a way into the box.
+   *
+   * Built last, because it asks to be kept clear of the soft keyboard as far
+   * down as the submit button, and asking the button where it is beats writing
+   * the number down twice. Everything else carries on reading this.playerName
+   * and never finds out which way it was filled in.
+   */
+  createNameField() {
+    if (!COARSE_POINTER) {
+      return;
+    }
+
+    const fieldBottom = FIELD_Y + FIELD_HEIGHT / 2;
+    const below = this.submitButton.getBounds().bottom - fieldBottom;
+
+    this.nameInput = new NameInput(this, {
+      x: LEFT_X,
+      y: FIELD_Y,
+      width: FIELD_WIDTH,
+      height: FIELD_HEIGHT,
+      spare: below,
+      onChange: (name) => {
+        this.playerName = name;
+        this.refreshName();
+      },
+      onSubmit: () => this.submit(),
+      onFocus: (focused) => {
+        // Whatever is in the box goes into the field as it opens, so the two
+        // never disagree about what the player has written.
+        if (focused) {
+          this.nameInput.take(this.playerName);
+        }
+
+        this.refreshName();
+      }
+    });
   }
 
   /**
@@ -235,7 +278,11 @@ export default class GameOverScene extends Phaser.Scene {
    * empty box cannot be submitted, and neither can one that already has been.
    */
   refreshName() {
-    const caret = this.caretVisible && !this.submitted ? '_' : ' ';
+    // A keyboard is always pointed at the box. A touchscreen is not until the
+    // box has been tapped, and a caret blinking in a field that is not taking
+    // anything is an invitation to type into thin air.
+    const taking = this.nameInput ? this.nameInput.focused : true;
+    const caret = this.caretVisible && taking && !this.submitted ? '_' : ' ';
 
     this.nameText.setText(`${this.playerName}${caret}`);
 
@@ -256,7 +303,7 @@ export default class GameOverScene extends Phaser.Scene {
     if (!this.submitted && !this.submitting) {
       this.hintText.setText(
         this.playerName.length > 0
-          ? COPY.leaderboard.typingHint
+          ? hint(COPY.leaderboard.typingHint, COPY.leaderboard.typingHintTouch)
           : emptyHint()
       );
     }
@@ -267,6 +314,12 @@ export default class GameOverScene extends Phaser.Scene {
    * different things depending on whether there is a name in the box.
    */
   handleKey(event) {
+    // A keyboard case on a tablet types into the field over the box, which
+    // reads its own keys and would otherwise be answered twice.
+    if (this.nameInput?.focused) {
+      return;
+    }
+
     if (this.submitted || this.submitting) {
       if (event.key === ' ' || event.key === 'Enter') {
         this.restart();
@@ -346,8 +399,14 @@ export default class GameOverScene extends Phaser.Scene {
 
     trackScoreSubmitted({ score: this.score, finalWave: this.waveNumber });
 
+    // Closes the soft keyboard and stops the box asking for a name that has
+    // already gone in.
+    this.nameInput?.finish();
+
     this.submitStatus.setColor(GOOD_COLOUR).setText(COPY.leaderboard.submitted);
-    this.hintText.setText(COPY.leaderboard.doneHint);
+    this.hintText.setText(
+      hint(COPY.leaderboard.doneHint, COPY.leaderboard.doneHintTouch)
+    );
     this.refreshName();
 
     // The board is read again so the player sees where they landed.
