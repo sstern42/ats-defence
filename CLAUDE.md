@@ -99,6 +99,7 @@ src/
     audio.js           Playback, throttling and the on or off state
     experiments.js     GrowthBook wrapper
     leaderboard.js     Score submission and top ten
+    nameInput.js       The invisible field a touchscreen types a name into
   content/
     copy.js            All user-facing strings
 netlify/functions/     collect, leaderboard, submit-score, and their lib
@@ -264,11 +265,22 @@ get the message.
 It qualified on the same terms sound did. Both routes end in the placement code
 the mouse already used, so there is no second way to place a tower to keep in
 step, and the route is chosen per event rather than at boot, so a laptop with a
-touchscreen carried on working without being asked which it was. One thing it
-did not finish: the name box is drawn on the canvas and fed by key presses, so
-a tablet can play and lose but cannot get on the leaderboard. The copy is
-honest about that rather than asking for a name that cannot be typed, which is
-a holding position and not a fix.
+touchscreen carried on working without being asked which it was.
+
+What it did not finish was the leaderboard. The name box is drawn on the canvas
+and was fed by key presses, so a tablet could play and lose but not get on the
+board, and the copy said so rather than asking for a name that could not be
+typed. That was a holding position, and it has since been closed: a soft
+keyboard only opens for a real form field, so there is now an invisible one sat
+over the drawn box on a coarse pointer, handing its text back to the scene. It
+is the same shape as the two above. Everything visible is still drawn on the
+canvas, the submission code is the one the keyboard already used, and the field
+is only built where there are no keys, so the typed route did not move.
+
+The one thing it adds that neither of the others needed is that the keyboard
+covers the box it opens for. The game is lifted clear while the field has focus
+and drops back when it loses it, which is the only reason anything outside the
+canvas gets moved.
 
 ### Still true whatever gets built
 

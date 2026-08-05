@@ -62,7 +62,7 @@ Placing a tower means seeing what it would take before committing to it, which a
 
 The gate is the size of the screen and nothing else: 900 by 600, or the message. No phone clears both in either orientation, so phones are turned away without having to be named, and a tablet clears them and renders the fixed 1024 by 768 board at close to its own size.
 
-One thing does not work on a tablet yet. The name box on the game over screen is drawn on the canvas and fed by key presses, so a run can be played, lost and restarted, but it cannot go on the leaderboard until that becomes a real input. The copy says so rather than asking for a name that cannot be typed.
+The leaderboard takes a tablet too, which it did not at first. A soft keyboard only opens for a real form field, and only when the player's own tap lands on it, so there is an invisible one sat exactly over the name box the game draws. It filters what it is given by the same rules the key presses went through, hands the text back and is never seen: the box, the letters and the caret are all still drawn on the canvas. It is only built where the pointer is coarse, so the keyboard route is untouched, and the game is lifted clear while the field has focus, since the keyboard covers the half of the screen the box sits in.
 
 ## Art
 

@@ -179,10 +179,12 @@ export const COPY = {
     columnScore: 'Rating',
     typingHint: 'Enter submits. Sixteen characters, and be nice.',
     emptyHint: 'Type a name to go on the board, or press space to start again.',
-    // Said where there is no keyboard to type a name with. The board is still
-    // shown, the run still counted, and the restart button is still a button.
-    // Only the filing is off the table, and the joke writes itself.
-    emptyHintTouch: 'The board takes written applications only. Yours cannot be filed from here.',
-    doneHint: 'Press space to reopen the vacancy.'
+    doneHint: 'Press space to reopen the vacancy.',
+    // The same three lines for a screen that is tapped rather than typed at.
+    // The box takes a name either way now, so these differ in how they ask for
+    // it and not in what is on offer.
+    typingHintTouch: 'Sixteen characters, and be nice.',
+    emptyHintTouch: 'Tap the box to put a name to it, or start again with the button.',
+    doneHintTouch: 'Reopen the vacancy with the button.'
   }
 };
