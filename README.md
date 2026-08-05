@@ -54,7 +54,13 @@ GrowthBook does the bucketing and nothing else. There is no data source behind i
 
 ## Platform
 
-Desktop only. Placing a tower means hovering a tile to see its range before committing, and a finger cannot hover. Smaller screens get an honest message instead of a broken board.
+Desktop and tablet. Phones get an honest message instead of a broken board.
+
+Placing a tower means seeing what it would take before committing to it, which a mouse does by hovering. A finger cannot hover, so on a touchscreen the two halves become pressing and lifting: the preview follows the drag and the tower lands where the finger comes off. It is drawn above the finger rather than under it, since a fingertip covers most of a cell. Which route an event takes is decided per event rather than once at boot, so a laptop with a touchscreen works either way, and both routes end in the same placement code.
+
+The gate is the size of the screen and nothing else: 900 by 600, or the message. No phone clears both in either orientation, so phones are turned away without having to be named, and a tablet clears them and renders the fixed 1024 by 768 board at close to its own size.
+
+One thing does not work on a tablet yet. The name box on the game over screen is drawn on the canvas and fed by key presses, so a run can be played, lost and restarted, but it cannot go on the leaderboard until that becomes a real input. The copy says so rather than asking for a name that cannot be typed.
 
 ## Art
 
