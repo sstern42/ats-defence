@@ -19,6 +19,28 @@
 -- comes from the preview query parameter and `unassigned:control` from a run
 -- that never got an answer out of GrowthBook. Neither is a player in the
 -- experiment, and folding either into an arm would quietly widen that side.
+--
+-- A third exclusion arrived after the first coverage check, and it is the one
+-- that is easy to forget. Every run in the database up to 4 August 2026 was
+-- the developer testing the game. Those carry clean arm strings, so the colon
+-- rule does not catch them and they sit in the denominator of every metric
+-- looking exactly like players. Seventeen of them against the 680 runs the
+-- power calculation hopes for is noise; against the hundred a launch post
+-- realistically produces it is not, and it is biased, since somebody testing
+-- their own game quits mid-run constantly and reloads far more than a stranger
+-- does.
+--
+-- Nothing in an event distinguishes them, so the cutoff is by time and it is
+-- the only thing that can be. It sits just after the last test run, which was
+-- a run started at 07:14:30 on 4 August whose abandonment fired at 07:15:24.
+--
+--   >>> received_at >= timestamptz '2026-08-04 07:16:00+00'
+--
+-- That line appears in every query below, marked `-- cutoff`. If it needs to
+-- move, move all of them, and remember that a value in the future silently
+-- returns nothing rather than erroring. Deleting the line shows the whole
+-- table, test runs included, which is occasionally what you want and never
+-- what the analysis wants.
 
 
 -- ---------------------------------------------------------------------------
@@ -27,6 +49,14 @@
 -- Run this first. If `unassigned:control` is a large share, GrowthBook is not
 -- answering for a lot of people and the rest of the file is measuring a small
 -- and possibly odd subset.
+--
+-- Run once on 5 August, before there was any real traffic to check, it came
+-- back with no `unassigned:control` and no `missing` at all, on nineteen test
+-- runs. So GrowthBook answered every single time it was asked. That is the
+-- failure this query exists to catch and it is not happening.
+--
+-- Drop the cutoff line to see the test runs too, which is the only way to get
+-- the picture that check was taken from.
 -- ---------------------------------------------------------------------------
 
 select
@@ -37,6 +67,7 @@ select
   max(received_at) as last_seen
 from public.analytics_events
 where event = 'game_started'
+  and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
 group by 1
 order by runs desc;
 
@@ -53,6 +84,7 @@ with runs as (
   from public.analytics_events
   where event = 'game_started'
     and run_id is not null
+    and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
   group by run_id
 ),
 assigned as (
@@ -89,6 +121,7 @@ with runs as (
   from public.analytics_events
   where event = 'game_started'
     and run_id is not null
+    and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
   group by run_id
 ),
 assigned as (
@@ -149,6 +182,7 @@ with runs as (
   from public.analytics_events
   where event = 'game_started'
     and run_id is not null
+    and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
   group by run_id
 ),
 assigned as (
@@ -208,6 +242,7 @@ with runs as (
   from public.analytics_events
   where event = 'game_started'
     and run_id is not null
+    and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
   group by run_id
 ),
 assigned as (
@@ -267,6 +302,7 @@ with runs as (
   from public.analytics_events
   where event = 'game_started'
     and run_id is not null
+    and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
   group by run_id
 ),
 assigned as (
@@ -387,6 +423,7 @@ with exposures as (
     min(properties ->> 'variation_id') as variation_id
   from public.analytics_events
   where event = 'experiment_viewed'
+    and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
   group by session_id
 ),
 played as (
@@ -396,6 +433,7 @@ played as (
     count(distinct run_id) as runs
   from public.analytics_events
   where event = 'game_started'
+    and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
   group by session_id
 )
 select

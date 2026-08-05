@@ -22,13 +22,24 @@
 --   guardrail:     control 7 of 70 finished runs, busy 0 of 65
 --   exposures:     busy 103 sessions, control 97, with 3 disagreements
 --
--- Three of those are traps rather than figures. The hidden and quit
+-- The seeding statement at the end reports 230 runs and 130 events sitting
+-- before the cutoff, being ten test runs of thirteen events each. None of them
+-- reach any figure above, which is the point of them.
+--
+-- Four of those are traps rather than figures. The hidden and quit
 -- abandonments in control exist to be excluded: drop the reason filter and
 -- control's early abandonment reads 30.0 instead of 20.0. The forced and
 -- unassigned runs all reach wave ten: drop the colon filter and the survival
--- curve and the guardrail both lift. The three planted disagreements are
--- sessions GrowthBook bucketed as busy that played control, and query seven
--- should find exactly three.
+-- curve and the guardrail both lift. Ten more control runs sit before the
+-- cutoff, backdated to the morning of the launch, standing for the developer
+-- testing: drop the cutoff line and control goes to 110 runs, its survival at
+-- wave ten goes from 7.0 to 15.5 and the guardrail from 10.0 to 21.3. The
+-- three planted disagreements are sessions GrowthBook bucketed as busy that
+-- played control, and query seven should find exactly three.
+--
+-- All four are the same kind of trap. Each one is a row that looks like a
+-- player and is not, and each is caught by a different line in the queries, so
+-- a figure that comes out right is evidence that line is still there.
 --
 -- Checked against Postgres 16 with all four migrations applied. All seven
 -- queries returned the figures above.
@@ -145,6 +156,15 @@ begin
     perform seed_run('f' || i, 'forced:busy', 10, 'game_over', 10);
     perform seed_run('u' || i, 'unassigned:control', 10, 'game_over', 10);
   end loop;
+
+  -- Developer test runs, backdated below to before the cutoff. Clean arm
+  -- strings, so the colon rule does not catch them and only the cutoff can.
+  -- Ten perfect control runs, which is the loudest thing they could be: let
+  -- them in and control gains ten runs, its survival at wave ten goes from 7.0
+  -- to 15.5, and the guardrail from 10.0 to 21.3.
+  for i in 1..10 loop
+    perform seed_run('x' || i, 'control', 10, 'game_over', 10);
+  end loop;
 end;
 $$;
 
@@ -188,8 +208,24 @@ from (
     and variant_assignments ->> 'starting-difficulty' in ('control', 'busy')
 ) s;
 
+-- The test runs go back in time last, once their exposures exist, so that a
+-- whole session moves together. Backdating the runs alone would leave each one
+-- with an exposure on the right side of the cutoff and a `game_started` on the
+-- wrong side, which is not a thing that can happen: a session is bucketed and
+-- starts its first run within a second or so, and the cutoff either takes both
+-- or neither. Split like that, query seven reports more sessions than runs and
+-- the mismatch looks like a bug in the query rather than in the fixture.
+--
+-- Matched on session_id rather than run_id because an exposure carries no run.
+update public.analytics_events
+set received_at = timestamptz '2026-08-04 06:00:00+00'
+where session_id like 'x%';
+
 select
   count(*) as events,
   count(distinct run_id) as runs,
-  count(*) filter (where event = 'experiment_viewed') as exposures
+  count(*) filter (where event = 'experiment_viewed') as exposures,
+  count(*) filter (
+    where received_at < timestamptz '2026-08-04 07:16:00+00'
+  ) as before_the_cutoff
 from public.analytics_events;
