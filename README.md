@@ -48,13 +48,21 @@ Thirteen events, six global properties on every one of them, all landing in Supa
 
 It has already earned its keep twice. The wave curve for the balancing pass was read off these events rather than guessed at, and the first real run through the collector exposed a bug in the abandonment tracking that would otherwise have quietly ruined the experiment's secondary metric.
 
+The dead weight question has its own queries in `docs/tower-usage.sql`: reach rather than raw placements, since the one trap is free and single use and would otherwise top every count, and a separate query for whether an unused tower is unwanted or merely unaffordable, which have opposite fixes. It also contains the query for which towers win games, together with the reason that query cannot answer it.
+
 One experiment runs at launch, on whether a busier first wave reduces early abandonment. The analysis was written down beforehand, including the part where the sample size is probably too small to conclude anything. See `docs/experiment-starting-difficulty.md`, and `docs/experiment-starting-difficulty.sql` for the queries that produce the numbers.
 
 GrowthBook does the bucketing and nothing else. There is no data source behind it, so the results are read out of Supabase rather than off its dashboard. The thirteenth event, `experiment_viewed`, is GrowthBook's own record that a player was bucketed, which is the one thing the arm string on every other event cannot tell you: a genuine control assignment and a run that never reached GrowthBook look identical otherwise.
 
 ## Platform
 
-Desktop only. Placing a tower means hovering a tile to see its range before committing, and a finger cannot hover. Smaller screens get an honest message instead of a broken board.
+Desktop and tablet. Phones get an honest message instead of a broken board.
+
+Placing a tower means seeing what it would take before committing to it, which a mouse does by hovering. A finger cannot hover, so on a touchscreen the two halves become pressing and lifting: the preview follows the drag and the tower lands where the finger comes off. It is drawn above the finger rather than under it, since a fingertip covers most of a cell. Which route an event takes is decided per event rather than once at boot, so a laptop with a touchscreen works either way, and both routes end in the same placement code.
+
+The gate is the size of the screen and nothing else: 900 by 600, or the message. No phone clears both in either orientation, so phones are turned away without having to be named, and a tablet clears them and renders the fixed 1024 by 768 board at close to its own size.
+
+One thing does not work on a tablet yet. The name box on the game over screen is drawn on the canvas and fed by key presses, so a run can be played, lost and restarted, but it cannot go on the leaderboard until that becomes a real input. The copy says so rather than asking for a name that cannot be typed.
 
 ## Art
 

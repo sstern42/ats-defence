@@ -216,7 +216,7 @@ Free tier Supabase projects pause after seven days of inactivity. Add a GitHub A
 
 ## Accessibility and platform
 
-- Desktop first. If mobile is not properly supported at launch, show an honest "desktop only" message rather than a broken layout.
+- Desktop first. If mobile is not properly supported at launch, show an honest "desktop only" message rather than a broken layout. It was not, and it did. Tablets came in afterwards, once a finger had a way to see a tower's range before committing to it, and the message is now shown to phones only. The rule is unchanged for whatever is next: an honest refusal beats a broken layout.
 - Test in Chrome, Safari and Firefox before announcing.
 - Open Graph title, description and image, since the launch happens on LinkedIn and the card preview matters.
 
@@ -244,14 +244,31 @@ reason, not because it is easy.
 ### Still deferred
 
 Tower upgrades, multiple maps, difficulty settings, user accounts, saved
-progress, mobile-specific controls, achievements. Post-launch decisions to be
-informed by the data. Do not add them because they seem easy.
+progress, achievements. Post-launch decisions to be informed by the data. Do
+not add them because they seem easy.
 
 Sound was on this list and came off it after launch, on request. Six clips,
 synthesised rather than licensed, with a toggle in the HUD and the choice
 remembered. It is the worked example of how something leaves the list: asked
 for, kept small, and self-contained enough that nothing already working had to
 move to fit it.
+
+Mobile-specific controls went the same way, which is why the list above is
+shorter than it was. A finger cannot hover, and hovering is the whole of what a
+mouse does before it commits to a tower, so the two halves became pressing and
+lifting: the preview follows a drag and the tower lands where the finger comes
+off. That removed the only reason the support gate asked for a fine pointer, so
+the gate is the size of the screen alone now and tablets are in. Phones still
+get the message.
+
+It qualified on the same terms sound did. Both routes end in the placement code
+the mouse already used, so there is no second way to place a tower to keep in
+step, and the route is chosen per event rather than at boot, so a laptop with a
+touchscreen carried on working without being asked which it was. One thing it
+did not finish: the name box is drawn on the canvas and fed by key presses, so
+a tablet can play and lose but cannot get on the leaderboard. The copy is
+honest about that rather than asking for a name that cannot be typed, which is
+a holding position and not a fix.
 
 ### Still true whatever gets built
 

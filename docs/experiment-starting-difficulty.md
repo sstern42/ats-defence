@@ -136,14 +136,134 @@ and that is what will be written up.
 
 ## Stopping point
 
-Whichever comes first:
+Originally: 340 assigned runs per arm, or 14 days after launch, whichever came
+first. The second half of that was wrong, and the coverage check on 5 August is
+what showed it.
+
+The rule counted days from the deploy. It should have counted from the arrival
+of players, and those turned out to be different things. The site went up on
+4 August, the launch post went out the same day, and a day later the database
+held nineteen runs, all of them the developer's own testing, with no arrivals
+from the post at all. A clock started at the deploy therefore expires on
+18 August over an empty table, and the honest description of what that would
+produce is not an underpowered experiment but no experiment at all, dressed as
+one: seventeen test runs with a survival curve and a z-test attached.
+
+So the clock hangs off traffic rather than off the calendar. Whichever comes
+first:
 
 - 340 assigned runs per arm, or
-- 14 days after launch.
+- 14 days from the first real run, meaning the first run after the cutoff
+  described below, or
+- 30 days from the launch post of 4 August 2026 with fewer than 60 assigned
+  runs in total, at which point the experiment is reported as never having
+  collected a sample.
 
-Then the experiment is turned off in GrowthBook, wave one is set to whichever
-arm the data favours or left on control if it does not favour either, and the
-result is written up including the interval.
+The third is a real outcome and gets written up as one. This document already
+holds that an inconclusive result is a valid result. A result of "the game had
+no players, so the question was never put to anybody" is the same kind of
+thing, and it is considerably more useful to a reader than a number computed
+from the developer playing their own game. The 60 is deliberately far below the
+340: it is not a power threshold, it is the point below which arithmetic stops
+meaning anything at all.
+
+Whichever branch ends it, the experiment is then turned off in GrowthBook, wave
+one is set to whichever arm the data favours or left on control if it does not
+favour either, and the result is written up including the interval.
+
+### The test runs are excluded
+
+Every run up to 4 August 2026 was the developer testing the game. Those runs
+carry ordinary arm strings, `control` and `busy`, so the colon rule that keeps
+out previews and GrowthBook failures does not touch them, and they would sit in
+the denominator of every metric looking exactly like players.
+
+Nothing on an event distinguishes a developer from a stranger, so the exclusion
+is by time and can only be by time:
+
+```
+received_at >= timestamptz '2026-08-04 07:16:00+00'
+```
+
+That is a minute after the last test run, which began at 07:14:30 and recorded
+its abandonment at 07:15:24. The line appears in all seven queries, marked
+`-- cutoff`, and twice in the last of them, which reads exposures and runs
+separately and joins them rather than deriving one from the other.
+
+It matters more than the count suggests. Seventeen runs against the 680 the
+power section hopes for is noise. Against the hundred a launch post plausibly
+produces it is a sixth of the sample, and it is biased rather than merely
+small: somebody testing their own game abandons mid-run constantly, reloads
+repeatedly, and already knows what every tower does.
+
+### Why there was no traffic, and what it was not
+
+Worth recording, because the obvious suspect was checked and cleared.
+
+The game turns phones away with an honest message, and the launch went out on
+LinkedIn, which is read mostly on phones. So the first guess was that the post
+worked and the support gate ate the traffic at the door.
+
+It did not. Analytics start before the gate, deliberately, so that an arrival
+on a phone still opens a session and still reports its `device_type`. Had
+phone traffic been arriving and bouncing, there would be `session_started`
+events with a mobile device type and no run after them. In the window after the
+cutoff there were no `session_started` events of any kind, on any device.
+Nobody arrived at all, and `referrer` on every event would have carried
+linkedin.com if they had.
+
+That is a distribution outcome rather than a game one, and it is the reason the
+stopping rule above has a branch for the sample never arriving.
+
+### What can be looked at before then
+
+Two of the seven queries, and only because neither of them is a result.
+
+Query 1 is coverage, and the file itself says to run it first. It counts how
+the assignment strings are distributed, which is a question about whether the
+instrumentation works rather than about which arm is winning. If
+`unassigned:control` is a large share, GrowthBook is not answering for a lot of
+people and everything else is being measured on a small and possibly odd
+subset. Finding that out on day fourteen means the fortnight is spent.
+
+It was run on 5 August, against the test runs, since those were all there was.
+No `unassigned:control` and no `missing`, on nineteen runs: GrowthBook answered
+every time it was asked. Two of the nineteen were `forced:busy`, which is the
+preview parameter and is exactly what testing looks like. The 11 to 6 split
+between the arms means nothing at that size, a split at least that lopsided
+happening about a third of the time on seventeen coin flips, and it is recorded
+here only so nobody later mistakes it for a sample ratio problem.
+
+Query 2 is the stopping rule itself. Checking whether the stopping point has
+arrived cannot be the thing that waits for the stopping point.
+
+Queries 3 to 7 are the survival curve, the abandonment rate, the guardrail, the
+test and the exposure check. Those are the result, they get looked at once, and
+looking early at a number this underpowered is how a run of noise becomes a
+finding.
+
+### Checking the queries before the day
+
+The readout happens once, so a query that turns out to be wrong on the day
+costs the whole collection period. `experiment-check.sql` is a fixture that
+builds a synthetic set of events with known answers: 100 assigned runs per arm,
+a survival curve that can be counted by hand, and four deliberate traps.
+
+Each trap is a row that looks like a player and is not, and each is caught by a
+different line in the queries, so a figure coming out right is evidence that
+line is still there. They are abandonments the reason filter must exclude,
+unassigned runs the colon filter must exclude, ten backdated test runs the
+cutoff must exclude, and three sessions whose exposure disagrees with the arm
+they played.
+
+Applied to an empty database with the four migrations on it, all seven queries
+returned the expected figures, including exactly three disagreements. The
+cutoff was checked in both directions rather than only for absence of harm:
+remove it and the ten test runs take control to 110 runs, survival at wave ten
+from 7.0 to 15.5 and the guardrail from 10.0 to 21.3.
+
+So the arithmetic is known good against the real schema, and what remains
+uncertain on the day is the data rather than the file reading it.
 
 ## Setting it up in GrowthBook
 
