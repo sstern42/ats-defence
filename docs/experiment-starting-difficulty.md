@@ -145,6 +145,44 @@ Then the experiment is turned off in GrowthBook, wave one is set to whichever
 arm the data favours or left on control if it does not favour either, and the
 result is written up including the interval.
 
+Launch was 4 August 2026, so the second of those falls on **18 August 2026**.
+The first will not arrive before it unless the launch post does considerably
+better than the section above expects.
+
+### What can be looked at before then
+
+Two of the seven queries, and only because neither of them is a result.
+
+Query 1 is coverage, and the file itself says to run it first. It counts how
+the assignment strings are distributed, which is a question about whether the
+instrumentation works rather than about which arm is winning. If
+`unassigned:control` is a large share, GrowthBook is not answering for a lot of
+people and everything else is being measured on a small and possibly odd
+subset. Finding that out on day fourteen means the fortnight is spent.
+
+Query 2 is the stopping rule itself. Checking whether the stopping point has
+arrived cannot be the thing that waits for the stopping point.
+
+Queries 3 to 7 are the survival curve, the abandonment rate, the guardrail, the
+test and the exposure check. Those are the result, they get looked at once, and
+looking early at a number this underpowered is how a run of noise becomes a
+finding.
+
+### Checking the queries before the day
+
+The readout happens once, so a query that turns out to be wrong on the day
+costs the whole collection period. `experiment-check.sql` is a fixture that
+builds a synthetic set of events with known answers: 100 assigned runs per arm,
+a survival curve that can be counted by hand, and three deliberate traps, being
+abandonments the reason filter must exclude, unassigned runs the colon filter
+must exclude, and three sessions whose exposure disagrees with the arm they
+played.
+
+Applied to an empty database with the four migrations on it, all seven queries
+returned the expected figures, including exactly three disagreements. So the
+arithmetic is known good against the real schema, and what remains uncertain on
+18 August is the data rather than the file reading it.
+
 ## Setting it up in GrowthBook
 
 The feature the code reads:
