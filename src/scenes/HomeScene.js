@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { KOFI_URL } from '../config/links.js';
+import { KOFI_URL, SITE_URL } from '../config/links.js';
 import { COPY } from '../content/copy.js';
 import { trackKofiClicked } from '../services/analytics.js';
 import { HAS_KEYBOARD } from '../services/device.js';
@@ -34,6 +34,14 @@ const KOFI_Y = 470;
 const HOW_TO_TOP = 508;
 const HOW_TO_GAP = 26;
 const HOW_TO_WIDTH = 470;
+
+/**
+ * The footer, under both columns and under the divider that separates them.
+ * The gap between the link and the notice, and the character in it.
+ */
+const FOOTER_Y = 700;
+const FOOTER_GAP = 10;
+const FOOTER_SEPARATOR = '·';
 
 /**
  * The page the game opens on.
@@ -81,6 +89,7 @@ export default class HomeScene extends Phaser.Scene {
     this.board.load();
 
     this.createKofiLink();
+    this.createFooter();
 
     // Space and enter both start, so a player who has just read the last line
     // of the how it works list does not have to go and find the button.
@@ -194,6 +203,62 @@ export default class HomeScene extends Phaser.Scene {
       // window.opener by whatever is on the other end.
       window.open(KOFI_URL, '_blank', 'noopener,noreferrer');
     });
+  }
+
+  /**
+   * The footer: where the game came from, and the copyright notice.
+   *
+   * Only on this screen. The tip jar is on the game over screen as well because
+   * a run just ended and that is the moment for it, but a footer is a footer
+   * and belongs on the page the game opens on, where it is not competing with a
+   * score, a name box and a restart button for the same strip of canvas.
+   *
+   * The year comes off the clock rather than being typed in, so the notice is
+   * right in January without anybody touching it.
+   *
+   * Drawn as two pieces so only the first is clickable. The link is measured
+   * once it exists and the notice is placed after it, which keeps the pair
+   * together whatever the copy is edited to say.
+   */
+  createFooter() {
+    const link = this.add
+      .text(LEFT_X, FOOTER_Y, COPY.credit.link, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: KOFI_COLOUR
+      })
+      .setInteractive({ useHandCursor: true });
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
+      link.setColor(KOFI_HOVER_COLOUR)
+    );
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
+      link.setColor(KOFI_COLOUR)
+    );
+
+    // A new tab, and noopener, same as the tip jar. No event goes with it: the
+    // event list answers the six questions in the spec and where somebody went
+    // after reading the footer is not one of them.
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
+      window.open(SITE_URL, '_blank', 'noopener,noreferrer');
+    });
+
+    const notice = COPY.credit.copyright.replace(
+      '{year}',
+      String(new Date().getFullYear())
+    );
+
+    this.add.text(
+      LEFT_X + link.width + FOOTER_GAP,
+      FOOTER_Y,
+      `${FOOTER_SEPARATOR} ${notice}`,
+      {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: MUTED_COLOUR
+      }
+    );
   }
 
   /**

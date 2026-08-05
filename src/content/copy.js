@@ -151,6 +151,12 @@ export const COPY = {
   kofi: {
     link: 'Requisita cannot be bribed. The developer can.'
   },
+  credit: {
+    link: 'A project by spencerstern.com',
+    // {year} is filled in from the clock when the footer is drawn, so nobody
+    // has to remember to come back and edit this every January.
+    copyright: '© {year} Spencer Stern'
+  },
   unsupported: {
     title: 'Not on a phone, for now',
     body: 'The board wants more room than this. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
