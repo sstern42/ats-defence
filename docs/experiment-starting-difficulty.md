@@ -247,15 +247,23 @@ finding.
 The readout happens once, so a query that turns out to be wrong on the day
 costs the whole collection period. `experiment-check.sql` is a fixture that
 builds a synthetic set of events with known answers: 100 assigned runs per arm,
-a survival curve that can be counted by hand, and three deliberate traps, being
-abandonments the reason filter must exclude, unassigned runs the colon filter
-must exclude, and three sessions whose exposure disagrees with the arm they
-played.
+a survival curve that can be counted by hand, and four deliberate traps.
+
+Each trap is a row that looks like a player and is not, and each is caught by a
+different line in the queries, so a figure coming out right is evidence that
+line is still there. They are abandonments the reason filter must exclude,
+unassigned runs the colon filter must exclude, ten backdated test runs the
+cutoff must exclude, and three sessions whose exposure disagrees with the arm
+they played.
 
 Applied to an empty database with the four migrations on it, all seven queries
-returned the expected figures, including exactly three disagreements. So the
-arithmetic is known good against the real schema, and what remains uncertain on
-18 August is the data rather than the file reading it.
+returned the expected figures, including exactly three disagreements. The
+cutoff was checked in both directions rather than only for absence of harm:
+remove it and the ten test runs take control to 110 runs, survival at wave ten
+from 7.0 to 15.5 and the guardrail from 10.0 to 21.3.
+
+So the arithmetic is known good against the real schema, and what remains
+uncertain on the day is the data rather than the file reading it.
 
 ## Setting it up in GrowthBook
 
