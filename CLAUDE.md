@@ -102,7 +102,7 @@ src/
     nameInput.js       The invisible field a touchscreen types a name into
   content/
     copy.js            All user-facing strings
-netlify/functions/     collect, leaderboard, submit-score, and their lib
+netlify/functions/     collect, health, leaderboard, submit-score, and their lib
 supabase/migrations/   Tables, RLS policies and later columns
 tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand

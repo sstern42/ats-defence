@@ -1,0 +1,61 @@
+# The collector stopped recording anything for two days and nothing said so.
+#
+# Migrations 0003 and 0004 were never applied to the production database, so
+# every insert named three columns that did not exist and PostgREST refused all
+# of them. The leaderboard kept working, because nothing in that path touches
+# those columns, and events go out through sendBeacon, which hands the browser
+# no response to notice. The failure existed only in a function log.
+#
+# This asks the site once a day whether anybody has finished a run whose events
+# never arrived, which is the one symptom quiet traffic cannot produce. The
+# reasoning behind that choice, and its limitation, are in
+# netlify/functions/health.mjs.
+#
+# It goes through the site's own function rather than talking to Supabase, so
+# no database credentials need to exist as GitHub secrets, which is the same
+# bargain keep-alive.yml makes and for the same reason.
+#
+# The note in keep-alive.yml about GitHub disabling scheduled workflows on a
+# quiet repository applies here too.
+name: Check the collector is collecting
+
+on:
+  schedule:
+    # Daily, offset off the hour, and away from the keep-alive ping so a
+    # failure in one is not read as a symptom of the other.
+    - cron: '41 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read collection health
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://ats.spencerstern.com' }}
+        run: |
+          set -euo pipefail
+
+          status=$(curl -sS -o /tmp/health.json -w '%{http_code}' \
+            --max-time 30 --retry 3 --retry-delay 10 \
+            "$SITE_URL/.netlify/functions/health")
+
+          echo "status: $status"
+          cat /tmp/health.json
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Health endpoint returned $status"
+            exit 1
+          fi
+
+          healthy=$(jq -r '.healthy' /tmp/health.json)
+          orphans=$(jq -r '.submissions_without_events' /tmp/health.json)
+          window=$(jq -r '.window_hours' /tmp/health.json)
+
+          if [ "$healthy" != "true" ]; then
+            echo "::error::$orphans score submissions in the last $window hours have no events behind them. Somebody played a whole run and none of it was recorded, so the collector is dropping events. Check the Netlify log for the collect function, and check that every migration in supabase/migrations has been applied."
+            exit 1
+          fi
+
+          echo "Collection looks healthy."
