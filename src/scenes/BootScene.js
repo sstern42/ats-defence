@@ -11,6 +11,7 @@ import {
 } from '../config/intros.js';
 import { TEXTURE_DIRECTORY, TEXTURE_KEYS } from '../config/scenery.js';
 import { initSound } from '../services/audio.js';
+import { initMusic } from '../services/music.js';
 
 /**
  * Loads the art and the sound, and hands over to HomeScene.
@@ -66,6 +67,10 @@ export default class BootScene extends Phaser.Scene {
     this.createIntroAnimations();
 
     initSound(this);
+
+    // Nothing to load for the music, since there is no clip: this only takes
+    // the audio context, and nothing is scheduled on it until a run starts.
+    initMusic(this);
 
     this.scene.start('HomeScene');
   }

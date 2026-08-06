@@ -28,6 +28,7 @@ Read these before writing anything.
 | Ground and furniture | Drawn by `tools/make-textures.mjs`, committed as PNG |
 | Applicant introductions | Drawn by `tools/make-intros.mjs`, committed as sprite strips |
 | Sound | Synthesised by `tools/make-sounds.mjs`, committed as WAV |
+| Music | Scheduled on the audio clock from `config/music.js`, no file |
 | Backend | Supabase (leaderboard and analytics, both behind Netlify functions) |
 | Experiments | GrowthBook |
 | Domain | ats.spencerstern.com |
@@ -109,12 +110,14 @@ src/
     art.js             Sprite manifest
     scenery.js         Ground and furniture manifest, and where it stands
     audio.js           Sound manifest, levels and repeat gaps
+    music.js           The chords the background music is played from
     intros.js          Applicant introduction manifest, frames and rate
     leaderboard.js     Name rules and read limits
     links.js           Outbound links
   services/
     analytics.js       Event emission
     audio.js           Playback, throttling and the on or off state
+    music.js           Books the next bar or two onto the audio clock
     feel.js            The small movements, and the one place that knows to sit still
     experiments.js     GrowthBook wrapper
     mode.js            Which mode the current run is
@@ -306,6 +309,25 @@ synthesised rather than licensed, with a toggle in the HUD and the choice
 remembered. It is the worked example of how something leaves the list: asked
 for, kept small, and self-contained enough that nothing already working had to
 move to fit it.
+
+Music followed it, on the same request and on the same terms, and the
+interesting part is that it has no asset. Nothing here can reach an asset host,
+an uncompressed loop worth listening to is twenty times the size of every other
+asset in the game put together, and there is no encoder on the machine to make
+it any smaller. So the track is four chords of hold music in `config/music.js`,
+booked onto the audio clock a bar ahead by `services/music.js`, with one note
+per bar picked at random so a long run never quite hears the same loop twice.
+It costs no bytes, and the difference between pleasant and irritating is a
+number in a config file rather than a hunt for a replacement track.
+
+It has its own toggle rather than riding the sound one, because wanting the game
+to make a noise when it rejects somebody and wanting it to play at you for
+twenty minutes are not the same want, and it is off until it is asked for, which
+is the opposite of the sound effects and deliberate: an effect is punctuation on
+something the player just did, music is a commitment made on their behalf.
+Sound off still means silence, music included. It emits nothing, on the same
+grounds the second mode does: no question in the spec asks how many players turn
+the music on.
 
 Mobile-specific controls went the same way, which is why the list above is
 shorter than it was. A finger cannot hover, and hovering is the whole of what a

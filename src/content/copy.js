@@ -144,11 +144,18 @@ export const COPY = {
     waveOpensIn: 'opens in',
     soundOn: 'M. Sound on',
     soundOff: 'M. Sound off',
+    // Music is its own switch, since wanting the game to make a noise when it
+    // rejects somebody and wanting it to play at you for twenty minutes are not
+    // the same want. N because M is taken and it is the next key along.
+    musicOn: 'N. Music on',
+    musicOff: 'N. Music off',
     pause: 'Esc. Pause',
-    // The same three with the key taken off the front. Both controls are
+    // The same four with the key taken off the front. All three controls are
     // tapped either way, so only the shortcut goes.
     soundOnTouch: 'Sound on',
     soundOffTouch: 'Sound off',
+    musicOnTouch: 'Music on',
+    musicOffTouch: 'Music off',
     pauseTouch: 'Pause'
   },
   pause: {

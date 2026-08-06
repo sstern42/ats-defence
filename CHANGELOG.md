@@ -7,6 +7,28 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.4.0 - 2026-08-06
+
+- Background music, for a run that wants it. Four chords of hold music on a
+  slow loop, which is what a piece of enterprise software should sound like
+  when you are waiting for it.
+- There is no music file. The notes are scheduled on the audio clock from
+  `config/music.js`, so the track costs nothing to download, never reaches the
+  end of itself, and the single note that wanders over the top of each bar is
+  picked fresh every time round.
+- Its own toggle in the HUD, on `N`, remembered between visits, and off to
+  begin with. Sound effects are unchanged and still on: an effect is
+  punctuation on something the player just did, music is a commitment made on
+  their behalf.
+- Sound off still means silence. The music toggle greys out to say so, and
+  turning the sound back on picks the chords up at the next bar.
+- Music runs with the board. It plays while a run is on, holds under the pause
+  screen, which is the one moment it is arguably diegetic, and stops when the
+  run does.
+
+No number in either mode moved, and nothing is said by the music that is not
+already on screen. Classic intake plays exactly as it did.
+
 ## 1.3.0 - 2026-08-06
 
 - The game answers back. A tower or a trap is installed rather than simply
