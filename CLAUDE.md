@@ -108,6 +108,7 @@ tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
 docs/                  Analysis notes, their queries and the fixtures
 netlify.toml           Build command, publish directory, Node version
+CHANGELOG.md           One entry per version, newest first
 ```
 
 **Balance lives in data, not code.** `waves.js`, `towers.js` and `applicants.js` must be plain exported objects with no logic. Tuning is the longest phase of this project and it must not require touching game logic.
@@ -292,6 +293,36 @@ canvas gets moved.
   recorded any other way, and that is the bar. A feature existing is not a
   reason on its own. Sound shipped without one.
 
+## Versioning
+
+The game carries a version number and it moves whenever something worth
+releasing ships.
+
+- **`package.json` is the single source of truth.** The version lives there and
+  nowhere else. If it is ever shown in the game, it is read from there rather
+  than typed in a second time.
+- **Bump it in the pull request that makes the change**, so the version and the
+  code it describes land together. A PR that changes what the player gets and
+  leaves the version alone is unfinished.
+- **Semver, read loosely.** Patch (`1.0.1`) for fixes, copy edits and balance
+  tuning. Minor (`1.1.0`) for a new feature, a new tower, a new applicant type
+  or anything that adds to what the game does. Major (`2.0.0`) is reserved for
+  something that changes what the game is, and it is not expected soon.
+- **Small still counts.** A tuning pass or a corrected line of copy is a patch
+  bump, not nothing. The point is that every release has a number attached to
+  it.
+- **Work that never reaches a player does not bump it.** Documentation, analysis
+  notes, queries, tooling and CI changes leave the version where it is.
+- **`CHANGELOG.md` records the bumps.** Newest version at the top, a heading per
+  version with the date, and a line or two per change in the same voice as the
+  rest of the repo. Write the entry in the PR that does the bump, not in a
+  sweep afterwards. It is a developer record and it is not shown to players,
+  so there is still nothing user facing to keep in step.
+- **A line the player would not notice does not need a line in the changelog.**
+  If the version did not move, there is nothing to write.
+
+Version `1.0.0` is the shipped MVP.
+
 ## Working style
 
 - **One step per branch, one branch per pull request.** Name the branch for the step. Open the PR and stop. Do not merge.
@@ -301,3 +332,4 @@ canvas gets moved.
 - Do not refactor working code without being asked.
 - If a step is taking much longer than expected, say so and propose a simpler version rather than continuing.
 - Ask before adding a dependency.
+- Bump the version in `package.json` and write the `CHANGELOG.md` entry in any PR whose change reaches the player. See "Versioning" above.
