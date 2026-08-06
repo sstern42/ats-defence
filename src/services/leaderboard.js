@@ -40,15 +40,20 @@ async function call(path, options = {}) {
 }
 
 /**
- * The top ten, best first. An empty list is a valid answer and means nobody
- * has submitted yet.
+ * The top ten for one mode, best first. An empty list is a valid answer and
+ * means nobody has submitted to that board yet.
+ *
+ * The mode goes on the query string rather than there being two endpoints,
+ * because it is the same question asked of a different set of runs. The server
+ * checks it against the mode list either way, so a hand edited parameter gets
+ * an error rather than a board.
  *
  * The list has to actually be a list. A 200 carrying something else is not an
  * empty board, it is something other than the function answering, and the two
  * want saying differently: one is a fact about the game, the other is a fault.
  */
-export async function fetchTopTen() {
-  const result = await call('leaderboard');
+export async function fetchTopTen(mode) {
+  const result = await call(`leaderboard?mode=${encodeURIComponent(mode)}`);
 
   if (!result.ok) {
     return result;
@@ -62,14 +67,20 @@ export async function fetchTopTen() {
 }
 
 /**
- * Sends one score. The server decides whether it is plausible, whether the
- * name will do and whether this run has been submitted before, so the reason
- * for a refusal comes back from there rather than being guessed at here.
+ * Sends one score to the board for the mode it was played in. The server
+ * decides whether it is plausible, whether the name will do and whether this
+ * run has been submitted before, so the reason for a refusal comes back from
+ * there rather than being guessed at here.
+ *
+ * The mode is part of what makes a score plausible rather than just a label on
+ * it: the two modes send different numbers of applicants, so the ceiling a
+ * submission is checked against is worked out from the wave list for the mode
+ * claimed.
  */
-export async function submitScore({ name, score, finalWave, runId }) {
+export async function submitScore({ name, score, finalWave, runId, mode }) {
   return call('submit-score', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, score, finalWave, runId })
+    body: JSON.stringify({ name, score, finalWave, runId, mode })
   });
 }

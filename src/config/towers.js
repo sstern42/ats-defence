@@ -15,6 +15,12 @@
  * `adjacencyBonus` is added to it while another tower is on a neighbouring
  * tile.
  *
+ * `integrity` is how much leaning on a tower will take before it is suspended
+ * pending review. Only the open advert mode reads it, since that is the only
+ * mode where applicants push back, and it is loosely priced: the cheap turret
+ * folds quickly and the expensive one does not. The trap has none, because a
+ * trap goes off on contact and there is nothing left to lean on.
+ *
  * Key order is the order the palette shows them in, which is also the order of
  * the number key shortcuts.
  *
@@ -35,7 +41,8 @@ export const TOWERS = {
     sprite: { base: 'tower-base', barrel: 'turret-twin' },
     bodyTint: 0x8fc4de,
     tracerColour: 0x8fc4de,
-    tracerDurationMs: 90
+    tracerDurationMs: 90,
+    integrity: 90
   },
   knockoutQuestion: {
     // No damage figure, because there is no arguing with it. A hit takes
@@ -49,7 +56,8 @@ export const TOWERS = {
     sprite: { base: 'tower-base', barrel: 'turret-missile' },
     bodyTint: 0xd98a6a,
     tracerColour: 0xd98a6a,
-    tracerDurationMs: 200
+    tracerDurationMs: 200,
+    integrity: 170
   },
   takeHomeTask: {
     behaviour: 'slow',
@@ -61,7 +69,8 @@ export const TOWERS = {
     // not shoot anybody. The field ring is what says what it is doing.
     sprite: { base: 'tower-base', barrel: 'turret-sensor' },
     bodyTint: 0xc7d94a,
-    fieldColour: 0xc7d94a
+    fieldColour: 0xc7d94a,
+    integrity: 140
   },
   cultureFitPanel: {
     // The range of the roll is the point of it. A panel with no agreed
@@ -78,7 +87,8 @@ export const TOWERS = {
     bodyTint: 0xbf9ad9,
     tracerColour: 0xbf9ad9,
     tracerDurationMs: 140,
-    burstDurationMs: 260
+    burstDurationMs: 260,
+    integrity: 150
   },
   videoScreen: {
     behaviour: 'shoot',
@@ -92,7 +102,8 @@ export const TOWERS = {
     bodyTint: 0x7fd9d0,
     tracerColour: 0x7fd9d0,
     tracerDurationMs: 110,
-    linkColour: 0x7fd9d0
+    linkColour: 0x7fd9d0,
+    integrity: 120
   },
   salaryExpectations: {
     // Free, because asking costs nothing. `maxArmed` is what stops the board

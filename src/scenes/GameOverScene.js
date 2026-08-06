@@ -11,6 +11,7 @@ import {
 } from '../services/analytics.js';
 import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
 import { submitScore } from '../services/leaderboard.js';
+import { currentModeKey } from '../services/mode.js';
 import NameInput from '../services/nameInput.js';
 import LeaderboardPanel from './LeaderboardPanel.js';
 
@@ -87,6 +88,10 @@ export default class GameOverScene extends Phaser.Scene {
     this.waveNumber = waveNumber;
     this.runId = getRunId();
 
+    // The board this run belongs to. Read here rather than at submission time
+    // so it cannot change under a player who leaves the screen open.
+    this.modeKey = currentModeKey();
+
     this.playerName = '';
     this.submitted = false;
     this.submitting = false;
@@ -117,7 +122,7 @@ export default class GameOverScene extends Phaser.Scene {
       fromScreen: 'game_over'
     });
 
-    this.board.load();
+    this.board.load(this.modeKey);
 
     this.input.keyboard.on('keydown', (event) => this.handleKey(event));
   }
@@ -381,7 +386,8 @@ export default class GameOverScene extends Phaser.Scene {
       name,
       score: this.score,
       finalWave: this.waveNumber,
-      runId: this.runId
+      runId: this.runId,
+      mode: this.modeKey
     });
 
     this.submitting = false;
@@ -410,7 +416,7 @@ export default class GameOverScene extends Phaser.Scene {
     this.refreshName();
 
     // The board is read again so the player sees where they landed.
-    this.board.load();
+    this.board.load(this.modeKey);
   }
 
   /**

@@ -1,4 +1,5 @@
 import { NAME_MAX_LENGTH, TOP_N } from '../config/leaderboard.js';
+import { DEFAULT_MODE } from '../config/modes.js';
 import { COPY } from '../content/copy.js';
 import { trackLeaderboardViewed } from '../services/analytics.js';
 import { fetchTopTen } from '../services/leaderboard.js';
@@ -26,6 +27,12 @@ const ROW_GAP = 23;
  * It owns the fetch as well as the drawing, since every state the board can be
  * in is a different thing on screen and there is nothing useful for a caller to
  * do with the result on its own.
+ *
+ * There is one of these per mode now, because the two modes send different
+ * numbers of applicants at a board of a different shape and a rating from one
+ * is not a rating from the other. Which one is on screen is decided per load,
+ * so the front page can switch between them as the tabs are pressed and the
+ * game over screen can show the one the run belongs to.
  */
 export default class LeaderboardPanel {
   /**
@@ -46,8 +53,11 @@ export default class LeaderboardPanel {
   create() {
     const { scene, x, y } = this;
 
-    scene.add
-      .text(x, y, COPY.leaderboard.heading, {
+    // The heading names the board, since there are two of them and a rating on
+    // one means nothing on the other. Written on every load rather than fixed
+    // here, because the front page switches between them.
+    this.heading = scene.add
+      .text(x, y, '', {
         fontFamily: FONT,
         fontSize: '17px',
         color: TITLE_COLOUR
@@ -112,12 +122,25 @@ export default class LeaderboardPanel {
     );
   }
 
-  async load() {
-    const result = await fetchTopTen();
+  /**
+   * Reads and draws one mode's board. Calling it again with the other mode
+   * swaps the panel over, which is what the front page tabs do.
+   *
+   * The request in flight when a second one is asked for is left to finish and
+   * then ignored, rather than being aborted. Two presses of two tabs is not a
+   * load worth cancelling, and the guard below is what stops the slower of the
+   * two painting over the answer to the newer question.
+   */
+  async load(modeKey = DEFAULT_MODE) {
+    this.modeKey = modeKey;
+    this.heading.setText(COPY.modes[modeKey].board);
+    this.showStatus(COPY.leaderboard.loading);
+
+    const result = await fetchTopTen(modeKey);
 
     // The scene can be gone by the time this resolves, if the player started a
     // run while the request was in flight.
-    if (!this.scene.scene.isActive()) {
+    if (!this.scene.scene.isActive() || this.modeKey !== modeKey) {
       return;
     }
 

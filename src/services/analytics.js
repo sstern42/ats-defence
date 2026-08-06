@@ -7,10 +7,18 @@
  * below rather than through `track` directly, which means this file is the
  * whole list of what gets emitted and there is nowhere else to look.
  *
- * Six global properties go on every event without exception. They are gathered
- * per event rather than frozen at boot, since the wave and the run change under
- * them and the experiment assignment will be asynchronous once GrowthBook
- * arrives at step 11.
+ * Seven global properties go on every event without exception. They are
+ * gathered per event rather than frozen at boot, since the wave and the run
+ * change under them and the experiment assignment will be asynchronous once
+ * GrowthBook arrives at step 11.
+ *
+ * The seventh is `mode`, and it was added when the game gained a second one. It
+ * is a property rather than an event because it is not a thing that happens: it
+ * is a fact about the run every other event is already reporting, and without
+ * it every question in the spec goes ambiguous the moment two modes exist. Where
+ * players quit, whether the curve is right and which towers are dead weight all
+ * have two answers now, and no way of telling them apart from an event that
+ * does not say which game it came from.
  *
  * The one exception is `experiment_viewed`, which has no call site because it
  * is not something the game does: it is GrowthBook saying a player was
@@ -23,6 +31,7 @@
  * checked before any store exists.
  */
 import { getVariantAssignments, setExposureHandler } from './experiments.js';
+import { currentModeKey } from './mode.js';
 
 /** Sixty seconds of nothing at all counts as the player having wandered off. */
 const IDLE_MS = 60000;
@@ -382,9 +391,14 @@ function clearIdleTimer() {
 }
 
 /**
- * The six properties that go on everything. Event properties are merged over
+ * The seven properties that go on everything. Event properties are merged over
  * these, so where the spec asks for `wave_number` in both places the two say
  * the same thing.
+ *
+ * `mode` on an event sent before a run has begun is whichever mode is currently
+ * chosen, which for a first visit is the classic one. That is the honest answer
+ * for `session_started`: nothing has been played yet, so the field records the
+ * setting rather than a decision the player has not made.
  */
 function globalProperties() {
   return {
@@ -393,7 +407,8 @@ function globalProperties() {
     wave_number: state.waveNumber,
     variant_assignments: getVariantAssignments(),
     device_type: deviceType(),
-    referrer: referrer()
+    referrer: referrer(),
+    mode: currentModeKey()
   };
 }
 

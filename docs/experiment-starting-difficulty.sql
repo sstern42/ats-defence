@@ -41,6 +41,25 @@
 -- returns nothing rather than erroring. Deleting the line shows the whole
 -- table, test runs included, which is occasionally what you want and never
 -- what the analysis wants.
+--
+-- A fourth exclusion arrived with the second game mode, and it works the same
+-- way. The experiment varies classic wave one and only classic wave one. An
+-- open advert run is still bucketed, so it still carries a clean arm string and
+-- would sit in the denominator looking like a participant, while having played
+-- an opening the experiment never touched. Every query below therefore reads
+-- only classic runs:
+--
+--   >>> and mode = 'classic'
+--
+-- marked `-- mode`, on the same terms as the cutoff: if it moves, move all of
+-- them. Rows written before the mode column existed were backfilled as
+-- classic, which is what they are, so nothing from before the second mode is
+-- lost by this.
+--
+-- Query 7 is the exception and does not carry it. Bucketing happens once per
+-- session, before any mode is chosen, so filtering the exposures by mode would
+-- measure something other than whether GrowthBook split the traffic evenly.
+-- The reasoning is written out above that query.
 
 
 -- ---------------------------------------------------------------------------
@@ -68,6 +87,7 @@ select
 from public.analytics_events
 where event = 'game_started'
   and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+  and mode = 'classic'  -- mode
 group by 1
 order by runs desc;
 
@@ -85,6 +105,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
   group by run_id
 ),
 assigned as (
@@ -122,6 +143,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
   group by run_id
 ),
 assigned as (
@@ -183,6 +205,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
   group by run_id
 ),
 assigned as (
@@ -243,6 +266,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
   group by run_id
 ),
 assigned as (
@@ -303,6 +327,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
   group by run_id
 ),
 assigned as (
@@ -414,6 +439,17 @@ order by metric;
 -- several runs sit under it. An even split here is also the closest thing to a
 -- sample ratio check available: a 60/40 split of sessions would mean something
 -- is wrong upstream of everything above.
+--
+-- This is the one query in the file with no `-- mode` line, and the omission is
+-- deliberate. Bucketing happens when the page loads, before the player has
+-- chosen anything, so an exposure belongs to a session rather than to a mode.
+-- Filtering it would drop sessions that went on to play open advert and turn an
+-- even split into a false one, which is the exact failure the query exists to
+-- detect.
+--
+-- The cost is that `runs` counts every run in the session, in either mode, so
+-- it is a little higher than the runs the other queries measure. It is a
+-- coverage column rather than a metric and nothing downstream divides by it.
 -- ---------------------------------------------------------------------------
 
 with exposures as (

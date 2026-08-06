@@ -7,6 +7,7 @@
  * that writes arbitrary JSON to a 500MB database is a filling station for
  * anybody who finds it.
  */
+import { MODE_KEYS } from '../../../src/config/modes.js';
 
 /**
  * The events in the analytics spec, and nothing else. An event name not on
@@ -39,6 +40,15 @@ const MAX_STRING = 300;
 const MAX_ID = 64;
 
 const DEVICE_TYPES = new Set(['desktop', 'mobile', 'tablet']);
+
+/**
+ * The modes the game can be played in, read from the same config the game plays
+ * from, so a mode that exists and a mode the collector will store cannot drift
+ * apart. Anything else is stored as null rather than rejected: an event with an
+ * unreadable mode is still worth having, and refusing it would lose the rest of
+ * what it says over one field.
+ */
+const MODES = new Set(MODE_KEYS);
 
 function trimmed(value, limit) {
   return typeof value === 'string' ? value.slice(0, limit) : null;
@@ -99,6 +109,7 @@ export function checkEvent(payload) {
         ? properties.device_type
         : null,
       referrer: trimmed(properties.referrer, MAX_STRING),
+      mode: MODES.has(properties.mode) ? properties.mode : null,
       properties,
       // The browser's own clock, which is not to be trusted but is worth
       // keeping next to the arrival time. The database sets received_at.

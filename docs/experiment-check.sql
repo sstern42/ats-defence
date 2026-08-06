@@ -61,27 +61,30 @@ declare
     'run_id', p_run,
     'variant_assignments', jsonb_build_object('starting-difficulty', p_arm),
     'device_type', 'desktop',
-    'referrer', 'https://www.linkedin.com/'
+    'referrer', 'https://www.linkedin.com/',
+    'mode', 'classic'
   );
 begin
   insert into public.analytics_events
     (event, session_id, run_id, wave_number, variant_assignments,
-     device_type, referrer, properties, ip_hash)
+     device_type, referrer, mode, properties, ip_hash)
   values
     ('game_started', p_run || '-s', p_run, 0,
      jsonb_build_object('starting-difficulty', p_arm), 'desktop',
      'https://www.linkedin.com/',
+     'classic',
      base || jsonb_build_object('wave_number', 0, 'attempt_number', 1),
      'hash');
 
   for w in 1..p_waves loop
     insert into public.analytics_events
       (event, session_id, run_id, wave_number, variant_assignments,
-       device_type, referrer, properties, ip_hash)
+       device_type, referrer, mode, properties, ip_hash)
     values
       ('wave_started', p_run || '-s', p_run, w,
        jsonb_build_object('starting-difficulty', p_arm), 'desktop',
        'https://www.linkedin.com/',
+       'classic',
        base || jsonb_build_object('wave_number', w, 'lives_remaining', 10,
                                   'currency', 150),
        'hash');
@@ -90,11 +93,12 @@ begin
   if p_ending = 'game_over' then
     insert into public.analytics_events
       (event, session_id, run_id, wave_number, variant_assignments,
-       device_type, referrer, properties, ip_hash)
+       device_type, referrer, mode, properties, ip_hash)
     values
       ('game_over', p_run || '-s', p_run, p_final_wave,
        jsonb_build_object('starting-difficulty', p_arm), 'desktop',
        'https://www.linkedin.com/',
+       'classic',
        base || jsonb_build_object('wave_number', p_final_wave,
                                   'final_wave', p_final_wave,
                                   'score', p_final_wave * 120,
@@ -103,11 +107,12 @@ begin
   else
     insert into public.analytics_events
       (event, session_id, run_id, wave_number, variant_assignments,
-       device_type, referrer, properties, ip_hash)
+       device_type, referrer, mode, properties, ip_hash)
     values
       ('run_abandoned', p_run || '-s', p_run, p_final_wave,
        jsonb_build_object('starting-difficulty', p_arm), 'desktop',
        'https://www.linkedin.com/',
+       'classic',
        base || jsonb_build_object('wave_number', p_final_wave,
                                   'final_wave', p_final_wave,
                                   'run_duration_ms', 60000,
@@ -178,7 +183,7 @@ drop function seed_run(text, text, integer, text, integer);
 -- never bucketed them, which is the whole reason they are labelled that way.
 insert into public.analytics_events
   (event, session_id, run_id, wave_number, variant_assignments, device_type,
-   referrer, properties, ip_hash)
+   referrer, mode, properties, ip_hash)
 select
   'experiment_viewed',
   run_id || '-s',
@@ -187,6 +192,7 @@ select
   variant_assignments,
   'desktop',
   'https://www.linkedin.com/',
+  'classic',
   jsonb_build_object(
     'session_id', run_id || '-s',
     'experiment_key', 'starting-difficulty',

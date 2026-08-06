@@ -43,6 +43,19 @@ This shapes everything below. Deploy is not a late step. It was step 2, nothing 
 
 The player is Requisita, an applicant tracking system. Applicants advance along a path towards an open vacancy. The player places screening mechanisms (towers) to reject them before they arrive. Applicants who reach the vacancy cost the player a life. The joke is that the player is doing the rejecting, and that the tools are recognisably the ones real systems use.
 
+### Modes
+
+Two, chosen on the home screen, and they share every tower, every applicant type and the whole game loop. What differs is data in `config/modes.js`.
+
+| Mode | What it is |
+| --- | --- |
+| Classic intake | The game as it shipped. One corridor, walked in single file, towers beside it. Every number in it is the number it already had. |
+| Open advert | No corridor. Applicants arrive across the whole left edge and converge on the desk, fanning out and squeezing according to the `spread` on each waypoint. Towers go anywhere off the HUD and the desk, traps go wherever they are put, and applicants push back. |
+
+**Still no pathfinding.** The crowd is waypoints, same as the path always was. Each applicant walks its own copy of the spine, displaced by its share of the spread at every point and tapering to zero at the vacancy so everybody converges on the one desk. Applicant.js did not change to allow this and should not have to.
+
+**Pushing back is open advert only.** Applicants near a tower wear its `integrity` down; a tower worn to nothing is suspended pending review for a few seconds and comes back at full integrity. Recovery is applied against incoming pressure rather than after it, which is what makes one applicant harmless and a crowd a problem. Suspension rather than destruction, because losing a tower outright to a crowd whose edges you cannot see is a punishment rather than a decision. That is one number in `modes.js` if it should ever become the other.
+
 ### Towers
 
 | Name | Behaviour |
@@ -84,11 +97,12 @@ src/
     Tower.js
     Trap.js
   config/
-    waves.js           Wave definitions as data
+    waves.js           Wave definitions as data, one list per mode
     towers.js          Tower stats as data
     applicants.js      Applicant stats as data
     game.js            Lives, budget, prep times, scoring
-    path.js            Waypoint coordinates
+    modes.js           What each mode changes, as data
+    path.js            Waypoint coordinates, one route per mode
     version.js         The version the build was cut from
     art.js             Sprite manifest
     audio.js           Sound manifest, levels and repeat gaps
@@ -99,6 +113,7 @@ src/
     analytics.js       Event emission
     audio.js           Playback, throttling and the on or off state
     experiments.js     GrowthBook wrapper
+    mode.js            Which mode the current run is
     leaderboard.js     Score submission and top ten
     nameInput.js       The invisible field a touchscreen types a name into
   content/
@@ -158,7 +173,11 @@ Instrumentation is the portfolio artefact, so it is not an afterthought. Impleme
 
 Attached to every event without exception:
 
-`session_id`, `run_id`, `wave_number`, `variant_assignments`, `device_type`, `referrer`
+`session_id`, `run_id`, `wave_number`, `variant_assignments`, `device_type`, `referrer`, `mode`
+
+`mode` is the seventh and arrived with the second game mode. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run every other event is already reporting, and without it all six questions above have two answers with no way to tell them apart. It is on `session_started` too, where it records the setting rather than a decision, since nothing has been played yet.
+
+The queries in `docs/` read one mode, and read classic unless told otherwise. The filter is marked `-- mode`, on the same terms as the cutoff line next to it: it goes on the `game_started` CTE that defines a run and on any read of the board, and if it moves, move all of them. Three places deliberately do without it, and all three are session level rather than run level: the two coverage queries, which split by mode because a census should say what is in the table, and the exposure cross-check, because bucketing happens before a mode is chosen and filtering it would break the sample ratio check it exists to perform.
 
 ### Events
 
@@ -204,12 +223,15 @@ One experiment at launch, via GrowthBook.
 
 Wave one parameters are read from the GrowthBook assignment at run start rather than hardcoded, which is what makes this possible. Keep it that way.
 
+It varies **classic** wave one and only classic wave one. An open advert run has its own opening and is handed its own list untouched, because swapping a classic wave into it would measure a wave the player never played. The arm is still reported on those runs, since the player was still bucketed, so the analysis filters on `mode` to leave them out rather than quietly widening one side.
+
 Record the intended analysis before launch. An inconclusive result is a valid outcome and will be reported as one.
 
 ## Leaderboard
 
 Assume it will be attacked. Client-submitted scores are trivially forged.
 
+- One board per mode, on a `mode` column rather than a second table. Same name checks, same rate limit, same one submission per run: only the ordering and the plausibility ceiling are per mode. A rating from a mode that sends half again as many applicants is not comparable with one that does not, and ranking them together would rank the modes rather than the players.
 - Supabase table with Row Level Security enabled from the start.
 - Anon key may insert and select. It may not update or delete.
 - Score submission goes through a server-side function that validates plausibility (score consistent with wave reached, within a sane ceiling) and rate limits by IP. Either a Netlify function or a Supabase edge function. Netlify is likely simpler, since it lives in this repo and deploys with the site. Decide at implementation time and note the reasoning in the PR.
@@ -247,9 +269,28 @@ reason, not because it is easy.
 
 ### Still deferred
 
-Tower upgrades, multiple maps, difficulty settings, user accounts, saved
-progress, achievements. Post-launch decisions to be informed by the data. Do
-not add them because they seem easy.
+Tower upgrades, difficulty settings, user accounts, saved progress,
+achievements. Post-launch decisions to be informed by the data. Do not add them
+because they seem easy.
+
+Multiple maps came off this list, though not in the shape it was written in. The
+ask was for a second mode where the applicants arrive as a crowd rather than a
+queue, which the first version of this list would have read as a second map and
+refused. It qualified on the same terms sound and the touch controls did. Every
+number it varies is data in `modes.js`, so there is one game loop rather than
+two to keep in step. It reuses the six towers and the six applicant types
+without editing either. And the one thing it genuinely adds, applicants wearing
+a process down until it is suspended, is switched on by a field being present
+rather than by a branch in the loop, so the mode that does not want it never
+finds out it exists.
+
+What it cost is worth writing down, because it is more than the sound toggle
+cost. A second wave list to balance, which is a first pass and has not had the
+tuning phase the classic one had. A seventh global property, and with it the
+existing analysis queries needing a filter they do not yet have. A second
+leaderboard, and a migration to backfill every score already on the first one as
+classic. None of that was avoidable and all of it was the price of the mode
+being real rather than a reskin.
 
 Sound was on this list and came off it after launch, on request. Six clips,
 synthesised rather than licensed, with a toggle in the HUD and the choice
@@ -293,7 +334,13 @@ canvas gets moved.
 - The event list stays at thirteen unless there is a question that needs a
   fourteenth. The thirteenth was added because an exposure could not be
   recorded any other way, and that is the bar. A feature existing is not a
-  reason on its own. Sound shipped without one.
+  reason on its own. Sound shipped without one, and so did the whole of the
+  second mode: towers going offline is the most eventful thing in it and it
+  emits nothing, because no question in the spec asks how often that happens.
+  A property is not an event, which is the seam `mode` went through.
+- **Classic does not move.** It is the mode with a balancing pass behind it, a
+  leaderboard with real scores on it and a live experiment reading its wave one.
+  A change that retunes it to suit something else has broken all three.
 
 ## Versioning
 

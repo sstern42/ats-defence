@@ -1,10 +1,15 @@
 /**
- * The top ten, read server side.
+ * The top ten for one mode, read server side.
  *
  * The browser never talks to Supabase, so the limit of ten is enforced
- * somewhere the player cannot change it. There is no query string on this
- * endpoint for the same reason: there is exactly one question it answers.
+ * somewhere the player cannot change it.
+ *
+ * There is one query parameter now, and only one. It says which board, because
+ * there are two of them and they are not comparable, and it is checked against
+ * the mode list rather than passed through, so the endpoint still answers
+ * exactly one question and cannot be talked into answering a different one.
  */
+import { MODES, DEFAULT_MODE } from '../../src/config/modes.js';
 import { isConfigured, select } from './lib/supabase.js';
 
 const TOP_N = 10;
@@ -27,11 +32,21 @@ export default async (request) => {
     return json({ error: 'leaderboard is not configured' }, 503);
   }
 
+  // An unknown mode is refused rather than quietly served the classic board,
+  // because a board that answers the wrong question convincingly is worse than
+  // one that says it cannot.
+  const mode = new URL(request.url).searchParams.get('mode') ?? DEFAULT_MODE;
+
+  if (!MODES[mode]) {
+    return json({ error: 'that is not a mode of this game' }, 400);
+  }
+
   try {
     const entries = await select(
       'leaderboard',
       [
         'select=display_name,score,final_wave,submitted_at',
+        `mode=eq.${encodeURIComponent(mode)}`,
         'order=score.desc,submitted_at.asc',
         `limit=${TOP_N}`
       ].join('&')
