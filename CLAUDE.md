@@ -106,7 +106,7 @@ netlify/functions/     collect, leaderboard, submit-score, and their lib
 supabase/migrations/   Tables, RLS policies and later columns
 tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
-docs/                  Experiment analysis and its queries
+docs/                  Analysis notes, their queries and the fixtures
 netlify.toml           Build command, publish directory, Node version
 ```
 
