@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { APPLICANTS } from '../config/applicants.js';
 import { GAME } from '../config/game.js';
 import { introKeyFor } from '../config/intros.js';
+import { PROP_FOOT } from '../config/scenery.js';
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
 import Applicant from '../entities/Applicant.js';
@@ -200,26 +201,61 @@ const RETURN_STAGGER_MS = 500;
 /**
  * The drawing order. The negative half is the floor, and it is in the order the
  * eye reads it: the worn carpet, the unworn carpet with the route cut out of
- * it, the furniture standing on top, the route's own edging, and the vignette
- * over the lot of it.
+ * it, the route's own edging, and the vignette over the lot of it.
  *
  * The vignette has to be under `board` rather than over everything, so it takes
  * the corners of the floor down without dimming a tower somebody put there.
+ *
+ * `standing` is not a layer, which is why it is on its own below. Everything
+ * above it is, and the gap left before `shots` is the room those standing
+ * things need.
  */
 const DEPTHS = {
   tread: -50,
   carpet: -45,
-  decor: -40,
   route: -35,
   vignette: -30,
   board: 0,
   fields: 5,
-  towers: 10,
-  applicants: 20,
-  shots: 30,
-  overlay: 40,
-  hint: 50
+  pads: 6,
+  standing: 10,
+  shots: 1200,
+  overlay: 1300,
+  hint: 1400
 };
+
+/**
+ * Where something standing on the floor goes in the drawing order.
+ *
+ * Everything else on the board is a layer, because a range circle is always
+ * under a shot and a shot is always under the HUD. Nothing standing on the
+ * carpet works like that. A filing cabinet is in front of the applicant behind
+ * it and behind the applicant in front of it, and the only thing that decides
+ * which is how far down the board each of them is stood.
+ *
+ * So the band from `standing` upwards is one step per row of pixels, and
+ * anything in it reports where its feet are rather than which layer it belongs
+ * to. That is the whole of the change: no projection, no second coordinate
+ * space, and the board is still the flat 1024 by 768 it always was.
+ *
+ * Clamped, because an applicant walks on from off the left edge and a negative
+ * depth here would file them under the carpet.
+ */
+function standingDepth(footY) {
+  return DEPTHS.standing + Phaser.Math.Clamp(footY, 0, 1000);
+}
+
+/**
+ * How far behind its own row a piece of furniture sits.
+ *
+ * Furniture used to be under the whole board, so a prop could never hide
+ * anything. Sorting it by where it stands gives that up, and this is what is
+ * left of the guarantee: on the row where a tower and a prop meet, the thing
+ * the player paid for is in front. It does not help where the prop is a row
+ * lower down, which is why the furniture is also drawn at DECOR_ALPHA and a
+ * tower behind one still reads through it.
+ */
+const DECOR_BIAS = -0.5;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -332,6 +368,13 @@ export default class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     const applicants = this.applicants.getChildren();
+
+    // Walking down the board means walking in front of things, so everybody
+    // takes their place in the order again on every frame. It is a number per
+    // applicant per frame and there are never more than a few dozen of them.
+    applicants.forEach((applicant) =>
+      applicant.setDepth(standingDepth(applicant.y))
+    );
 
     this.applySlows(applicants);
     this.applyPressure(applicants, time, delta);
@@ -1139,18 +1182,23 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * The furniture. It is on the floor, under everything the player put there,
-   * and it is not interactive, so a click on a filing cabinet is a click on the
-   * tile the filing cabinet is standing on.
+   * The furniture. It is not interactive, so a click on a filing cabinet is a
+   * click on the tile the filing cabinet is standing on.
+   *
+   * A prop's position is where it meets the floor rather than the middle of its
+   * sprite, which for the flat ones is the same point and for a prop with any
+   * height is not. `PROP_FOOT` is the difference, and it is what lets the two
+   * kinds be placed, sorted and rotated by the same four lines.
    */
   drawScenery() {
     this.mode.scenery.forEach((prop) => {
       this.add
         .image(prop.x, prop.y, prop.key)
+        .setOrigin(0.5, PROP_FOOT[prop.key] ?? 0.5)
         .setAngle(prop.angle)
         .setTint(DECOR_TINT)
         .setAlpha(DECOR_ALPHA)
-        .setDepth(DEPTHS.decor);
+        .setDepth(standingDepth(prop.y) + DECOR_BIAS);
     });
   }
 
@@ -1652,7 +1700,9 @@ export default class GameScene extends Phaser.Scene {
 
     tower.gridX = gridX;
     tower.gridY = gridY;
-    tower.setDepth(DEPTHS.towers);
+    // Set once and never again. A tower does not move, so where it stands is
+    // settled the moment it is installed.
+    tower.setDepth(standingDepth(tower.y));
 
     this.towers.push(tower);
     this.occupiedCells.add(this.cellKey(gridX, gridY));
@@ -1732,7 +1782,10 @@ export default class GameScene extends Phaser.Scene {
       this.towerTextureKeys(typeKey).base
     );
 
-    trap.setDepth(DEPTHS.towers);
+    // A trap is painted on the carpet rather than stood on it, so it stays a
+    // layer of its own under everything that has feet, and anybody walking over
+    // one walks over it rather than behind it.
+    trap.setDepth(DEPTHS.pads);
 
     this.traps.push(trap);
     this.startTrapDelay(typeKey, definition);
@@ -1885,7 +1938,9 @@ export default class GameScene extends Phaser.Scene {
     );
 
     applicant.hasReturned = isReturn;
-    applicant.setDepth(DEPTHS.applicants);
+    // Where they start. Every frame after this one is the loop's problem, since
+    // an applicant is the only thing in the standing band that moves.
+    applicant.setDepth(standingDepth(applicant.y));
 
     this.applicants.add(applicant);
     applicant.walk((arrived) => this.leak(arrived));

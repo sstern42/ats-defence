@@ -28,8 +28,13 @@ export const TEXTURE_DIRECTORY = 'assets/textures/';
 export const GROUND_KEYS = ['floor-carpet', 'floor-tread', 'vignette'];
 
 /**
- * The furniture. Top down, drawn at the scale the board is, and every one of
- * them is a thing an office has too much of.
+ * The furniture, drawn at the scale the board is, and every one of them a thing
+ * an office has too much of.
+ *
+ * Most of it is seen from the ceiling, which is the view the whole board was
+ * drawn in and is honest enough for a desk. It is a lie for anything with
+ * height: a filing cabinet from directly above is a rectangle, and a rectangle
+ * is not something an applicant can walk behind.
  */
 export const PROP_KEYS = [
   'prop-desk',
@@ -41,6 +46,27 @@ export const PROP_KEYS = [
 ];
 
 export const TEXTURE_KEYS = [...GROUND_KEYS, ...PROP_KEYS];
+
+/**
+ * Where a prop meets the floor, as a fraction of the way down its sprite.
+ *
+ * A prop seen from the ceiling meets the floor everywhere, so its middle is as
+ * good an answer as any and it is not listed here. A prop with height meets the
+ * floor at its base and stands up the screen from there, so the point the board
+ * has to place it, sort it and rotate it about is somewhere near the bottom.
+ *
+ * One entry, because one prop is drawn standing up. The rest of the floor is
+ * still seen from above, which is the deliberately mixed state this is being
+ * looked at in: the question is whether a prop with height reads on this board
+ * at all, and five more of them would answer it no better than one.
+ *
+ * A standing prop wants an `angle` of zero. Turning a flat prop spins it on the
+ * floor, which is what the angles below are for. Turning one with height leans
+ * it over.
+ */
+export const PROP_FOOT = {
+  'prop-cabinet': 0.8
+};
 
 /**
  * Where the furniture goes, one list per mode, read by GameScene off the mode
@@ -68,13 +94,21 @@ export const CLASSIC_SCENERY = [
 
   // The pocket inside the last two legs, which is the quiet end of the floor.
   { key: 'prop-cooler', x: 600, y: 340, angle: 0 },
-  { key: 'prop-plant', x: 690, y: 330, angle: 0 },
   { key: 'prop-desk', x: 650, y: 430, angle: -4 },
-  { key: 'prop-cabinet', x: 700, y: 500, angle: 0 },
+  { key: 'prop-plant', x: 700, y: 500, angle: 0 },
+
+  // Stood at the bottom of the top right leg, which is the one place on this
+  // board where the furniture is deliberately in the way. Everything else is
+  // placed to keep off the ground the applicants cover, which is right for a
+  // floor seen from the ceiling and leaves nothing at all to walk behind. This
+  // one is the exception on purpose, and it is the thing to look at.
+  { key: 'prop-cabinet', x: 690, y: 300, angle: 0 },
 
   // Under the top right leg, in the strip between it and the HUD.
   { key: 'prop-boxes', x: 620, y: 180, angle: -8 },
-  { key: 'prop-cabinet', x: 880, y: 175, angle: 0 },
+  // Further down the strip than the boxes beside it, because this one stands up
+  // and the HUD would have the top drawer.
+  { key: 'prop-cabinet', x: 880, y: 205, angle: 0 },
 
   // The far corner, past everything, where the archive goes to die.
   { key: 'prop-boxes', x: 880, y: 660, angle: 5 },
@@ -89,7 +123,9 @@ export const CLASSIC_SCENERY = [
  */
 export const OPEN_FIELD_SCENERY = [
   { key: 'prop-desk', x: 430, y: 195, angle: 6 },
-  { key: 'prop-cabinet', x: 560, y: 180, angle: 0 },
+  // Down the strip for the same reason the classic one is: it has height now,
+  // and the height goes up the screen into the HUD.
+  { key: 'prop-cabinet', x: 560, y: 210, angle: 0 },
   { key: 'prop-plant', x: 640, y: 200, angle: 0 },
   { key: 'prop-boxes', x: 740, y: 190, angle: -10 },
   { key: 'prop-cooler', x: 855, y: 200, angle: 0 },
