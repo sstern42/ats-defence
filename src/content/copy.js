@@ -155,7 +155,10 @@ export const COPY = {
     link: 'A project by spencerstern.com',
     // {year} is filled in from the clock when the footer is drawn, so nobody
     // has to remember to come back and edit this every January.
-    copyright: '© {year} Spencer Stern'
+    copyright: '© {year} Spencer Stern',
+    // {version} is filled in from the build, so this never has to be edited
+    // when a release moves the number.
+    version: 'v{version}'
   },
   unsupported: {
     title: 'Not on a phone, for now',
