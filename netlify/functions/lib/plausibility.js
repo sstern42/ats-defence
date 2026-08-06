@@ -11,12 +11,17 @@
  * still gets in. It rules out the ones that are obviously invented, which is
  * as far as a client-scored game can go without simulating the run server
  * side, and that is not worth building for a leaderboard nobody is paid to top.
+ *
+ * The ceiling is per mode, because the modes send different numbers of
+ * applicants and a single ceiling would have to be the higher of the two, which
+ * would wave through a classic score half again as big as classic can produce.
+ * The submission says which mode it came from, and the mode decides which wave
+ * list the ceiling is computed from.
  */
 import { APPLICANTS } from '../../../src/config/applicants.js';
 import { GAME } from '../../../src/config/game.js';
-import { WAVE_ONE_VARIANTS, WAVES } from '../../../src/config/waves.js';
-
-export const WAVE_COUNT = WAVES.length;
+import { MODES } from '../../../src/config/modes.js';
+import { WAVE_ONE_VARIANTS } from '../../../src/config/waves.js';
 
 /**
  * Every applicant a wave sends. A type that comes back counts twice, since it
@@ -31,11 +36,18 @@ function rejectionsIn(wave) {
 }
 
 /**
- * The busiest wave one across both arms of the experiment. Which arm a player
- * was in is not submitted, and taking the larger of the two is the safe way to
- * avoid rejecting an honest score from the busy arm.
+ * The busiest opening wave a mode can send.
+ *
+ * For the mode carrying the starting difficulty experiment that is the larger
+ * of the two arms, because which arm a player was in is not submitted and
+ * taking the larger is the safe way to avoid rejecting an honest score from the
+ * busy one. Every other mode simply has the wave one it has.
  */
-function busiestFirstWave() {
+function busiestFirstWave(mode) {
+  if (!mode.experimentalFirstWave) {
+    return rejectionsIn(mode.waves[0]);
+  }
+
   return Object.values(WAVE_ONE_VARIANTS).reduce(
     (most, variant) => Math.max(most, rejectionsIn(variant)),
     0
@@ -43,20 +55,29 @@ function busiestFirstWave() {
 }
 
 /**
- * The most a run that reached `finalWave` could possibly have scored: every
- * wave up to that point cleared, every applicant in them rejected, and not one
- * of them reaching the vacancy.
+ * How many waves a mode has, which is also the highest wave a submission from
+ * it may claim.
+ */
+export function waveCount(modeKey) {
+  return MODES[modeKey].waves.length;
+}
+
+/**
+ * The most a run that reached `finalWave` in this mode could possibly have
+ * scored: every wave up to that point cleared, every applicant in them
+ * rejected, and not one of them reaching the vacancy.
  *
  * Generous on purpose. A ceiling that rejects a good honest run is worse than
  * one that lets a mediocre forgery through.
  */
-export function maximumScore(finalWave) {
+export function maximumScore(finalWave, modeKey) {
   const { perWaveCleared, perRejection, perLifeRemaining } = GAME.scoring;
+  const mode = MODES[modeKey];
 
-  let rejections = busiestFirstWave();
+  let rejections = busiestFirstWave(mode);
 
   for (let index = 1; index < finalWave; index += 1) {
-    rejections += rejectionsIn(WAVES[index]);
+    rejections += rejectionsIn(mode.waves[index]);
   }
 
   return (
@@ -70,17 +91,28 @@ export function maximumScore(finalWave) {
  * Checks a submission. Returns null when it is fine, or a short reason when it
  * is not. The reason goes back to the client, so it says what is wrong without
  * saying what the ceiling is.
+ *
+ * The mode is checked first, because everything after it is measured against
+ * that mode's wave list and an unknown one has nothing to measure against.
  */
-export function checkScore({ score, finalWave }) {
+export function checkScore({ score, finalWave, mode }) {
+  if (typeof mode !== 'string' || !MODES[mode]) {
+    return 'that is not a mode of this game';
+  }
+
   if (!Number.isInteger(score) || score < 0) {
     return 'score must be a whole number';
   }
 
-  if (!Number.isInteger(finalWave) || finalWave < 1 || finalWave > WAVE_COUNT) {
+  if (
+    !Number.isInteger(finalWave) ||
+    finalWave < 1 ||
+    finalWave > waveCount(mode)
+  ) {
     return 'final wave is not a wave in this game';
   }
 
-  if (score > maximumScore(finalWave)) {
+  if (score > maximumScore(finalWave, mode)) {
     return 'score is too high for the intake reached';
   }
 

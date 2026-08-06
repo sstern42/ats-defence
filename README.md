@@ -16,6 +16,16 @@ The joke is that you are the one doing the rejecting, and that the tools are rec
 
 The applicants know the game too. The Keyword Stuffer is immune to keyword matching. The Referral starts a third of the way down the path. The Boomerang comes back at the end of the intake whether you rejected it or not.
 
+## Two ways to run a vacancy
+
+**Classic intake** is the game above. One path in, walked in single file, towers beside it.
+
+**Open advert** is what happens when the vacancy gets shared around. There is no path: applicants arrive across the whole left edge and make their own way to the desk, fanning out where the ground is open and squeezing through where it narrows. Towers go anywhere, because there is no corridor to stand beside, and choosing where is now about how much of the crowd a tower can see rather than which corner it can cover.
+
+It also gives the applicants something back. Enough of them crowded round a screening process wears it down until it is suspended pending review, and it is nine seconds before it comes back, at full integrity, having learned nothing. A Graduate on its own cannot manage it. A Referral very nearly can, because it knows somebody.
+
+The two modes keep separate leaderboards. They send different numbers of applicants at boards of a different shape, so a rating from one is not a rating from the other.
+
 ## Running it
 
 ```bash
@@ -38,7 +48,7 @@ Two optional environment variables, neither of them secret, both documented in `
 | Backend | Supabase, behind Netlify functions |
 | Experiments | GrowthBook |
 
-**Balance lives in data.** `src/config/waves.js`, `towers.js`, `applicants.js` and `game.js` are plain exported objects with no logic in them, so tuning never means touching the game loop. The path is a hardcoded list of waypoints. There is no pathfinding and there is not going to be.
+**Balance lives in data.** `src/config/waves.js`, `towers.js`, `applicants.js`, `game.js` and `modes.js` are plain exported objects with no logic in them, so tuning never means touching the game loop. The path is a hardcoded list of waypoints. There is no pathfinding and there is not going to be, including in the mode that looks like it must have some: a waypoint there carries a spread, each applicant walks their own copy of the line displaced by their share of it, and a crowd is what that looks like from the outside.
 
 **Copy lives in one file.** Every user-facing string is in `src/content/copy.js`.
 
@@ -46,7 +56,9 @@ Two optional environment variables, neither of them secret, both documented in `
 
 ## Instrumentation
 
-Thirteen events, six global properties on every one of them, all landing in Supabase. The intent was to answer specific questions rather than to collect telemetry in general: where players quit, whether the difficulty curve is right, whether they replay after losing, which towers are dead weight.
+Thirteen events, seven global properties on every one of them, all landing in Supabase. The intent was to answer specific questions rather than to collect telemetry in general: where players quit, whether the difficulty curve is right, whether they replay after losing, which towers are dead weight.
+
+The seventh global is `mode`, and it arrived with the second mode rather than with the spec. Every question in the list above has two answers now, and an event that does not say which game it came from cannot tell them apart. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run the other thirteen are already reporting. The queries in `docs/` predate it and still aggregate across both modes, so they want a `mode` filter before the next analysis pass.
 
 It has already earned its keep twice. The wave curve for the balancing pass was read off these events rather than guessed at, and the first real run through the collector exposed a bug in the abandonment tracking that would otherwise have quietly ruined the experiment's secondary metric.
 

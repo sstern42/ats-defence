@@ -61,26 +61,62 @@ export const COPY = {
     body: 'One vacancy, and a great many people walking towards it. Install screening along the way and reject them before one of them reaches a human, who might read it properly and hire them.',
     start: 'Open the vacancy',
     startHint: 'or press space',
-    howToHeading: 'How the screening works',
-    howTo: [
-      'Click a free tile to install a screening process.',
-      'Keys 1 to 6 pick which one, and the budget decides the rest.',
-      'Salary Expectations goes on the path itself, and only once.',
-      'Space opens each intake early, if you are ready for it.'
-    ],
-    // The same four for a screen with no keys to name. The gesture is
-    // described instead of a click, the palette stands in for the number keys,
-    // and the last line reports that the intake opens on its own rather than
-    // offering a way to hurry it that is not there without a space bar.
-    //
-    // Each has to hold one line at the width the list is drawn at, since the
-    // lines are laid out on a fixed gap and a wrapped one runs into the next.
-    howToTouch: [
-      'Press a free tile, slide to aim, then lift to install.',
-      'The six along the top pick which one, budget permitting.',
-      'Salary Expectations goes on the path itself, and only once.',
-      'Each intake opens on its own once the countdown runs out.'
-    ]
+    howToHeading: 'How the screening works'
+  },
+  /**
+   * The two ways to run a vacancy.
+   *
+   * `name` is the tab and the banner title, `blurb` sits under the tabs on the
+   * front page, and `banner` is the line the board opens with. The how-to lists
+   * are per mode because two of the four lines are not true in both, and a list
+   * that quietly describes the other game is worse than one that repeats
+   * itself.
+   *
+   * Every how-to line has to hold one line at the width the list is drawn at,
+   * since the lines are laid out on a fixed gap and a wrapped one runs into the
+   * one below it.
+   */
+  modes: {
+    classic: {
+      name: 'Classic intake',
+      blurb: 'One path in, and they walk it in single file. The process working exactly as designed.',
+      banner: 'One queue, one desk, business as usual',
+      board: 'Best screeners, classic intake',
+      howTo: [
+        'Click a free tile to install a screening process.',
+        'Keys 1 to 6 pick which one, and the budget decides the rest.',
+        'Salary Expectations goes on the path itself, and only once.',
+        'Space opens each intake early, if you are ready for it.'
+      ],
+      // The same four for a screen with no keys to name. The gesture is
+      // described instead of a click, the palette stands in for the number
+      // keys, and the last line reports that the intake opens on its own rather
+      // than offering a way to hurry it that is not there without a space bar.
+      howToTouch: [
+        'Press a free tile, slide to aim, then lift to install.',
+        'The six along the top pick which one, budget permitting.',
+        'Salary Expectations goes on the path itself, and only once.',
+        'Each intake opens on its own once the countdown runs out.'
+      ]
+    },
+    openField: {
+      name: 'Open advert',
+      blurb: 'The advert got shared. They arrive across the whole field, and anything they crowd round goes offline pending review.',
+      banner: 'They are coming across the whole field',
+      board: 'Best screeners, open advert',
+      howTo: [
+        'Click a free tile to install. Keys 1 to 6 pick which one.',
+        'No path here, so Salary Expectations goes anywhere too.',
+        'A process they crowd round wears down and goes offline.',
+        'Space opens each intake early, if you are ready.'
+      ],
+      howToTouch: [
+        'Press a free tile, slide to aim, then lift to install.',
+        'No path here, so Salary Expectations goes anywhere too.',
+        'A process they crowd round wears down and goes offline.',
+        'Each intake opens on its own once the countdown runs out.'
+      ]
+    }
   },
   hints: {
     placeTower: 'Click a free tile to install.',
@@ -131,7 +167,10 @@ export const COPY = {
     waveCleared: 'Intake screened',
     budgetAdded: 'added to the budget',
     reapplying: 'Reapplying',
-    reapplyingNote: 'Some of them are back'
+    reapplyingNote: 'Some of them are back',
+    // Said over a screening process that has been leaned on until it stopped
+    // working. It is coming back, and it will not have learned anything.
+    suspended: 'Under review'
   },
   gameOver: {
     filled: {
@@ -166,7 +205,9 @@ export const COPY = {
     note: 'Come back on a tablet or a laptop.'
   },
   leaderboard: {
-    heading: 'Best screeners',
+    // There is no single heading any more. Each board names itself, from the
+    // `board` line on its own mode above, because a rating on one of them means
+    // nothing at all on the other.
     loading: 'Asking the board.',
     unavailable: 'The board is not answering. Your run still counted.',
     unavailableHome: 'The board is not answering. The vacancy is open regardless.',

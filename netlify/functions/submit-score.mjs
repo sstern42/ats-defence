@@ -6,8 +6,8 @@
  * client-scored game trustworthy. What it does is make forging tedious and
  * cheap to clean up:
  *
- * - the score has to be possible for the wave claimed, checked against the
- *   same wave data the game plays from
+ * - the score has to be possible for the wave claimed in the mode claimed,
+ *   checked against the same wave data the game plays from
  * - the name has to pass a character set, a length cap and a word list
  * - a run can only be submitted once
  * - an address gets a handful of submissions per quarter of an hour
@@ -76,8 +76,12 @@ export default async (request, context) => {
   const score = payload?.score;
   const finalWave = payload?.finalWave;
   const runId = payload?.runId;
+  const mode = payload?.mode;
 
-  const scoreError = checkScore({ score, finalWave });
+  // The mode is checked in here along with the score, because which board a
+  // submission goes on and what the largest honest score for it is are the same
+  // question asked twice.
+  const scoreError = checkScore({ score, finalWave, mode });
 
   if (scoreError) {
     return json({ error: scoreError }, 400);
@@ -99,6 +103,7 @@ export default async (request, context) => {
       score,
       final_wave: finalWave,
       run_id: runId,
+      mode,
       ip_hash: ipHash
     });
   } catch (error) {

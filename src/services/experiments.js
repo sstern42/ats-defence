@@ -26,7 +26,7 @@
  */
 import { GrowthBook } from '@growthbook/growthbook';
 
-import { WAVES, WAVE_ONE_VARIANTS } from '../config/waves.js';
+import { WAVE_ONE_VARIANTS } from '../config/waves.js';
 
 const STARTING_DIFFICULTY = 'starting-difficulty';
 const DEFAULT_ARM = 'control';
@@ -241,9 +241,22 @@ export function getVariantAssignments() {
  * The wave list for a run, with wave one taken from the assigned arm. Waves
  * two onwards are the same in both arms: the experiment is about how the game
  * opens, not how it goes on.
+ *
+ * A mode that does not carry the experiment gets its own list back untouched.
+ * The experiment varies classic wave one and nothing else, so swapping an open
+ * advert opening for a classic one would be measuring a wave the player never
+ * played. The arm is still reported on that run's events, because the player
+ * was still bucketed, and the analysis filters on `mode` to leave those runs
+ * out rather than quietly widening one side of it.
  */
-export function resolveWaves() {
+export function resolveWaves(mode) {
   const { arm } = assign();
 
-  return WAVES.map((wave, index) => (index === 0 ? WAVE_ONE_VARIANTS[arm] : wave));
+  if (!mode.experimentalFirstWave) {
+    return mode.waves;
+  }
+
+  return mode.waves.map((wave, index) =>
+    index === 0 ? WAVE_ONE_VARIANTS[arm] : wave
+  );
 }

@@ -3,7 +3,6 @@ import Phaser from 'phaser';
 import { APPLICANTS } from '../config/applicants.js';
 import { GAME } from '../config/game.js';
 import { introKeyFor } from '../config/intros.js';
-import { PATH_WAYPOINTS } from '../config/path.js';
 import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
 import Applicant from '../entities/Applicant.js';
@@ -22,16 +21,34 @@ import {
 } from '../services/analytics.js';
 import { playSound } from '../services/audio.js';
 import { resolveWaves } from '../services/experiments.js';
+import { currentMode, currentModeKey } from '../services/mode.js';
 
 const PATH_WIDTH = 44;
 const PATH_FILL = 0x232830;
 const PATH_EDGE = 0x2f3742;
+
+/**
+ * How the arrival ground is drawn where there is no path to draw, which is to
+ * say where the crowd is wide enough that a line would be a lie. The band is
+ * the ground everybody covers between them, filled faintly and edged, with the
+ * spine itself as a hairline down the middle of it.
+ *
+ * It is worth drawing at all because it is the level design. Without it a
+ * player has no way of telling where the crowd narrows, and where it narrows is
+ * the only place a tower is worth the money.
+ */
+const BAND_FILL_ALPHA = 0.5;
+const BAND_EDGE_ALPHA = 0.55;
+const BAND_SPINE_ALPHA = 0.5;
 const VACANCY_SIZE = 54;
 const VACANCY_COLOUR = 0xb5553f;
 
-/** Board layout, not balance, so it stays here rather than in config. */
+/**
+ * Board layout, not balance, so it stays here rather than in config. How far a
+ * tower has to sit from the walked line went the other way and is now a mode
+ * setting, since one mode has a line to keep clear of and the other does not.
+ */
 const CELL_SIZE = 64;
-const BUILD_CLEARANCE = 48;
 /**
  * The strip along the top that the HUD sits in. Nothing is buildable under it,
  * which keeps the tower palette clickable without the board reading the same
@@ -47,6 +64,21 @@ const VALID_TINT = 0x7fb069;
 const INVALID_TINT = 0xb5553f;
 const HEALTH_BAR_WIDTH = 24;
 const HEALTH_BAR_HEIGHT = 3;
+
+/**
+ * The bar under a tower that is being leaned on. Wider than an applicant's,
+ * because a tower is wider, and sat below the base rather than above it so it
+ * cannot be mistaken for the health of somebody standing on the same tile.
+ *
+ * It says two different things depending on the colour. Steady is integrity
+ * left. Warning is a suspension counting itself down, which is the more useful
+ * number once the tower has already stopped working.
+ */
+const INTEGRITY_BAR_WIDTH = 34;
+const INTEGRITY_BAR_HEIGHT = 3;
+const INTEGRITY_BAR_DROP = 26;
+const INTEGRITY_COLOUR = 0x8fc4de;
+const SUSPENDED_COLOUR = 0xd98a6a;
 
 /**
  * How a leak looks, which is presentation rather than balance, so it stays
@@ -97,11 +129,18 @@ const CARD_RISE = 12;
 const CARD_POP_MS = 280;
 
 /**
- * How close the pointer has to be to the path before a trap will go down.
- * Traps snap to the path rather than to the grid, since a trap that is nearly
- * on the path is a trap that does nothing.
+ * The two constants of the R2 low discrepancy sequence, which is what decides
+ * where in the crowd each applicant walks.
+ *
+ * Two numbers are wanted per arrival: how far off the spine they are, and how
+ * far back from the gate they start. Drawing both at random clumps, and a crowd
+ * that clumps has holes in it that a wave of ten disappears into. R2 spreads
+ * successive draws across the space by construction, so the fifth applicant
+ * fills a gap the first four left rather than landing on top of one of them,
+ * and it costs a multiply and a modulo rather than any bookkeeping.
  */
-const TRAP_SNAP_DISTANCE = 46;
+const R2_ALPHA_1 = 0.7548776662;
+const R2_ALPHA_2 = 0.5698402910;
 
 /**
  * How far above a finger the preview sits, in CSS pixels rather than board
@@ -140,6 +179,17 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Everything that differs between the two modes is read here and nowhere
+    // else, so the loop below runs the same whichever is being played.
+    this.mode = currentMode();
+    this.waypoints = this.mode.waypoints;
+
+    // Whether anybody fans out. A route with no spread on any waypoint is a
+    // line, and a line is walked by one shared path object exactly as it was
+    // before there were modes at all.
+    this.crowded = this.waypoints.some((point) => point.spread > 0);
+    this.arrivals = 0;
+
     this.path = this.buildPath();
     this.applicants = this.add.group();
     this.towers = [];
@@ -164,7 +214,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Wave one comes from the experiment assignment, the rest are the same in
     // both arms. Resolved once per run, so a restart is a fresh assignment.
-    this.waves = resolveWaves();
+    this.waves = resolveWaves(this.mode);
     this.waveIndex = 0;
     this.wavesCleared = 0;
     this.phase = 'preparing';
@@ -218,13 +268,15 @@ export default class GameScene extends Phaser.Scene {
     // third attempt are counted.
     trackGameStarted();
 
+    this.announceMode();
     this.beginPreparation();
   }
 
-  update(time) {
+  update(time, delta) {
     const applicants = this.applicants.getChildren();
 
     this.applySlows(applicants);
+    this.applyPressure(applicants, time, delta);
 
     this.towers.forEach((tower) => {
       const target = tower.update(time, applicants);
@@ -237,7 +289,7 @@ export default class GameScene extends Phaser.Scene {
     this.checkTraps(applicants, time);
 
     this.drawShots(time);
-    this.drawHealthBars(applicants);
+    this.drawHealthBars(applicants, time);
 
     // A wave is over when everybody it was going to send has been sent and
     // none of them are still walking, however they left the board. Anybody who
@@ -252,6 +304,20 @@ export default class GameScene extends Phaser.Scene {
       } else {
         this.completeWave();
       }
+    }
+  }
+
+  /**
+   * Says which mode this is, once, on the board it is being played on. It is on
+   * a banner rather than in the HUD because it is only news at the start of a
+   * run: after that the board itself says which one it is, and the HUD strip
+   * has nothing spare.
+   */
+  announceMode() {
+    const mode = COPY.modes[currentModeKey()];
+
+    if (mode) {
+      this.showBanner(mode.name, mode.banner);
     }
   }
 
@@ -688,6 +754,7 @@ export default class GameScene extends Phaser.Scene {
       this.towers.forEach((tower) => {
         if (
           tower.definition.behaviour === 'slow' &&
+          !tower.suspended &&
           tower.isInRange(applicant)
         ) {
           multiplier = Math.min(multiplier, tower.definition.slowMultiplier);
@@ -859,9 +926,24 @@ export default class GameScene extends Phaser.Scene {
    * Turns the waypoint data into a Phaser path of straight segments. Phaser
    * spaces points along the whole path by arc length, so a linear tween across
    * it gives a constant walking speed regardless of segment length.
+   *
+   * `offset` is where in the crowd this one walks, from -1 at the top of the
+   * spread to 1 at the bottom, and `startBack` is how far behind the gate they
+   * come on. With both at zero, and on a route with no spread on it, this
+   * returns exactly the path it returned before there were modes.
+   *
+   * The offset is scaled by each waypoint's own spread rather than by one
+   * number for the route, which is what lets the crowd widen and narrow as it
+   * crosses the board. A spread of zero on the last waypoint is what brings
+   * everybody back together at the vacancy, however far apart they came in.
    */
-  buildPath() {
-    const [start, ...rest] = PATH_WAYPOINTS;
+  buildPath(offset = 0, startBack = 0) {
+    const points = this.waypoints.map((point, index) => ({
+      x: index === 0 ? point.x - startBack : point.x,
+      y: point.y + offset * (point.spread ?? 0)
+    }));
+
+    const [start, ...rest] = points;
     const path = new Phaser.Curves.Path(start.x, start.y);
 
     rest.forEach((point) => path.lineTo(point.x, point.y));
@@ -870,17 +952,54 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
+   * The ground the applicants arrive over. A corridor where they walk in file,
+   * and the band they cover between them where they do not.
+   *
    * Stroked as one polyline rather than with path.draw, which strokes each
    * segment separately and leaves notches at every corner.
    */
   drawPath() {
     const graphics = this.add.graphics().setDepth(DEPTHS.board);
 
+    if (this.crowded) {
+      this.drawBand(graphics);
+
+      return;
+    }
+
     graphics.lineStyle(PATH_WIDTH, PATH_EDGE, 1);
-    graphics.strokePoints(PATH_WAYPOINTS, false, false);
+    graphics.strokePoints(this.waypoints, false, false);
 
     graphics.lineStyle(PATH_WIDTH - 6, PATH_FILL, 1);
-    graphics.strokePoints(PATH_WAYPOINTS, false, false);
+    graphics.strokePoints(this.waypoints, false, false);
+  }
+
+  /**
+   * The crowd's ground, as one closed shape: the top edge of the spread left to
+   * right, then the bottom edge back again. Drawn as a polygon rather than as a
+   * thick stroke because the width changes along it, which is the whole point
+   * of it and the one thing a stroke cannot do.
+   */
+  drawBand(graphics) {
+    const top = this.waypoints.map((point) => ({
+      x: point.x,
+      y: point.y - (point.spread ?? 0)
+    }));
+    const bottom = this.waypoints
+      .map((point) => ({ x: point.x, y: point.y + (point.spread ?? 0) }))
+      .reverse();
+
+    graphics.fillStyle(PATH_FILL, BAND_FILL_ALPHA);
+    graphics.fillPoints([...top, ...bottom], true);
+
+    graphics.lineStyle(1, PATH_EDGE, BAND_EDGE_ALPHA);
+    graphics.strokePoints(top, false, false);
+    graphics.strokePoints(bottom, false, false);
+
+    // The middle of the crowd. Nobody in particular walks it, but it is where
+    // the density is highest and it reads as the direction of travel.
+    graphics.lineStyle(1, PATH_EDGE, BAND_SPINE_ALPHA);
+    graphics.strokePoints(this.waypoints, false, false);
   }
 
   drawVacancy() {
@@ -929,9 +1048,17 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Works out once, at boot, which grid cells a tower may sit on. A cell is
    * buildable if its centre is clear of the path, the vacancy and the HUD.
+   *
+   * A mode with no clearance has no path to be clear of, so the first test
+   * passes everywhere and what is left is the whole board bar the HUD strip and
+   * the desk itself. That is the correct answer rather than a shortcut: when
+   * the crowd is most of the board wide there is no corridor to stand beside,
+   * and where a tower goes stops being about avoiding the route and starts
+   * being about how much of the crowd it can see.
    */
   findBuildableCells() {
     const vacancy = this.path.getEndPoint();
+    const clearance = this.mode.buildClearance;
     const columns = Math.floor(this.scale.width / CELL_SIZE);
     const rows = Math.floor(this.scale.height / CELL_SIZE);
 
@@ -940,7 +1067,8 @@ export default class GameScene extends Phaser.Scene {
     for (let gridX = 0; gridX < columns; gridX += 1) {
       for (let gridY = 0; gridY < rows; gridY += 1) {
         const centre = this.cellCentre(gridX, gridY);
-        const clearOfPath = this.distanceToPath(centre) >= BUILD_CLEARANCE;
+        const clearOfPath =
+          clearance === 0 || this.distanceToPath(centre) >= clearance;
         const clearOfVacancy =
           Phaser.Math.Distance.BetweenPoints(centre, vacancy) >= VACANCY_SIZE;
         const clearOfHud = centre.y >= HUD_HEIGHT;
@@ -981,9 +1109,9 @@ export default class GameScene extends Phaser.Scene {
   closestPointOnPath(point) {
     let closest = { x: 0, y: 0, distance: Infinity };
 
-    for (let i = 0; i < PATH_WAYPOINTS.length - 1; i += 1) {
-      const from = PATH_WAYPOINTS[i];
-      const to = PATH_WAYPOINTS[i + 1];
+    for (let i = 0; i < this.waypoints.length - 1; i += 1) {
+      const from = this.waypoints[i];
+      const to = this.waypoints[i + 1];
       const runX = to.x - from.x;
       const runY = to.y - from.y;
       const lengthSquared = runX * runX + runY * runY;
@@ -1213,7 +1341,9 @@ export default class GameScene extends Phaser.Scene {
    * Null means nowhere, and the ghost is taken off the board.
    *
    * A tower snaps to the grid cell it is over. A trap snaps to the path, since
-   * a trap next to the path is a trap nobody treads on.
+   * a trap next to the path is a trap nobody treads on, unless the mode has no
+   * path worth snapping to, in which case it goes exactly where it is put and
+   * choosing a busy patch of ground is the player's problem.
    */
   ghostSpot(x, y) {
     const definition = TOWERS[this.selectedTowerKey];
@@ -1223,15 +1353,15 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (definition.behaviour === 'trap') {
-      const onPath = this.closestPointOnPath({ x, y });
+      const spot = this.trapSpot(x, y);
 
-      if (onPath.distance > TRAP_SNAP_DISTANCE) {
+      if (!spot) {
         return null;
       }
 
       return {
-        x: onPath.x,
-        y: onPath.y,
+        x: spot.x,
+        y: spot.y,
         // A trap still cooling off reads the same as one already armed, since
         // neither is going down on this click.
         allowed: this.canLayTrap() && this.trapWaitRemaining() === 0,
@@ -1367,12 +1497,30 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Lays a trap on the path, at the point on it nearest the click.
+   * Where a trap would land, or null if it would land nowhere. A snap distance
+   * of zero means the mode has no path to pull it onto, so the answer is simply
+   * where the pointer is.
    */
-  layTrap(x, y, typeKey, definition) {
+  trapSpot(x, y) {
+    const snap = this.mode.trapSnapDistance;
+
+    if (snap === 0) {
+      return { x, y };
+    }
+
     const onPath = this.closestPointOnPath({ x, y });
 
-    if (onPath.distance > TRAP_SNAP_DISTANCE) {
+    return onPath.distance > snap ? null : { x: onPath.x, y: onPath.y };
+  }
+
+  /**
+   * Lays a trap, on the path where there is one and where it was put where
+   * there is not.
+   */
+  layTrap(x, y, typeKey, definition) {
+    const spot = this.trapSpot(x, y);
+
+    if (!spot) {
       return;
     }
 
@@ -1397,8 +1545,8 @@ export default class GameScene extends Phaser.Scene {
 
     const trap = new Trap(
       this,
-      onPath.x,
-      onPath.y,
+      spot.x,
+      spot.y,
       typeKey,
       definition,
       this.towerTextureKeys(typeKey).base
@@ -1411,10 +1559,10 @@ export default class GameScene extends Phaser.Scene {
 
     playSound('place');
 
-    // A trap snaps to the path rather than to a cell, so the grid position
-    // recorded is the cell it landed in. Good enough to see where on the board
-    // traps get laid, which is the only thing it is for.
-    const cell = this.cellAt(onPath.x, onPath.y);
+    // A trap does not sit on a cell, so the grid position recorded is the cell
+    // it landed in. Good enough to see where on the board traps get laid, which
+    // is the only thing it is for.
+    const cell = this.cellAt(spot.x, spot.y);
 
     trackTowerPlaced({
       towerType: typeKey,
@@ -1466,6 +1614,9 @@ export default class GameScene extends Phaser.Scene {
       const hasNeighbour = this.towers.some(
         (other) =>
           other !== tower &&
+          // A suspended neighbour is not company. There is nothing next door to
+          // hand the recording on to while it is off having its review.
+          !other.suspended &&
           Math.abs(other.gridX - tower.gridX) <= 1 &&
           Math.abs(other.gridY - tower.gridY) <= 1
       );
@@ -1484,6 +1635,11 @@ export default class GameScene extends Phaser.Scene {
     this.fieldGraphics.clear();
 
     this.towers.forEach((tower) => {
+      // A suspended tower holds nothing and pays nothing, so it draws neither.
+      if (tower.suspended) {
+        return;
+      }
+
       if (tower.definition.behaviour === 'slow') {
         this.drawField(
           tower.x,
@@ -1522,6 +1678,7 @@ export default class GameScene extends Phaser.Scene {
     this.towers.forEach((other) => {
       if (
         other === tower ||
+        other.suspended ||
         Math.abs(other.gridX - tower.gridX) > 1 ||
         Math.abs(other.gridY - tower.gridY) > 1
       ) {
@@ -1541,7 +1698,7 @@ export default class GameScene extends Phaser.Scene {
 
     const applicant = new Applicant(
       this,
-      this.path,
+      this.nextPath(),
       typeKey,
       APPLICANTS[typeKey],
       this.textureKeyFor(typeKey)
@@ -1554,6 +1711,140 @@ export default class GameScene extends Phaser.Scene {
     applicant.walk((arrived) => this.leak(arrived));
 
     this.introduceType(typeKey);
+  }
+
+  /**
+   * The route the next arrival walks.
+   *
+   * Where nobody fans out that is the one shared path, exactly as it was, and
+   * the whole crowd apparatus below costs nothing. Where they do, each one gets
+   * its own copy of the spine, displaced by its share of the spread and started
+   * a little way back from the gate.
+   *
+   * A path each rather than a shared one with per applicant steering, because
+   * everything downstream already reads a PathFollower: the tween is still what
+   * moves them, `progress` still says who is closest to the desk, and the slow
+   * field still works by scaling a tween's clock. A crowd built this way needed
+   * no changes to Applicant at all, which is the reason it is built this way.
+   *
+   * The two draws come off R2 rather than the random number generator, so
+   * successive arrivals fill in the gaps between each other instead of clumping
+   * and leaving lanes that a whole wave walks down untouched. The offsets do
+   * mean different applicants walk different distances, which is correct: speed
+   * is pixels per second, so the one who takes the wide route takes longer, and
+   * the front of a crowd arrives ragged.
+   */
+  nextPath() {
+    if (!this.crowded) {
+      return this.path;
+    }
+
+    this.arrivals += 1;
+
+    const across = ((this.arrivals * R2_ALPHA_1) % 1) * 2 - 1;
+    const back = ((this.arrivals * R2_ALPHA_2) % 1) * this.mode.entryJitter;
+
+    return this.buildPath(across, back);
+  }
+
+  /**
+   * Applicants leaning on the screening.
+   *
+   * Everybody standing close enough to a tower wears its integrity down, and it
+   * comes back on its own while they are not. Recovery is applied against the
+   * incoming pressure rather than only when there is none, which is what makes
+   * one applicant wandering past harmless and a crowd of them a problem: a
+   * Graduate on its own pushes less hard than the process recovers, and eight of
+   * them do not.
+   *
+   * A tower worn to nothing is suspended pending review rather than destroyed,
+   * and comes back on its own clock. Nothing here fires an analytics event. The
+   * event list answers the questions in the spec and none of them ask how often
+   * a tower went offline, and a feature existing has never been a reason for an
+   * event in this project.
+   */
+  applyPressure(applicants, time, delta) {
+    const pressure = this.mode.pressure;
+
+    if (!pressure || this.towers.length === 0) {
+      return;
+    }
+
+    const seconds = delta / 1000;
+    let boardChanged = false;
+
+    this.towers.forEach((tower) => {
+      if (tower.suspended) {
+        if (time >= tower.suspendedUntil) {
+          tower.restore();
+          boardChanged = true;
+        }
+
+        return;
+      }
+
+      let incoming = 0;
+
+      applicants.forEach((applicant) => {
+        if (!applicant.active || !applicant.definition.pressure) {
+          return;
+        }
+
+        const near =
+          Phaser.Math.Distance.Between(
+            tower.x,
+            tower.y,
+            applicant.x,
+            applicant.y
+          ) <= pressure.range;
+
+        if (near) {
+          incoming += applicant.definition.pressure;
+        }
+      });
+
+      if (tower.applyPressure((incoming - pressure.recoveryPerSecond) * seconds)) {
+        tower.suspend(time, pressure.suspensionMs);
+        boardChanged = true;
+
+        playSound('denied');
+
+        this.showSuspension(tower);
+      }
+    });
+
+    // A suspended tower pays no adjacency bonus and holds no slow field, so
+    // both are worked out again rather than left saying what they said before
+    // it went offline.
+    if (boardChanged) {
+      this.refreshAdjacency();
+      this.drawFields();
+    }
+  }
+
+  /**
+   * A word over a tower that has just gone offline, in the same shape as the
+   * one a leak gets, because they are the same sort of news: something the
+   * player was relying on has stopped.
+   */
+  showSuspension(tower) {
+    const label = this.add
+      .text(tower.x, tower.y - INTEGRITY_BAR_DROP, COPY.board.suspended, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '13px',
+        color: '#d98a6a'
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTHS.hint);
+
+    this.tweens.add({
+      targets: label,
+      y: label.y - 24,
+      alpha: 0,
+      duration: LEAK_LABEL_MS,
+      ease: 'Quad.easeOut',
+      onComplete: () => label.destroy()
+    });
   }
 
   /**
@@ -1785,8 +2076,10 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  drawHealthBars(applicants) {
+  drawHealthBars(applicants, time) {
     this.healthGraphics.clear();
+
+    this.drawIntegrityBars(time);
 
     applicants.forEach((applicant) => {
       if (!applicant.active || applicant.health === applicant.maxHealth) {
@@ -1811,6 +2104,53 @@ export default class GameScene extends Phaser.Scene {
         top,
         HEALTH_BAR_WIDTH * fraction,
         HEALTH_BAR_HEIGHT
+      );
+    });
+  }
+
+  /**
+   * The bar under a tower that is being leaned on or is off having its review.
+   *
+   * A tower at full integrity draws nothing, the same as an applicant at full
+   * health, so a board where nothing is under any pressure looks exactly like
+   * the board did before any of this existed.
+   */
+  drawIntegrityBars(time) {
+    const pressure = this.mode.pressure;
+
+    if (!pressure) {
+      return;
+    }
+
+    this.towers.forEach((tower) => {
+      if (!tower.suspended && tower.integrity === tower.maxIntegrity) {
+        return;
+      }
+
+      const fraction = tower.suspended
+        ? tower.suspensionRemaining(time, pressure.suspensionMs)
+        : tower.integrity / tower.maxIntegrity;
+
+      const left = tower.x - INTEGRITY_BAR_WIDTH / 2;
+      const top = tower.y + INTEGRITY_BAR_DROP;
+
+      this.healthGraphics.fillStyle(0x000000, 0.5);
+      this.healthGraphics.fillRect(
+        left,
+        top,
+        INTEGRITY_BAR_WIDTH,
+        INTEGRITY_BAR_HEIGHT
+      );
+
+      this.healthGraphics.fillStyle(
+        tower.suspended ? SUSPENDED_COLOUR : INTEGRITY_COLOUR,
+        1
+      );
+      this.healthGraphics.fillRect(
+        left,
+        top,
+        INTEGRITY_BAR_WIDTH * fraction,
+        INTEGRITY_BAR_HEIGHT
       );
     });
   }

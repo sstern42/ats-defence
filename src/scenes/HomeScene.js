@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 
 import { KOFI_URL, SITE_URL } from '../config/links.js';
+import { MODE_KEYS } from '../config/modes.js';
 import { VERSION } from '../config/version.js';
 import { COPY } from '../content/copy.js';
 import { trackKofiClicked } from '../services/analytics.js';
 import { HAS_KEYBOARD } from '../services/device.js';
+import { currentModeKey, setMode } from '../services/mode.js';
 import LeaderboardPanel from './LeaderboardPanel.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -13,6 +15,11 @@ const BODY_COLOUR = '#8b98a6';
 const MUTED_COLOUR = '#6f7d8c';
 const BUTTON_COLOUR = '#39566b';
 const BUTTON_HOVER_COLOUR = '#4a6d87';
+
+/** The mode tabs, in the same three states the tower palette buttons use. */
+const TAB_IDLE_COLOUR = '#242a33';
+const TAB_HOVER_COLOUR = '#2f3742';
+const TAB_SELECTED_COLOUR = '#39566b';
 const DIVIDER_COLOUR = 0x2f3742;
 const KOFI_COLOUR = '#7d8a99';
 const KOFI_HOVER_COLOUR = '#c7d94a';
@@ -29,10 +36,26 @@ const DIVIDER_BOTTOM = 620;
 const KOFI_Y = 470;
 
 /**
+ * The mode chooser, and everything it pushed down the column to make room.
+ *
+ * Two tabs rather than two start buttons, because the choice decides more than
+ * which run begins: the blurb, the how it works list and the board on the right
+ * all follow it. One control with one meaning is easier to read than a pair of
+ * buttons that look like they do the same thing to different games.
+ */
+const TABS_Y = 366;
+const TAB_GAP = 10;
+const BLURB_Y = 406;
+const BLURB_WIDTH = 440;
+const START_Y = 452;
+const START_HINT_Y = 506;
+
+/**
  * The how it works list. One line each, and they have to stay one line each:
  * the gap is fixed, so a line long enough to wrap lands on the one under it.
  */
-const HOW_TO_TOP = 508;
+const HOW_TO_HEADING_Y = 548;
+const HOW_TO_TOP = 582;
 const HOW_TO_GAP = 26;
 const HOW_TO_WIDTH = 470;
 
@@ -66,7 +89,13 @@ export default class HomeScene extends Phaser.Scene {
   create() {
     this.started = false;
 
+    // Whichever mode the last run was played in, so somebody who has just quit
+    // out of one comes back to the screen describing the game they were in
+    // rather than to the other one.
+    this.selected = currentModeKey();
+
     this.createPitch();
+    this.createModeTabs();
     this.createStartButton();
     this.createHowTo();
 
@@ -87,10 +116,12 @@ export default class HomeScene extends Phaser.Scene {
       unavailable: COPY.leaderboard.unavailableHome
     });
 
-    this.board.load();
-
     this.createKofiLink();
     this.createFooter();
+
+    // Draws the blurb, the list and the board for whichever tab is on, which
+    // on a first visit is the classic one.
+    this.showMode(this.selected);
 
     // Space and enter both start, so a player who has just read the last line
     // of the how it works list does not have to go and find the button.
@@ -120,9 +151,88 @@ export default class HomeScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * The two tabs and the blurb under them. Laid out left to right by measuring
+   * each tab as it is made, so a mode renamed in copy.js does not also need a
+   * number changed in here.
+   */
+  createModeTabs() {
+    this.tabs = new Map();
+
+    let x = LEFT_X;
+
+    MODE_KEYS.forEach((key) => {
+      const tab = this.add
+        .text(x, TABS_Y, COPY.modes[key].name, {
+          fontFamily: FONT,
+          fontSize: '14px',
+          color: MUTED_COLOUR,
+          backgroundColor: TAB_IDLE_COLOUR,
+          padding: { x: 14, y: 8 }
+        })
+        .setInteractive({ useHandCursor: true });
+
+      tab.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => {
+        if (this.selected !== key) {
+          tab.setBackgroundColor(TAB_HOVER_COLOUR);
+        }
+      });
+
+      tab.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () => {
+        if (this.selected !== key) {
+          tab.setBackgroundColor(TAB_IDLE_COLOUR);
+        }
+      });
+
+      tab.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () =>
+        this.showMode(key)
+      );
+
+      this.tabs.set(key, tab);
+
+      x += tab.width + TAB_GAP;
+    });
+
+    this.blurbText = this.add.text(LEFT_X, BLURB_Y, '', {
+      fontFamily: FONT,
+      fontSize: '13px',
+      color: BODY_COLOUR,
+      wordWrap: { width: BLURB_WIDTH },
+      lineSpacing: 5
+    });
+  }
+
+  /**
+   * Switches everything the choice governs: the tabs themselves, the blurb, the
+   * how it works list and which board is on the right.
+   *
+   * It also sets the mode there and then rather than waiting for the player to
+   * press start, so the run, the board being read and the events all agree on
+   * which game this is without anything having to be passed along.
+   */
+  showMode(key) {
+    this.selected = key;
+
+    setMode(key);
+
+    this.tabs.forEach((tab, tabKey) => {
+      const on = tabKey === key;
+
+      tab
+        .setBackgroundColor(on ? TAB_SELECTED_COLOUR : TAB_IDLE_COLOUR)
+        .setColor(on ? TITLE_COLOUR : MUTED_COLOUR);
+    });
+
+    this.blurbText.setText(COPY.modes[key].blurb);
+
+    this.showHowTo(key);
+
+    this.board.load(key);
+  }
+
   createStartButton() {
     const button = this.add
-      .text(LEFT_X, 372, COPY.home.start, {
+      .text(LEFT_X, START_Y, COPY.home.start, {
         fontFamily: FONT,
         fontSize: '18px',
         color: TITLE_COLOUR,
@@ -145,7 +255,7 @@ export default class HomeScene extends Phaser.Scene {
     // nothing left for it to say that the button has not said already, so it
     // is left off rather than emptied.
     if (HAS_KEYBOARD) {
-      this.add.text(LEFT_X, 430, COPY.home.startHint, {
+      this.add.text(LEFT_X, START_HINT_Y, COPY.home.startHint, {
         fontFamily: FONT,
         fontSize: '13px',
         color: MUTED_COLOUR
@@ -153,23 +263,46 @@ export default class HomeScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * The heading and four empty lines. They are made once and rewritten when the
+   * mode changes, rather than destroyed and rebuilt, so switching tabs cannot
+   * leave two lists on top of each other.
+   */
   createHowTo() {
-    this.add.text(LEFT_X, 470, COPY.home.howToHeading, {
+    this.add.text(LEFT_X, HOW_TO_HEADING_Y, COPY.home.howToHeading, {
       fontFamily: FONT,
       fontSize: '15px',
       color: TITLE_COLOUR
     });
 
-    const howTo = HAS_KEYBOARD ? COPY.home.howTo : COPY.home.howToTouch;
+    // As many lines as the longest list needs, so a mode that explains itself
+    // in one more step than the other still gets its last line drawn.
+    const lines = MODE_KEYS.reduce(
+      (most, key) => Math.max(most, COPY.modes[key].howTo.length),
+      0
+    );
 
-    howTo.forEach((line, index) => {
-      this.add.text(LEFT_X, HOW_TO_TOP + index * HOW_TO_GAP, line, {
-        fontFamily: FONT,
-        fontSize: '14px',
-        color: MUTED_COLOUR,
-        wordWrap: { width: HOW_TO_WIDTH }
-      });
-    });
+    this.howToLines = [];
+
+    for (let index = 0; index < lines; index += 1) {
+      this.howToLines.push(
+        this.add.text(LEFT_X, HOW_TO_TOP + index * HOW_TO_GAP, '', {
+          fontFamily: FONT,
+          fontSize: '14px',
+          color: MUTED_COLOUR,
+          wordWrap: { width: HOW_TO_WIDTH }
+        })
+      );
+    }
+  }
+
+  showHowTo(key) {
+    const mode = COPY.modes[key];
+    const howTo = HAS_KEYBOARD ? mode.howTo : mode.howToTouch;
+
+    this.howToLines.forEach((text, index) =>
+      text.setText(howTo[index] ?? '')
+    );
   }
 
   /**
