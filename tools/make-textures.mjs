@@ -377,18 +377,46 @@ const FURNITURE = {
     return sprite;
   },
 
-  /** A filing cabinet, four drawers, all of them full. */
+  /**
+   * A filing cabinet, four drawers, all of them full.
+   *
+   * The one piece of furniture on this floor drawn standing up rather than seen
+   * from the ceiling, which is what makes it worth reading the rest of this.
+   *
+   * A cabinet from directly above is a rectangle. That was fine while the
+   * furniture was under the whole board and could not overlap anything, and it
+   * stops being fine the moment the board sorts what is in front of what: a
+   * rectangle on the carpet is not something an applicant can walk behind.
+   *
+   * So it is a front elevation with the lid foreshortened above it, sat on a
+   * shadow cast onto the floor rather than on the dropped copy of itself the
+   * flat props use. The sprite is anchored near the bottom rather than in the
+   * middle, and PROP_FOOT in src/config/scenery.js is where that is written
+   * down. Move the shadow and that number moves with it.
+   */
   'prop-cabinet': () => {
-    const sprite = createSprite(44, 60);
+    const sprite = createSprite(44, 84);
 
-    shadow(sprite, 6, 4, 32, 50, 2);
-    slab(sprite, 6, 4, 32, 50, 2, SHADE.body);
+    // The floor it stands on, and the only part of this the board sorts by.
+    // Wider than the cabinet and rounder than it, because this one is thrown
+    // onto the carpet rather than tucked behind a flat shape.
+    slab(sprite, 5, 57, 36, 20, 9, SHADE.ink, 0.45);
+
+    // The lid, foreshortened, and the last of the view the rest of the floor is
+    // still drawn in. Only the top ten pixels of it are ever seen: the front
+    // covers the rest, which is what gives the thing its height.
+    slab(sprite, 6, 16, 32, 14, 3, SHADE.top);
+
+    // The front, which is the whole of the rest of it, with the light coming
+    // from the left as it does everywhere else here.
+    slab(sprite, 6, 26, 32, 48, 2, SHADE.body);
+    slab(sprite, 33, 27, 5, 46, 2, SHADE.dim, 0.55);
 
     for (let drawer = 0; drawer < 4; drawer += 1) {
-      const top = 7 + drawer * 12;
+      const top = 29 + drawer * 11;
 
-      slab(sprite, 9, top, 26, 10, 1, SHADE.dim);
-      slab(sprite, 17, top + 6, 10, 2, 1, SHADE.top);
+      slab(sprite, 9, top, 24, 9, 1, SHADE.dim);
+      slab(sprite, 15, top + 4, 12, 2, 1, SHADE.top);
     }
 
     return sprite;

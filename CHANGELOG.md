@@ -7,6 +7,26 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.4.1 - 2026-08-06
+
+- The board knows what is in front of what. Furniture, towers and applicants
+  used to be three fixed layers, so the furniture was under everything and
+  could never be walked behind. They are now sorted by how far down the board
+  each of them stands, which is the one thing that decides it.
+- The filing cabinet stands up. It is drawn as a front with a lid over it and a
+  shadow under it rather than as the rectangle you get looking at a cabinet
+  from the ceiling, and it is placed by its base rather than by its middle.
+- One of them has moved to the bottom of the top right leg of the corridor,
+  where an applicant now walks behind it. The rest of the furniture is still
+  placed to keep out of the way, which is why that one is the exception.
+- Everything else on the floor is still seen from above. This is a first look
+  at whether a prop with height reads on this board at all, and five more of
+  them would answer that no better than one.
+
+Furniture is decor. It sits on no tile, blocks no route and is read by nothing
+that decides where a tower may go, so moving it changes no number in either
+mode. Classic intake plays exactly as it did.
+
 ## 1.4.0 - 2026-08-06
 
 - Background music, for a run that wants it. Four chords of hold music on a
