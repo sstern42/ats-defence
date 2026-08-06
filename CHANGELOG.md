@@ -7,6 +7,33 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.2.0 - 2026-08-06
+
+- The board is an office floor rather than a flat colour. Carpet, tiled from one
+  128 pixel square, with the route worn into it: the walked ground is the same
+  carpet with the pile flattened, and it shows through a hole cut in the carpet
+  above it. Both modes get it from the same two tiles, since a corridor and a
+  crowd's ground are only two different shapes.
+- Furniture on the floor either side of the route. Desks, filing cabinets,
+  waiting chairs, archive boxes, a water cooler and a pot plant, placed per mode
+  because a corridor leaves pockets between its legs and a crowd leaves a strip
+  at the top and a strip at the bottom. None of it is interactive: a click on a
+  filing cabinet is a click on the tile it stands on.
+- A vignette takes the corners of the floor down, so the board reads as a room
+  with a middle. It sits under everything the player puts there, so nothing on
+  the board is dimmed by it.
+- The home page is laid on the same carpet, so the game no longer opens on a
+  flat sheet and then turns out to be somewhere.
+- The share card and the README screenshot show the floor rather than the flat
+  board they were taken from, since the old one is a picture of a game that no
+  longer looks like that.
+
+The art is drawn by `tools/make-textures.mjs` and committed, the same as the
+sounds and the applicant introductions, so there is no licence question and a
+texture that reads badly is a number in a file. Nothing about how either mode
+plays has moved: the route is the shape it always was, and the furniture stands
+on the floor rather than on the board.
+
 ## 1.1.0 - 2026-08-06
 
 - A second mode, Open advert, chosen from tabs on the home page alongside

@@ -9,6 +9,7 @@ import {
   INTRO_FRAME_SIZE,
   INTRO_KEYS
 } from '../config/intros.js';
+import { TEXTURE_DIRECTORY, TEXTURE_KEYS } from '../config/scenery.js';
 import { initSound } from '../services/audio.js';
 
 /**
@@ -34,6 +35,13 @@ export default class BootScene extends Phaser.Scene {
     this.load.setPath(ART_DIRECTORY);
 
     ART_KEYS.forEach((key) => this.load.image(key, `${key}.png`));
+
+    // The ground and the furniture, which are drawn by tools/make-textures.mjs
+    // rather than being Kenney's, and live apart from the sprites for that
+    // reason. Loaded the same way: the key is the file name.
+    this.load.setPath(TEXTURE_DIRECTORY);
+
+    TEXTURE_KEYS.forEach((key) => this.load.image(key, `${key}.png`));
 
     // The applicant introductions, one strip of frames per type, all the same
     // shape, which is why the frame size comes from the manifest rather than
