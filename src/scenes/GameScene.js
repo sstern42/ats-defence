@@ -20,6 +20,7 @@ import {
   trackWaveStarted
 } from '../services/analytics.js';
 import { playSound } from '../services/audio.js';
+import { shake } from '../services/feel.js';
 import { resolveWaves } from '../services/experiments.js';
 import { currentMode, currentModeKey } from '../services/mode.js';
 import {
@@ -2075,7 +2076,7 @@ export default class GameScene extends Phaser.Scene {
 
     playSound('leak');
 
-    this.cameras.main.shake(180, 0.005);
+    shake(this, 180, 0.005);
 
     this.vacancyFlash.setAlpha(LEAK_FLASH_ALPHA);
     this.tweens.add({

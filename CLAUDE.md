@@ -115,6 +115,7 @@ src/
   services/
     analytics.js       Event emission
     audio.js           Playback, throttling and the on or off state
+    feel.js            The small movements, and the one place that knows to sit still
     experiments.js     GrowthBook wrapper
     mode.js            Which mode the current run is
     leaderboard.js     Score submission and top ten
@@ -248,6 +249,10 @@ Free tier Supabase projects pause after seven days of inactivity. Add a GitHub A
 
 - Desktop first. If mobile is not properly supported at launch, show an honest "desktop only" message rather than a broken layout. It was not, and it did. Tablets came in afterwards, once a finger had a way to see a tower's range before committing to it, and the message is now shown to phones only. The rule is unchanged for whatever is next: an honest refusal beats a broken layout.
 - Test in Chrome, Safari and Firefox before announcing.
+- **Nothing is said by movement alone.** A player who has asked their system for
+  less motion is given the state without the animation, screen shake included,
+  and every colour, readout and label still changes. Anything added that moves
+  goes through `services/feel.js`, which is where that decision is made once.
 - Open Graph title, description and image, since the launch happens on LinkedIn and the card preview matters.
 
 ## Definition of done for MVP

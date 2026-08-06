@@ -7,6 +7,25 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.3.0 - 2026-08-06
+
+- The game answers back. A tower or a trap is installed rather than simply
+  appearing, a barrel kicks as it fires, and an applicant who takes a hit and
+  keeps walking flinches for it.
+- The HUD reacts to its own numbers. The budget swells and lights up when a
+  rejection pays into it, dips when it is spent, and the lives readout flinches
+  and goes cross for a moment when somebody walks in.
+- Every button now goes down under the click, on the palette, the home page,
+  the pause screen and the game over screen. The trap button comes back up when
+  its wait is over.
+- A player whose system asks for less motion gets none of it, including the
+  screen shake on a leak. Nothing is only said by movement, so the game reads
+  exactly the same without it: the colours, the readouts and the labels all
+  still change.
+
+Nothing here is information the game was not already giving, and no number in
+either mode moved. Classic intake plays exactly as it did.
+
 ## 1.2.0 - 2026-08-06
 
 - The board is an office floor rather than a flat colour. Carpet, tiled from one
