@@ -89,6 +89,7 @@ src/
     applicants.js      Applicant stats as data
     game.js            Lives, budget, prep times, scoring
     path.js            Waypoint coordinates
+    version.js         The version the build was cut from
     art.js             Sprite manifest
     audio.js           Sound manifest, levels and repeat gaps
     intros.js          Applicant introduction manifest, frames and rate
@@ -108,6 +109,7 @@ tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
 docs/                  Analysis notes, their queries and the fixtures
 netlify.toml           Build command, publish directory, Node version
+vite.config.js         Puts the package.json version into the build
 CHANGELOG.md           One entry per version, newest first
 ```
 
@@ -299,8 +301,9 @@ The game carries a version number and it moves whenever something worth
 releasing ships.
 
 - **`package.json` is the single source of truth.** The version lives there and
-  nowhere else. If it is ever shown in the game, it is read from there rather
-  than typed in a second time.
+  nowhere else. The home page footer shows it, read out of the file at build
+  time by `vite.config.js` and handed to the game by `config/version.js`, so
+  the number is never typed in a second place.
 - **Bump it in the pull request that makes the change**, so the version and the
   code it describes land together. A PR that changes what the player gets and
   leaves the version alone is unfinished.

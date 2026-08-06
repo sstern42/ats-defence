@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { KOFI_URL, SITE_URL } from '../config/links.js';
+import { VERSION } from '../config/version.js';
 import { COPY } from '../content/copy.js';
 import { trackKofiClicked } from '../services/analytics.js';
 import { HAS_KEYBOARD } from '../services/device.js';
@@ -214,10 +215,13 @@ export default class HomeScene extends Phaser.Scene {
    * score, a name box and a restart button for the same strip of canvas.
    *
    * The year comes off the clock rather than being typed in, so the notice is
-   * right in January without anybody touching it.
+   * right in January without anybody touching it. The version comes off the
+   * build for the same reason: it is here so a bug report can say which game it
+   * was looking at, and a number somebody has to remember to edit is a number
+   * that will be wrong by the second release.
    *
-   * Drawn as two pieces so only the first is clickable. The link is measured
-   * once it exists and the notice is placed after it, which keeps the pair
+   * Drawn as separate pieces so only the link is clickable. Each is measured
+   * once it exists and the next is placed after it, which keeps the row
    * together whatever the copy is edited to say.
    */
   createFooter() {
@@ -249,16 +253,24 @@ export default class HomeScene extends Phaser.Scene {
       String(new Date().getFullYear())
     );
 
-    this.add.text(
-      LEFT_X + link.width + FOOTER_GAP,
-      FOOTER_Y,
-      `${FOOTER_SEPARATOR} ${notice}`,
-      {
-        fontFamily: FONT,
-        fontSize: '13px',
-        color: MUTED_COLOUR
-      }
-    );
+    const version = COPY.credit.version.replace('{version}', VERSION);
+
+    let x = LEFT_X + link.width;
+
+    [notice, version].forEach((piece) => {
+      const text = this.add.text(
+        x + FOOTER_GAP,
+        FOOTER_Y,
+        `${FOOTER_SEPARATOR} ${piece}`,
+        {
+          fontFamily: FONT,
+          fontSize: '13px',
+          color: MUTED_COLOUR
+        }
+      );
+
+      x = text.x + text.width;
+    });
   }
 
   /**

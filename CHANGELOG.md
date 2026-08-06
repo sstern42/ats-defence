@@ -7,6 +7,12 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.0.1 - 2026-08-06
+
+- The home page footer now says which version is being played, after the credit
+  and the copyright notice. It is read out of `package.json` at build time, so
+  it cannot fall behind the number the release rules talk about.
+
 ## 1.0.0 - 2026-08-06
 
 The shipped game, taken as the starting point for numbered releases. Everything
