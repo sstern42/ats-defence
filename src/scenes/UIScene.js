@@ -4,6 +4,7 @@ import { TOWERS } from '../config/towers.js';
 import { COPY } from '../content/copy.js';
 import { soundEnabled, toggleSound } from '../services/audio.js';
 import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
+import { FEEL, nudge, pulse } from '../services/feel.js';
 import { HUD_HEIGHT } from './GameScene.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -12,6 +13,8 @@ const BODY_COLOUR = '#9aa8b6';
 const STEADY_COLOUR = '#8fc4de';
 const WARNING_COLOUR = '#d98a6a';
 const CURRENCY_COLOUR = '#c7d94a';
+/** The budget, for the moment after a rejection has paid into it. */
+const CURRENCY_GAIN_COLOUR = '#e8f79a';
 const SELECTED_TEXT_COLOUR = '#e6ebf0';
 const DISABLED_TEXT_COLOUR = '#57636f';
 
@@ -25,6 +28,14 @@ const WARNING_LIVES = 3;
 
 /** How long the HUD stays cross about something it will not do. */
 const WARNING_MS = 1400;
+
+/**
+ * How long the budget stays lit after it has been paid into, and how long the
+ * lives readout stays cross after one has gone. Both are short: they are there
+ * to catch the eye of somebody watching the board rather than the HUD.
+ */
+const GAIN_MS = 260;
+const LOSS_MS = 320;
 
 /**
  * The palette is two rows of three, which is what six towers and a 1024 pixel
@@ -62,6 +73,12 @@ export default class UIScene extends Phaser.Scene {
     this.gameScene = this.scene.get('GameScene');
     this.buttons = new Map();
     this.warningTimer = null;
+
+    // The two readouts that light up when their number moves, and are put back
+    // a moment later. Held so a second change resets the wait rather than
+    // being cut short by the first one's timer.
+    this.gainTimer = null;
+    this.lossTimer = null;
 
     // Trap types that have just been set and will not take another yet. Kept
     // as a set rather than as timers, since GameScene owns the clock and says
@@ -128,9 +145,13 @@ export default class UIScene extends Phaser.Scene {
         this.hover(typeKey, false)
       );
 
-      button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
-        this.gameScene.selectTower(typeKey)
-      );
+      button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+        // Down under the click before anything is decided, since a button that
+        // moves says the click arrived whether or not the game acts on it.
+        nudge(button, 0, FEEL.pressDrop);
+
+        this.gameScene.selectTower(typeKey);
+      });
 
       this.buttons.set(typeKey, button);
     });
@@ -236,7 +257,11 @@ export default class UIScene extends Phaser.Scene {
       control.setColor(MUTED_COLOUR)
     );
 
-    control.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, onClick);
+    control.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      nudge(control, 0, FEEL.pressDrop);
+
+      onClick();
+    });
 
     return control;
   }
@@ -280,7 +305,7 @@ export default class UIScene extends Phaser.Scene {
    */
   listen() {
     const handlers = {
-      'lives-changed': this.showLives,
+      'lives-changed': this.loseLife,
       'currency-changed': this.showCurrency,
       'tower-selected': this.showSelection,
       'purchase-failed': this.showShortfall,
@@ -309,6 +334,33 @@ export default class UIScene extends Phaser.Scene {
     this.livesText.setColor(
       lives <= WARNING_LIVES ? WARNING_COLOUR : STEADY_COLOUR
     );
+  }
+
+  /**
+   * Somebody has walked in. The number only ever goes down, so the event is the
+   * whole of the news and the readout can react to it without being told what
+   * changed.
+   *
+   * It flinches towards the middle of the HUD rather than off the edge of it,
+   * and it goes cross for a moment even at a life count that is not yet worth
+   * worrying about, which is the difference between the readout saying where
+   * the run stands and the readout saying something has just happened.
+   */
+  loseLife(lives) {
+    this.showLives(lives);
+
+    nudge(this.livesText, -FEEL.jolt, 0);
+
+    this.livesText.setColor(WARNING_COLOUR);
+
+    if (this.lossTimer) {
+      this.lossTimer.remove();
+    }
+
+    this.lossTimer = this.time.delayedCall(LOSS_MS, () => {
+      this.lossTimer = null;
+      this.showLives(lives);
+    });
   }
 
   /**
@@ -358,6 +410,10 @@ export default class UIScene extends Phaser.Scene {
   showWaveOpen({ waveNumber, waveCount }) {
     this.showWave(waveNumber, waveCount);
     this.setHint(this.defaultHint());
+
+    // The countdown has just stopped ticking, which is a quiet way for the
+    // counter to change given what is about to walk in.
+    pulse(this.waveText);
   }
 
   /**
@@ -372,12 +428,56 @@ export default class UIScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * The budget, and what it has just done. Up is a rejection paying out or a
+   * wave being cleared, down is something being bought, and the readout swells
+   * or dips accordingly.
+   *
+   * The direction is worked out here rather than being sent with the event,
+   * because the event says what the budget is and every other reader of it is
+   * happy with that. The first paint sets the same number it already had, so it
+   * arrives without a flourish.
+   */
   showCurrency(currency) {
+    const change = currency - this.currency;
+
     this.currency = currency;
     this.currencyText.setText(`${COPY.hud.currency}: ${currency}`);
 
+    if (change > 0) {
+      pulse(this.currencyText);
+      this.lightCurrency();
+    } else if (change < 0) {
+      pulse(this.currencyText, FEEL.dipTo);
+    }
+
     // What the budget covers has just changed, so the palette has to say so.
     this.refreshButtons();
+  }
+
+  /**
+   * The budget lit for a moment after being paid into, then back to its own
+   * colour. It keeps out of the way of the shortfall warning, which is using
+   * the same readout to say something more important.
+   */
+  lightCurrency() {
+    if (this.warningTimer) {
+      return;
+    }
+
+    this.currencyText.setColor(CURRENCY_GAIN_COLOUR);
+
+    if (this.gainTimer) {
+      this.gainTimer.remove();
+    }
+
+    this.gainTimer = this.time.delayedCall(GAIN_MS, () => {
+      this.gainTimer = null;
+
+      if (!this.warningTimer) {
+        this.currencyText.setColor(CURRENCY_COLOUR);
+      }
+    });
   }
 
   showSelection(typeKey) {
@@ -492,9 +592,16 @@ export default class UIScene extends Phaser.Scene {
     this.refreshButtons();
   }
 
+  /**
+   * The wait is over. The button comes back up as well as back to its colour,
+   * since the player is most likely looking at the board rather than at the
+   * palette when it happens.
+   */
   endTrapWait(typeKey) {
     this.waitingTraps.delete(typeKey);
     this.refreshButtons();
+
+    nudge(this.buttons.get(typeKey), 0, -FEEL.pressDrop);
   }
 
   /**

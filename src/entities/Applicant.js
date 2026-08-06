@@ -1,5 +1,14 @@
 import Phaser from 'phaser';
 
+import { pulse } from '../services/feel.js';
+
+/**
+ * How far an applicant flinches when a hit lands and it is still walking. It is
+ * the only thing on the board that says a shot connected with somebody who can
+ * take it, since the health bar only appears once they are already hurt.
+ */
+const FLINCH = 1.22;
+
 /**
  * How much bigger than the old disc an applicant is drawn. A sprite with a
  * soft edge reads smaller than a solid circle of the same size, so matching
@@ -46,6 +55,10 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
 
     this.setTint(definition.colour);
     this.setScale(Math.sqrt(area / (this.width * this.height)));
+
+    // The size they walk at, written down rather than read back off the sprite,
+    // which is briefly a different size every time they are hit.
+    this.baseScale = this.scale;
 
     scene.add.existing(this);
   }
@@ -114,9 +127,17 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
 
   /**
    * Returns true if that was the hit that finished them off.
+   *
+   * Anybody still standing flinches. Anybody who is not is about to be rejected
+   * by the scene, which has a better exit of its own, so there is no point
+   * starting a flinch that would be taken straight back off again.
    */
   takeDamage(amount) {
     this.health = Math.max(0, this.health - amount);
+
+    if (this.health > 0) {
+      pulse(this, FLINCH);
+    }
 
     return this.health === 0;
   }
@@ -130,13 +151,18 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
     this.stopFollow();
     this.setActive(false);
 
+    // A flinch from the hit that did it may still be running, so it is taken
+    // off and they go out from the size they walked at.
+    this.scene.tweens.killTweensOf(this);
+    this.setScale(this.baseScale);
+
     // Relative to whatever the sprite was already scaled to, since that is no
     // longer 1 and a fixed target would make small applicants jump on the way
     // out.
     this.scene.tweens.add({
       targets: this,
       alpha: 0,
-      scale: this.scale * 1.8,
+      scale: this.baseScale * 1.8,
       duration: 180,
       ease: 'Quad.easeOut',
       onComplete: () => this.destroy()

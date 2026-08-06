@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { landing } from '../services/feel.js';
+
 /**
  * How much bigger than its footprint the pad is drawn. It is a flat thing on
  * the floor rather than something standing on the board, so it can afford to
@@ -29,7 +31,15 @@ export default class Trap extends Phaser.GameObjects.Image {
     this.setTint(definition.bodyTint);
     this.setScale((definition.footprint * TRAP_SPRITE_SCALE) / this.width);
 
+    // The size it sits at, written down rather than read back off the sprite,
+    // since the sprite is briefly a different size while it is being laid.
+    this.baseScale = this.scale;
+
     scene.add.existing(this);
+
+    // Laid rather than simply there, in the same movement a tower arrives on,
+    // since from the player's side both are a thing being put down.
+    landing(this);
   }
 
   /**
@@ -52,12 +62,17 @@ export default class Trap extends Phaser.GameObjects.Image {
    * Asked once. The trap fades out on the spot and takes itself off the board.
    */
   spring() {
+    // Somebody has trodden on it while it was still being laid, so the arrival
+    // is taken off and it goes off from its full size.
+    this.scene.tweens.killTweensOf(this);
+    this.setScale(this.baseScale);
+
     // Relative, since the pad is already scaled to its footprint and a fixed
     // target would shrink it rather than open it out.
     this.scene.tweens.add({
       targets: this,
       alpha: 0,
-      scale: this.scale * 1.6,
+      scale: this.baseScale * 1.6,
       duration: 220,
       ease: 'Quad.easeOut',
       onComplete: () => this.destroy()

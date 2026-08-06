@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { FEEL, landing, nudge } from '../services/feel.js';
+
 /**
  * How big the barrel is drawn against the base it is bolted to. Kenney draws
  * them at close to the same size, which at board scale leaves a grey gun
@@ -72,6 +74,10 @@ export default class Tower extends Phaser.GameObjects.Container {
     }
 
     scene.add.existing(this);
+
+    // Installed rather than simply present. The container is scaled, so the
+    // base and the barrel arrive together as one thing.
+    landing(this);
   }
 
   /**
@@ -100,7 +106,27 @@ export default class Tower extends Phaser.GameObjects.Container {
 
     this.nextFireAt = time + this.definition.fireIntervalMs;
 
+    this.kick();
+
     return target;
+  }
+
+  /**
+   * The barrel coming back as it fires, along whatever line it is pointing
+   * down. It is a local offset inside the container, so the base it is bolted
+   * to stays exactly where the player put it.
+   *
+   * A tower with the shortest reload in the game fires slower than this
+   * settles, so a barrel is never kicked while it is still coming home.
+   */
+  kick() {
+    const angle = this.barrel.rotation;
+
+    nudge(
+      this.barrel,
+      -Math.cos(angle) * FEEL.recoil,
+      -Math.sin(angle) * FEEL.recoil
+    );
   }
 
   /**

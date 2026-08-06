@@ -10,6 +10,7 @@ import {
   trackScoreSubmitted
 } from '../services/analytics.js';
 import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
+import { FEEL, nudge } from '../services/feel.js';
 import { submitScore } from '../services/leaderboard.js';
 import { currentModeKey } from '../services/mode.js';
 import NameInput from '../services/nameInput.js';
@@ -219,6 +220,10 @@ export default class GameOverScene extends Phaser.Scene {
 
     this.submitButton.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
       this.submitButton.setBackgroundColor(BUTTON_COLOUR)
+    );
+
+    this.submitButton.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      nudge(this.submitButton, 0, FEEL.pressDrop)
     );
 
     this.submitButton.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () =>
@@ -470,6 +475,10 @@ export default class GameOverScene extends Phaser.Scene {
 
     button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
       button.setBackgroundColor(BUTTON_COLOUR)
+    );
+
+    button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      nudge(button, 0, FEEL.pressDrop)
     );
 
     button.once(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () =>

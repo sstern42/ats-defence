@@ -6,6 +6,7 @@ import { VERSION } from '../config/version.js';
 import { COPY } from '../content/copy.js';
 import { trackKofiClicked } from '../services/analytics.js';
 import { HAS_KEYBOARD } from '../services/device.js';
+import { FEEL, nudge } from '../services/feel.js';
 import { currentModeKey, setMode } from '../services/mode.js';
 import LeaderboardPanel from './LeaderboardPanel.js';
 
@@ -184,6 +185,10 @@ export default class HomeScene extends Phaser.Scene {
         }
       });
 
+      tab.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+        nudge(tab, 0, FEEL.pressDrop)
+      );
+
       tab.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () =>
         this.showMode(key)
       );
@@ -247,6 +252,10 @@ export default class HomeScene extends Phaser.Scene {
 
     button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
       button.setBackgroundColor(BUTTON_COLOUR)
+    );
+
+    button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      nudge(button, 0, FEEL.pressDrop)
     );
 
     button.once(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.start());

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { COPY } from '../content/copy.js';
 import { HAS_KEYBOARD } from '../services/device.js';
+import { FEEL, nudge } from '../services/feel.js';
 
 const FONT = 'system-ui, sans-serif';
 const VEIL_COLOUR = 0x14161a;
@@ -132,6 +133,10 @@ export default class PauseScene extends Phaser.Scene {
 
     button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
       button.setBackgroundColor(idle)
+    );
+
+    button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      nudge(button, 0, FEEL.pressDrop)
     );
 
     button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, onChoose);
