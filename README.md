@@ -4,11 +4,13 @@ A browser tower defence game where you are the applicant tracking system, and th
 
 **[Play it](https://ats.spencerstern.com)**
 
-![The board mid intake: screening towers along a winding path, applicants walking towards an open vacancy](public/og-image.png)
+![The eighth intake in progress: screening towers along a winding path, applicants queued between them, a salary expectations trap going off, and the vacancy still open in the corner](public/og-image.png)
 
 ## The idea
 
 Applicants advance along a path towards a single open vacancy. You place screening mechanisms to reject them before they arrive. Anyone who gets through costs you a life, because somebody then has to read their application properly and might hire them.
+
+A run is ten intakes long and the vacancy tolerates ten arrivals. Most of the screening budget comes back as rejections, so anyone who walks past a tower has also taken with them the money that would have bought the next one.
 
 The joke is that you are the one doing the rejecting, and that the tools are recognisably the ones real systems use. Keyword Filter. Knockout Question. Take-Home Task. Culture Fit Panel. Video Screen. Salary Expectations, which is free to ask and only works once.
 
@@ -48,7 +50,7 @@ Thirteen events, six global properties on every one of them, all landing in Supa
 
 It has already earned its keep twice. The wave curve for the balancing pass was read off these events rather than guessed at, and the first real run through the collector exposed a bug in the abandonment tracking that would otherwise have quietly ruined the experiment's secondary metric.
 
-It has also failed once, for two days, without saying so. Two migrations adding columns to the events table were never applied to the production database, so every insert named columns that did not exist and the collector recorded nothing from 4 to 6 August. The leaderboard was unaffected and kept taking scores, so the game looked healthy throughout, and events go out through `sendBeacon`, which hands the browser no response to notice. There is now a daily check that asks the one question quiet traffic cannot fake: has anybody finished a run whose events never arrived. The reasoning, and the limitation that it only fires once somebody submits a score, are in `netlify/functions/health.mjs`.
+It has also failed once, for two days, without saying so. Two migrations adding columns to the events table were never applied to the production database, so every insert named columns that did not exist and the collector recorded nothing from 4 to 6 August. The leaderboard was unaffected and kept taking scores, so the game looked healthy throughout, and events go out through `sendBeacon`, which hands the browser no response to notice. There is now a daily check that asks the one question quiet traffic cannot fake: has anybody finished a run whose events never arrived. The reasoning, and the limitation that it only fires once somebody submits a score, are in `netlify/functions/health.mjs`. It runs as a scheduled workflow next to the one that pings the database twice a week, since a free tier Supabase project pauses itself after seven quiet days and a paused database records nothing either.
 
 The dead weight question has its own queries in `docs/tower-usage.sql`: reach rather than raw placements, since the one trap is free and single use and would otherwise top every count, and a separate query for whether an unused tower is unwanted or merely unaffordable, which have opposite fixes. It also contains the query for which towers win games, together with the reason that query cannot answer it.
 
