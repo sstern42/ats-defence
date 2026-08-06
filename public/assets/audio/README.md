@@ -31,6 +31,22 @@ script and an entry in `src/config/audio.js`.
 | `wave-clear.wav` | The intake has been screened. Three notes down, settling. |
 | `denied.wav` | The budget will not stretch to it, or the salary expectations are already set. A dead thud, because nothing happened. |
 
+## Music
+
+There is no music file here, and there is not going to be one. The background
+music is scheduled note by note on the audio clock at run time, from the chords
+in `src/config/music.js`, by `src/services/music.js`.
+
+That is the same argument as above taken one step further. An uncompressed loop
+long enough to be worth having is over a megabyte, which is twenty times the
+whole of this directory, and there is no encoder on the machine this is built on
+to make it any smaller. Scheduling it costs nothing to download, never reaches
+the end of itself, and puts the difference between pleasant and irritating in a
+config file.
+
+It has its own toggle in the HUD, on `N`, and it is off until somebody asks for
+it.
+
 ## Format
 
 Mono 16 bit PCM WAV at 22.05kHz. One format, no fallback list: every browser the
