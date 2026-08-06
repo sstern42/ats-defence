@@ -4,7 +4,7 @@ A browser tower defence game where you are the applicant tracking system, and th
 
 **[Play it](https://ats.spencerstern.com)**
 
-![The eighth intake in progress: screening towers along a winding path, applicants queued between them, a salary expectations trap going off, and the vacancy still open in the corner](public/og-image.png)
+![The ninth intake in progress: screening towers on an office floor either side of a corridor worn into the carpet, applicants queued down it in single file, four of them being screened at once, and the vacancy still open in the corner](public/og-image.png)
 
 ## The idea
 

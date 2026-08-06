@@ -24,6 +24,9 @@ analysis notes, tooling and CI changes do not.
   the board is dimmed by it.
 - The home page is laid on the same carpet, so the game no longer opens on a
   flat sheet and then turns out to be somewhere.
+- The share card and the README screenshot show the floor rather than the flat
+  board they were taken from, since the old one is a picture of a game that no
+  longer looks like that.
 
 The art is drawn by `tools/make-textures.mjs` and committed, the same as the
 sounds and the applicant introductions, so there is no licence question and a
