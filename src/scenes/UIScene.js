@@ -5,6 +5,7 @@ import { COPY } from '../content/copy.js';
 import { soundEnabled, toggleSound } from '../services/audio.js';
 import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
 import { FEEL, nudge, pulse } from '../services/feel.js';
+import { musicEnabled, toggleMusic } from '../services/music.js';
 import { HUD_HEIGHT } from './GameScene.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -49,7 +50,7 @@ const PALETTE_ROW_GAP = 6;
 const PALETTE_COLUMNS = 3;
 const BUTTON_WIDTH = 232;
 
-/** Between the pause control and the sound toggle along the bottom. */
+/** Between the three controls along the bottom. */
 const CONTROL_GAP = 20;
 
 /**
@@ -204,13 +205,13 @@ export default class UIScene extends Phaser.Scene {
   }
 
   /**
-   * The two controls that are not part of playing, pinned along the bottom of
+   * The three controls that are not part of playing, pinned along the bottom of
    * the HUD strip under the hint line, which is the last free corner of it.
    *
-   * Both are deliberately plain text rather than buttons, and both carry the
-   * key that does the same thing. Pause is anchored to the right edge and the
-   * sound toggle sits along from it, rather than the other way round, because
-   * the sound label changes width when it is flipped and the pause one does
+   * All three are deliberately plain text rather than buttons, and all three
+   * carry the key that does the same thing. Pause is anchored to the right edge
+   * and the toggles run leftwards from it, rather than the other way round,
+   * because a toggle changes width when it is flipped and the pause label does
    * not, so nothing has to be moved when it changes.
    */
   createControls() {
@@ -223,16 +224,33 @@ export default class UIScene extends Phaser.Scene {
       () => this.gameScene.openPause()
     );
 
-    this.soundToggle = this.plainControl(
-      this.scale.width - 16 - this.pauseControl.width - CONTROL_GAP,
+    const soundRight =
+      this.scale.width - 16 - this.pauseControl.width - CONTROL_GAP;
+
+    this.soundToggle = this.plainControl(soundRight, bottom, '', () =>
+      this.flipSound()
+    );
+
+    // The music toggle is placed from the sound toggle at its widest rather
+    // than at whatever it happens to be saying now, since "off" is the longer
+    // of the two states and the row would otherwise shuffle sideways every time
+    // the sound was flipped. Only the leftmost control is free to change width.
+    this.soundToggle.setText(
+      HAS_KEYBOARD ? COPY.hud.soundOff : COPY.hud.soundOffTouch
+    );
+
+    this.musicToggle = this.plainControl(
+      soundRight - this.soundToggle.width - CONTROL_GAP,
       bottom,
       '',
-      () => this.flipSound()
+      () => this.flipMusic()
     );
 
     this.showSoundState();
+    this.showMusicState();
 
     this.input.keyboard.on('keydown-M', () => this.flipSound());
+    this.input.keyboard.on('keydown-N', () => this.flipMusic());
   }
 
   /**
@@ -276,6 +294,24 @@ export default class UIScene extends Phaser.Scene {
     const off = HAS_KEYBOARD ? COPY.hud.soundOff : COPY.hud.soundOffTouch;
 
     this.soundToggle.setText(soundEnabled() ? on : off);
+
+    // Sound off means silence, music included, so the music label greys out to
+    // say that its own setting is not currently doing anything.
+    if (this.musicToggle) {
+      this.musicToggle.setAlpha(soundEnabled() ? 1 : 0.5);
+    }
+  }
+
+  flipMusic() {
+    toggleMusic();
+    this.showMusicState();
+  }
+
+  showMusicState() {
+    const on = HAS_KEYBOARD ? COPY.hud.musicOn : COPY.hud.musicOnTouch;
+    const off = HAS_KEYBOARD ? COPY.hud.musicOff : COPY.hud.musicOffTouch;
+
+    this.musicToggle.setText(musicEnabled() ? on : off);
   }
 
   /**

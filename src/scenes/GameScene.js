@@ -21,6 +21,7 @@ import {
 } from '../services/analytics.js';
 import { playSound } from '../services/audio.js';
 import { shake } from '../services/feel.js';
+import { startMusic, stopMusic } from '../services/music.js';
 import { resolveWaves } from '../services/experiments.js';
 import { currentMode, currentModeKey } from '../services/mode.js';
 import {
@@ -317,6 +318,13 @@ export default class GameScene extends Phaser.Scene {
     // A restart builds this scene again, so this is also where a second and
     // third attempt are counted.
     trackGameStarted();
+
+    // Music runs for as long as the board does. It does nothing at all unless
+    // the player has asked for it, and the two ways out of a run that do not go
+    // through endRun, restarting and leaving, both stop this scene.
+    startMusic();
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => stopMusic());
 
     this.announceMode();
     this.beginPreparation();
@@ -2141,6 +2149,10 @@ export default class GameScene extends Phaser.Scene {
 
     // Nothing more can be bought, so the HUD stops offering.
     this.events.emit('run-over');
+
+    // The board is about to freeze under the game over screen, and hold music
+    // over a filled vacancy is a joke that would only be funny once.
+    stopMusic();
 
     // Recorded now rather than after the pause, so a player who closes the tab
     // on the last leak is still counted as having finished the run.
