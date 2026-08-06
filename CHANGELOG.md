@@ -7,6 +7,29 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.1.0 - 2026-08-06
+
+- A second mode, Open advert, chosen from tabs on the home page alongside
+  Classic intake. There is no path in it: applicants arrive across the whole
+  left edge and converge on the desk, fanning out where the ground is open and
+  squeezing where it narrows. Still no pathfinding. A waypoint can now carry a
+  spread and each applicant walks its own copy of the line, displaced by its
+  share of it.
+- Towers go anywhere in the new mode, since there is no corridor to stand
+  beside, and traps go wherever they are put rather than snapping to a path.
+- Applicants push back, in the new mode only. Enough of them crowded round a
+  screening process wear it down until it is suspended pending review, and it
+  returns at full integrity having learned nothing. A Referral does the most
+  damage by a distance, because it knows somebody.
+- A leaderboard per mode. The two send different numbers of applicants at
+  boards of a different shape, so a rating from one is not a rating from the
+  other, and every score submitted before this is recorded as classic.
+- Every analytics event now carries which mode the run was played in.
+
+Classic intake is unchanged. Every number in it is the number it already had,
+which keeps its balancing pass, its leaderboard and the live starting difficulty
+experiment all still saying what they said.
+
 ## 1.0.1 - 2026-08-06
 
 - The home page footer now says which version is being played, after the credit

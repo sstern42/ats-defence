@@ -14,6 +14,25 @@
 -- anything is that readout happening early under another name. These pool both
 -- arms. After the experiment is called, splitting them is fine.
 --
+-- Every query here reads one mode, and reads classic unless it is told
+-- otherwise:
+--
+--   >>> and mode = 'classic'
+--
+-- marked `-- mode`, once per base CTE. To ask the same questions of the other
+-- mode, change the value in every query you run.
+--
+-- It is a filter rather than a `group by mode` because the answers are not
+-- comparable and putting them in one table invites reading them as though they
+-- were. A tower covers a corridor in one mode and a slice of an open field in
+-- the other, the wave lists are different lengths of a different size, and
+-- query 5 is about where on the board things get built when the two modes do
+-- not share a buildable area. Dead weight in one is not dead weight in the
+-- other, and the honest way to say so is two runs of the same query.
+--
+-- Rows written before the mode column existed were backfilled as classic,
+-- which is what they are, so the default loses nothing that was here before.
+--
 -- Three things about the data are worth knowing before any of it is believed.
 --
 -- The trap emits `tower_placed` like everything else. Salary Expectations is a
@@ -69,6 +88,7 @@ runs as (
   select distinct run_id
   from public.analytics_events
   where event = 'game_started'
+    and mode = 'classic'  -- mode
     and run_id is not null
 ),
 placements as (
@@ -77,6 +97,7 @@ placements as (
     properties ->> 'tower_type' as tower
   from public.analytics_events
   where event = 'tower_placed'
+    and mode = 'classic'  -- mode
     and run_id is not null
 )
 select
@@ -138,6 +159,7 @@ peak as (
     max((properties ->> 'currency_before')::integer) as peak_seen
   from public.analytics_events
   where event = 'tower_placed'
+    and mode = 'classic'  -- mode
     and run_id is not null
   group by run_id
 ),
@@ -147,6 +169,7 @@ used as (
     properties ->> 'tower_type' as tower
   from public.analytics_events
   where event = 'tower_placed'
+    and mode = 'classic'  -- mode
     and run_id is not null
 )
 select
@@ -189,6 +212,7 @@ with first_use as (
     min(wave_number) as first_wave
   from public.analytics_events
   where event = 'tower_placed'
+    and mode = 'classic'  -- mode
     and run_id is not null
     and wave_number is not null
   group by run_id, properties ->> 'tower_type'
@@ -230,6 +254,7 @@ with reached as (
     count(distinct run_id) as runs_at_wave
   from public.analytics_events
   where event = 'wave_started'
+    and mode = 'classic'  -- mode
     and run_id is not null
     and wave_number is not null
   group by wave_number
@@ -241,6 +266,7 @@ placements as (
     count(*) as placements
   from public.analytics_events
   where event = 'tower_placed'
+    and mode = 'classic'  -- mode
     and run_id is not null
     and wave_number is not null
   group by 1, 2
@@ -281,6 +307,7 @@ with cells as (
     count(*) as placements
   from public.analytics_events
   where event = 'tower_placed'
+    and mode = 'classic'  -- mode
     and run_id is not null
     and properties ? 'grid_x'
     and properties ? 'grid_y'
@@ -333,6 +360,7 @@ with finals as (
     max((properties ->> 'final_wave')::integer) as final_wave
   from public.analytics_events
   where event in ('game_over', 'run_abandoned')
+    and mode = 'classic'  -- mode
     and run_id is not null
     and properties ? 'final_wave'
   group by run_id
@@ -343,6 +371,7 @@ used as (
     properties ->> 'tower_type' as tower
   from public.analytics_events
   where event = 'tower_placed'
+    and mode = 'classic'  -- mode
     and run_id is not null
 ),
 towers as (

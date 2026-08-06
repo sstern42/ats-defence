@@ -43,6 +43,37 @@
 -- show any row whose run is on the other side of the line.
 --
 --
+-- The mode
+-- --------
+--
+-- There are two modes now and they are not comparable. Wave five means a
+-- different intake in each, the boards are separate, and a run of one says
+-- nothing about the other. So every query below reads one mode, and reads
+-- classic unless told otherwise:
+--
+--   >>> and mode = 'classic'         -- events
+--   >>> and mode = 'classic'         -- board rows
+--
+-- marked `-- mode`, and it goes on two sorts of CTE: the `game_started` read
+-- that defines what a run is, which every other CTE in the query joins to, and
+-- any read of the board. To ask the same questions of open advert, change the
+-- value in every query you run. Rows written before the column existed were
+-- backfilled as classic, which is what they are.
+--
+-- Two places deliberately do not carry it, and both are session level.
+--
+-- Query 1 splits by mode instead of filtering, because it is the census.
+--
+-- The `session_started` CTEs in queries 2 and 12 are left alone, because a
+-- session begins before the player has chosen anything and a session is
+-- therefore not in a mode. The consequence is worth stating plainly rather than
+-- hiding: in query 2 the top of the funnel is every session and the steps below
+-- it are classic runs, so a player who only ever played open advert counts as a
+-- session that never started a run. Until open advert has traffic that
+-- difference is nil. Once it does, the session step is the one to read as
+-- "arrived" rather than as "arrived and did not play".
+--
+--
 -- Five things about the data are worth knowing before any of it is believed
 -- ------------------------------------------------------------------------
 --
@@ -108,10 +139,17 @@
 -- `runs` is null for session_started by design, since a session has no run
 -- yet. It is not null for a home screen board view, which is the stale run id
 -- described in the header rather than a run that viewed anything.
+--
+-- This is the one query that splits by mode rather than filtering to one, since
+-- it is the census and the census should say what is actually in the table. A
+-- null mode is a row written before the column existed and after the backfill
+-- should not appear at all, so one turning up here means the collector is
+-- storing events whose mode it did not recognise.
 -- ---------------------------------------------------------------------------
 
 select
   event,
+  mode,
   count(*) as events,
   count(distinct session_id) as sessions,
   count(distinct run_id) as runs,
@@ -119,7 +157,7 @@ select
   max(received_at) as last_seen
 from public.analytics_events
 where received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
-group by event
+group by event, mode
 order by events desc;
 
 
@@ -157,6 +195,7 @@ runs as (
   join sessions s on s.session_id = e.session_id
   where e.event = 'game_started'
     and e.run_id is not null
+    and e.mode = 'classic'  -- mode
   group by e.run_id
 ),
 finished as (
@@ -175,6 +214,7 @@ board as (
   select run_id
   from public.leaderboard
   where submitted_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
 ),
 steps (step, stage, n) as (
   select 1, 'sessions', (select count(*) from sessions)
@@ -233,6 +273,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
 ),
 furthest as (
   select
@@ -301,6 +342,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
 ),
 endings as (
   select
@@ -369,6 +411,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
 ),
 started as (
   select
@@ -436,6 +479,7 @@ with runs as (
   where event = 'game_started'
     and run_id is not null
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
 ),
 at_wave as (
   select
@@ -503,6 +547,7 @@ with runs as (
   where e.event = 'game_started'
     and e.run_id is not null
     and e.received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and e.mode = 'classic'  -- mode
   group by e.run_id
 ),
 endings as (
@@ -587,6 +632,7 @@ board as (
   select id, run_id, display_name, score, final_wave, submitted_at
   from public.leaderboard
   where submitted_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
 ),
 run_facts as (
   select
@@ -667,6 +713,7 @@ with runs as (
   where e.event = 'game_started'
     and e.run_id is not null
     and e.received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and e.mode = 'classic'  -- mode
   group by e.run_id
 ),
 finished as (
@@ -749,6 +796,7 @@ with board as (
   select id, run_id, score, final_wave, submitted_at
   from public.leaderboard
   where submitted_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
 ),
 runs as (
   select
@@ -759,6 +807,7 @@ runs as (
   where e.event = 'game_started'
     and e.run_id is not null
     and e.received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and e.mode = 'classic'  -- mode
   group by e.run_id
 ),
 placed as (
@@ -843,6 +892,7 @@ with board as (
   select run_id, ip_hash, score, submitted_at
   from public.leaderboard
   where submitted_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and mode = 'classic'  -- mode
 ),
 sessions as (
   select
@@ -851,6 +901,7 @@ sessions as (
   from public.analytics_events e
   where e.event = 'game_started'
     and e.run_id is not null
+    and e.mode = 'classic'  -- mode
   group by e.run_id
 ),
 per_hash as (
@@ -905,6 +956,7 @@ runs as (
   join sessions s on s.session_id = e.session_id
   where e.event = 'game_started'
     and e.run_id is not null
+    and e.mode = 'classic'  -- mode
   group by e.run_id
 ),
 finished as (

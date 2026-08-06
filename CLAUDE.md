@@ -177,7 +177,7 @@ Attached to every event without exception:
 
 `mode` is the seventh and arrived with the second game mode. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run every other event is already reporting, and without it all six questions above have two answers with no way to tell them apart. It is on `session_started` too, where it records the setting rather than a decision, since nothing has been played yet.
 
-The queries in `docs/` were written for a one-mode game and still aggregate across both. They want a `mode` filter before the next analysis pass, and until then their numbers are only right because open advert has no rows yet.
+The queries in `docs/` read one mode, and read classic unless told otherwise. The filter is marked `-- mode`, on the same terms as the cutoff line next to it: it goes on the `game_started` CTE that defines a run and on any read of the board, and if it moves, move all of them. Three places deliberately do without it, and all three are session level rather than run level: the two coverage queries, which split by mode because a census should say what is in the table, and the exposure cross-check, because bucketing happens before a mode is chosen and filtering it would break the sample ratio check it exists to perform.
 
 ### Events
 

@@ -183,7 +183,8 @@ create or replace function seed_event(
 begin
   insert into public.analytics_events
     (event, session_id, run_id, wave_number, variant_assignments, device_type,
-     referrer, properties, sent_at, received_at, ip_hash, country, browser, os)
+     referrer, mode, properties, sent_at, received_at, ip_hash, country,
+     browser, os)
   values (
     p_event,
     p_session,
@@ -192,13 +193,15 @@ begin
     jsonb_build_object('starting-difficulty', p_arm),
     p_device,
     'https://www.linkedin.com/',
+    'classic',
     jsonb_build_object(
       'session_id', p_session,
       'run_id', p_run,
       'wave_number', p_wave,
       'variant_assignments', jsonb_build_object('starting-difficulty', p_arm),
       'device_type', p_device,
-      'referrer', 'https://www.linkedin.com/'
+      'referrer', 'https://www.linkedin.com/',
+      'mode', 'classic'
     ) || p_props,
     p_at,
     p_at,

@@ -4,14 +4,20 @@
 -- table, so it belongs on an empty database with the migrations applied and
 -- nowhere near the project holding the real events.
 --
--- Twenty runs. Every run places two Keyword Filters, ten also place a
+-- Twenty classic runs. Every run places two Keyword Filters, ten also place a
 -- Take-Home Task, four a Video Screen, two a Culture Fit Panel, and fifteen lay
 -- six Salary Expectations each. Nobody ever places a Knockout Question, which
 -- is the case the whole thing is built around: it emits no events at all, so a
 -- query that groups the events alone drops it silently, and a report about
 -- dead weight that omits the deadest tower is worse than no report.
 --
--- Expected, if the queries are right:
+-- Five open advert runs sit alongside them and reach none of the figures below,
+-- because every query filters to one mode. Each places the one tower no classic
+-- run here ever places, so the filter failing is not a small drift: Knockout
+-- Question stops being a row of zeros and the dead weight finding reverses.
+-- See the trap at the end of the seeding block.
+--
+-- Expected, if the queries are right, reading classic:
 --
 --   1. reach:      keywordFilter 100.0% of runs, salaryExpectations 75.0,
 --                  takeHomeTask 50.0, videoScreen 20.0, cultureFitPanel 10.0,
@@ -35,8 +41,15 @@
 --                  above that query describes, manufactured here on purpose:
 --                  the runs that used it are exactly the runs that lasted.
 --
--- Checked against Postgres 16 with all four migrations applied. All six
--- queries returned the figures above.
+--   7. mode trap:  every figure above is unchanged by the five open advert
+--                  runs. Strip the `-- mode` lines and query 1 reports
+--                  knockoutQuestion on 20.0% of runs, above videoScreen and
+--                  cultureFitPanel, while keywordFilter falls to 80.0. That
+--                  reversal is what the filter is for.
+--
+-- Checked against Postgres 16 with all six migrations applied. All six queries
+-- returned the figures above, with the trap present and again with the mode
+-- lines stripped, which produced the reversal in item 7.
 
 truncate public.analytics_events;
 
@@ -48,7 +61,7 @@ create or replace function seed_event(
 ) returns void language sql as $$
   insert into public.analytics_events
     (event, session_id, run_id, wave_number, variant_assignments,
-     device_type, referrer, properties, ip_hash)
+     device_type, referrer, mode, properties, ip_hash)
   values (
     p_event,
     p_run || '-s',
@@ -57,10 +70,12 @@ create or replace function seed_event(
     jsonb_build_object('starting-difficulty', 'control'),
     'desktop',
     'https://www.linkedin.com/',
+    'classic',
     jsonb_build_object(
       'session_id', p_run || '-s',
       'run_id', p_run,
-      'wave_number', p_wave
+      'wave_number', p_wave,
+      'mode', 'classic'
     ) || p_props,
     'hash'
   );
@@ -137,6 +152,49 @@ begin
   end loop;
 end;
 $$;
+
+-- The mode trap. Five open advert runs, each placing a Knockout Question,
+-- which is the one tower no classic run in this fixture ever places.
+--
+-- Every expected figure above is a classic figure and none of these rows may
+-- reach any of them. Knockout Question is the trap because it is the tower the
+-- whole fixture is built around: it appears as a row of zeros, and if the mode
+-- filter is missing from query 1 it stops being zero and the dead weight
+-- finding quietly reverses.
+--
+-- Inserted directly rather than through the helper, since the helper writes
+-- classic and that is the whole point of it.
+insert into public.analytics_events
+  (event, session_id, run_id, wave_number, variant_assignments,
+   device_type, referrer, mode, properties, ip_hash)
+select
+  e.event,
+  'open' || k || '-s',
+  'open' || k,
+  e.wave,
+  jsonb_build_object('starting-difficulty', 'control'),
+  'desktop',
+  'https://www.linkedin.com/',
+  'openField',
+  jsonb_build_object(
+    'session_id', 'open' || k || '-s',
+    'run_id', 'open' || k,
+    'wave_number', e.wave,
+    'mode', 'openField'
+  ) || e.props,
+  'hash'
+from generate_series(1, 5) as k
+cross join (
+  values
+    ('game_started', 0, jsonb_build_object('attempt_number', 1)),
+    ('wave_started', 1, jsonb_build_object('lives_remaining', 10,
+                                           'currency', 150)),
+    ('tower_placed', 1, jsonb_build_object('tower_type', 'knockoutQuestion',
+                                           'currency_before', 400,
+                                           'grid_x', 6, 'grid_y', 6)),
+    ('game_over', 4, jsonb_build_object('final_wave', 4, 'score', 500,
+                                        'run_duration_ms', 120000))
+) as e(event, wave, props);
 
 drop function seed_tower(text, text, integer, integer, integer, integer);
 drop function seed_event(text, text, integer, jsonb);
