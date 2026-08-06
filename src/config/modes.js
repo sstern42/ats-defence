@@ -28,8 +28,13 @@
  * - `entryJitter` is how far back from the first waypoint an applicant may
  *   start, so a crowd walks on with a ragged front rather than in a rank.
  * - `pressure` is applicants pushing back, and null is them not doing so.
+ * - `scenery` is where the furniture stands, from scenery.js. It changes
+ *   nothing about how a run plays and it is a mode setting anyway, because the
+ *   two boards have different floors free: a corridor leaves pockets between
+ *   its legs, and a crowd leaves a strip at the top and a strip at the bottom.
  */
 import { OPEN_FIELD_SPINE, PATH_WAYPOINTS } from './path.js';
+import { CLASSIC_SCENERY, OPEN_FIELD_SCENERY } from './scenery.js';
 import { OPEN_FIELD_WAVES, WAVES } from './waves.js';
 
 export const MODES = {
@@ -40,7 +45,8 @@ export const MODES = {
     buildClearance: 48,
     trapSnapDistance: 46,
     entryJitter: 0,
-    pressure: null
+    pressure: null,
+    scenery: CLASSIC_SCENERY
   },
   openField: {
     waypoints: OPEN_FIELD_SPINE,
@@ -49,6 +55,7 @@ export const MODES = {
     buildClearance: 0,
     trapSnapDistance: 0,
     entryJitter: 90,
+    scenery: OPEN_FIELD_SCENERY,
 
     /**
      * Applicants pushing back, which is open advert only.

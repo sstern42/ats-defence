@@ -7,6 +7,7 @@ import { COPY } from '../content/copy.js';
 import { trackKofiClicked } from '../services/analytics.js';
 import { HAS_KEYBOARD } from '../services/device.js';
 import { currentModeKey, setMode } from '../services/mode.js';
+import { addCarpet, addVignette } from './backdrop.js';
 import LeaderboardPanel from './LeaderboardPanel.js';
 
 const FONT = 'system-ui, sans-serif';
@@ -23,6 +24,9 @@ const TAB_SELECTED_COLOUR = '#39566b';
 const DIVIDER_COLOUR = 0x2f3742;
 const KOFI_COLOUR = '#7d8a99';
 const KOFI_HOVER_COLOUR = '#c7d94a';
+
+/** The floor, under a page where nothing else asks for a depth at all. */
+const BACKDROP_DEPTH = -10;
 
 /** The two columns: the pitch on the left, the board on the right. */
 const LEFT_X = 72;
@@ -88,6 +92,12 @@ export default class HomeScene extends Phaser.Scene {
 
   create() {
     this.started = false;
+
+    // The same floor the board is laid on, so the game does not open on a flat
+    // sheet and then turn out to be somewhere. Nothing else here is given a
+    // depth, so under everything is where these two land.
+    addCarpet(this, BACKDROP_DEPTH);
+    addVignette(this, BACKDROP_DEPTH + 1);
 
     // Whichever mode the last run was played in, so somebody who has just quit
     // out of one comes back to the screen describing the game they were in
