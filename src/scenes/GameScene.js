@@ -23,22 +23,54 @@ import { playSound } from '../services/audio.js';
 import { shake } from '../services/feel.js';
 import { resolveWaves } from '../services/experiments.js';
 import { currentMode, currentModeKey } from '../services/mode.js';
+import {
+  addVignette,
+  DECOR_ALPHA,
+  DECOR_TINT,
+  FLOOR_TINT,
+  TREAD_TINT
+} from './backdrop.js';
 
 const PATH_WIDTH = 44;
-const PATH_FILL = 0x232830;
 const PATH_EDGE = 0x2f3742;
+
+/**
+ * The rim left around the walked ground once the carpet has been cut away from
+ * it, in pixels off each side. It is what is left of the stroke the corridor
+ * used to be drawn with, and it is the only thing that gives the route a hard
+ * edge now that the inside of it is a texture.
+ */
+const PATH_RIM = 3;
+
+/**
+ * The ground, baked once at the start of a run.
+ *
+ * The board is an office floor with a route worn across it, and it is built as
+ * two layers rather than as a drawing. Underneath, the walked carpet, tiled over
+ * everything. Over that, the unwalked carpet with the route cut out of it, so
+ * what shows through the hole is the flattened pile the applicants have made.
+ *
+ * Cutting the hole rather than drawing the route on top is what keeps the two
+ * modes the same code. A corridor and a crowd's ground are different shapes, and
+ * a shape is all either of them has to hand over.
+ *
+ * The texture is rebuilt on every run, since a run may be in the other mode and
+ * the hole is a different shape. Keyed, so the one before it is thrown away
+ * rather than accumulating a board's worth of texture per attempt.
+ */
+const GROUND_TEXTURE_KEY = 'board-ground';
 
 /**
  * How the arrival ground is drawn where there is no path to draw, which is to
  * say where the crowd is wide enough that a line would be a lie. The band is
- * the ground everybody covers between them, filled faintly and edged, with the
- * spine itself as a hairline down the middle of it.
+ * the ground everybody covers between them, worn into the carpet the same way
+ * the corridor is, edged, with the spine itself as a hairline down the middle
+ * of it.
  *
  * It is worth drawing at all because it is the level design. Without it a
  * player has no way of telling where the crowd narrows, and where it narrows is
  * the only place a tower is worth the money.
  */
-const BAND_FILL_ALPHA = 0.5;
 const BAND_EDGE_ALPHA = 0.55;
 const BAND_SPINE_ALPHA = 0.5;
 const VACANCY_SIZE = 54;
@@ -164,7 +196,21 @@ const TOUCH_LIFT_CSS = 64;
 const RETURN_DELAY_MS = 900;
 const RETURN_STAGGER_MS = 500;
 
+/**
+ * The drawing order. The negative half is the floor, and it is in the order the
+ * eye reads it: the worn carpet, the unworn carpet with the route cut out of
+ * it, the furniture standing on top, the route's own edging, and the vignette
+ * over the lot of it.
+ *
+ * The vignette has to be under `board` rather than over everything, so it takes
+ * the corners of the floor down without dimming a tower somebody put there.
+ */
 const DEPTHS = {
+  tread: -50,
+  carpet: -45,
+  decor: -40,
+  route: -35,
+  vignette: -30,
   board: 0,
   fields: 5,
   towers: 10,
@@ -234,7 +280,10 @@ export default class GameScene extends Phaser.Scene {
     this.pendingReturns = [];
     this.seenTypes = new Set();
 
+    this.drawGround();
+    this.drawScenery();
     this.drawPath();
+    addVignette(this, DEPTHS.vignette);
     this.drawVacancy();
     this.findBuildableCells();
     this.drawBuildableCells();
@@ -953,35 +1002,123 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * The ground the applicants arrive over. A corridor where they walk in file,
-   * and the band they cover between them where they do not.
+   * The floor, in two layers, built once at the start of a run.
    *
-   * Stroked as one polyline rather than with path.draw, which strokes each
-   * segment separately and leaves notches at every corner.
+   * The lower layer is the carpet everybody has walked on, tiled over the whole
+   * board and seen only where the upper layer is missing. The upper layer is the
+   * carpet nobody has walked on, with the route cut out of it.
+   *
+   * Both come out of one 128 pixel square, which is the whole of the trick: the
+   * office is one tile, one worn tile and one shape, and the shape is the only
+   * part either mode has to supply.
    */
-  drawPath() {
-    const graphics = this.add.graphics().setDepth(DEPTHS.board);
+  drawGround() {
+    this.add
+      .tileSprite(0, 0, this.scale.width, this.scale.height, 'floor-tread')
+      .setOrigin(0, 0)
+      .setTint(TREAD_TINT)
+      .setDepth(DEPTHS.tread);
+
+    // A run may be in the other mode, so the previous board's carpet is thrown
+    // away rather than left in the manager with the wrong hole in it.
+    if (this.textures.exists(GROUND_TEXTURE_KEY)) {
+      this.textures.remove(GROUND_TEXTURE_KEY);
+    }
+
+    const carpet = this.textures.addDynamicTexture(
+      GROUND_TEXTURE_KEY,
+      this.scale.width,
+      this.scale.height
+    );
+
+    carpet.repeat(
+      'floor-carpet',
+      null,
+      0,
+      0,
+      this.scale.width,
+      this.scale.height,
+      { tint: FLOOR_TINT }
+    );
+
+    // The corridor's edging goes on before the hole is cut, so what is left of
+    // it afterwards is a rim a few pixels wide down each side. The crowd's band
+    // is edged by drawPath instead, since a hairline that thin would be cut
+    // away entirely by the hole it is meant to be edging.
+    if (!this.crowded) {
+      const edging = this.make.graphics();
+
+      edging.lineStyle(PATH_WIDTH, PATH_EDGE, 1);
+      edging.strokePoints(this.waypoints, false, false);
+
+      carpet.draw(edging);
+      edging.destroy();
+    }
+
+    const route = this.make.graphics();
+
+    this.fillRoute(route);
+    carpet.erase(route);
+    carpet.render();
+    route.destroy();
+
+    this.add
+      .image(0, 0, GROUND_TEXTURE_KEY)
+      .setOrigin(0, 0)
+      .setDepth(DEPTHS.carpet);
+  }
+
+  /**
+   * The ground the applicants arrive over, as solid shapes, which is what the
+   * hole in the carpet is cut from. A corridor where they walk in file, and the
+   * band they cover between them where they do not.
+   *
+   * The colour is irrelevant: only the shape is used.
+   */
+  fillRoute(graphics) {
+    graphics.fillStyle(0xffffff, 1);
 
     if (this.crowded) {
-      this.drawBand(graphics);
+      graphics.fillPoints(this.bandOutline(), true);
 
       return;
     }
 
-    graphics.lineStyle(PATH_WIDTH, PATH_EDGE, 1);
-    graphics.strokePoints(this.waypoints, false, false);
+    // Each leg as its own quad, with a disc at every corner to fill the notch
+    // two of them leave between them. A single thick stroke would do it, but
+    // strokes and fills cut differently at the ends and the quads are exact.
+    const half = PATH_WIDTH / 2 - PATH_RIM;
 
-    graphics.lineStyle(PATH_WIDTH - 6, PATH_FILL, 1);
-    graphics.strokePoints(this.waypoints, false, false);
+    for (let i = 0; i < this.waypoints.length - 1; i += 1) {
+      const from = this.waypoints[i];
+      const to = this.waypoints[i + 1];
+      const length = Phaser.Math.Distance.BetweenPoints(from, to);
+      const offsetX = (-(to.y - from.y) / length) * half;
+      const offsetY = ((to.x - from.x) / length) * half;
+
+      graphics.fillPoints(
+        [
+          { x: from.x + offsetX, y: from.y + offsetY },
+          { x: to.x + offsetX, y: to.y + offsetY },
+          { x: to.x - offsetX, y: to.y - offsetY },
+          { x: from.x - offsetX, y: from.y - offsetY }
+        ],
+        true
+      );
+    }
+
+    this.waypoints.forEach((point) =>
+      graphics.fillCircle(point.x, point.y, half)
+    );
   }
 
   /**
-   * The crowd's ground, as one closed shape: the top edge of the spread left to
-   * right, then the bottom edge back again. Drawn as a polygon rather than as a
-   * thick stroke because the width changes along it, which is the whole point
-   * of it and the one thing a stroke cannot do.
+   * The crowd's ground as one closed shape: the top edge of the spread left to
+   * right, then the bottom edge back again. A polygon rather than a thick stroke
+   * because the width changes along it, which is the whole point of it and the
+   * one thing a stroke cannot do.
    */
-  drawBand(graphics) {
+  bandOutline() {
     const top = this.waypoints.map((point) => ({
       x: point.x,
       y: point.y - (point.spread ?? 0)
@@ -990,8 +1127,42 @@ export default class GameScene extends Phaser.Scene {
       .map((point) => ({ x: point.x, y: point.y + (point.spread ?? 0) }))
       .reverse();
 
-    graphics.fillStyle(PATH_FILL, BAND_FILL_ALPHA);
-    graphics.fillPoints([...top, ...bottom], true);
+    return [...top, ...bottom];
+  }
+
+  /**
+   * The furniture. It is on the floor, under everything the player put there,
+   * and it is not interactive, so a click on a filing cabinet is a click on the
+   * tile the filing cabinet is standing on.
+   */
+  drawScenery() {
+    this.mode.scenery.forEach((prop) => {
+      this.add
+        .image(prop.x, prop.y, prop.key)
+        .setAngle(prop.angle)
+        .setTint(DECOR_TINT)
+        .setAlpha(DECOR_ALPHA)
+        .setDepth(DEPTHS.decor);
+    });
+  }
+
+  /**
+   * What is left to draw once the ground has been cut: the edges of the crowd's
+   * band, which are too thin to survive being cut into the carpet, and the spine
+   * down the middle of it.
+   *
+   * The corridor needs nothing here. Its edging was drawn into the carpet before
+   * the hole went through it.
+   */
+  drawPath() {
+    if (!this.crowded) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setDepth(DEPTHS.route);
+    const outline = this.bandOutline();
+    const top = outline.slice(0, this.waypoints.length);
+    const bottom = outline.slice(this.waypoints.length);
 
     graphics.lineStyle(1, PATH_EDGE, BAND_EDGE_ALPHA);
     graphics.strokePoints(top, false, false);

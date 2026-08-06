@@ -25,6 +25,7 @@ Read these before writing anything.
 | Hosting | Netlify, auto-deploy from `main`, deploy previews on every PR |
 | Repo | `sstern42/ats-defence`, public, MIT |
 | Art | Kenney CC0 assets |
+| Ground and furniture | Drawn by `tools/make-textures.mjs`, committed as PNG |
 | Applicant introductions | Drawn by `tools/make-intros.mjs`, committed as sprite strips |
 | Sound | Synthesised by `tools/make-sounds.mjs`, committed as WAV |
 | Backend | Supabase (leaderboard and analytics, both behind Netlify functions) |
@@ -92,6 +93,7 @@ src/
     UIScene.js         HUD, overlaid on GameScene
     GameOverScene.js   Score, leaderboard, restart
     LeaderboardPanel.js  Top ten, shared by home and game over
+    backdrop.js        The office floor, shared by home and board
   entities/
     Applicant.js
     Tower.js
@@ -105,6 +107,7 @@ src/
     path.js            Waypoint coordinates, one route per mode
     version.js         The version the build was cut from
     art.js             Sprite manifest
+    scenery.js         Ground and furniture manifest, and where it stands
     audio.js           Sound manifest, levels and repeat gaps
     intros.js          Applicant introduction manifest, frames and rate
     leaderboard.js     Name rules and read limits
@@ -122,6 +125,7 @@ src/
 netlify/functions/     collect, health, leaderboard, submit-score, and their lib
 supabase/migrations/   Tables, RLS policies and later columns
 tools/make-sounds.mjs  Draws the sound effects, run by hand
+tools/make-textures.mjs  Draws the ground and the furniture, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
 docs/                  Analysis notes, their queries and the fixtures
 netlify.toml           Build command, publish directory, Node version
