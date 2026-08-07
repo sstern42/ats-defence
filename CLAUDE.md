@@ -135,6 +135,7 @@ src/
     copy.js            All user-facing strings
 netlify/functions/     collect, health, leaderboard, submit-score, and their lib
 supabase/migrations/   Tables, RLS policies and later columns
+tools/check-mode-list.mjs  Checks the modes the game plays against the ones the leaderboard will take
 tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-textures.mjs  Draws the ground and the furniture, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
@@ -247,7 +248,7 @@ Record the intended analysis before launch. An inconclusive result is a valid ou
 
 Assume it will be attacked. Client-submitted scores are trivially forged.
 
-- One board per mode, on a `mode` column rather than a second table. Same name checks, same rate limit, same one submission per run: only the ordering and the plausibility ceiling are per mode. **A new mode is a migration.** The functions read the mode list out of `config/modes.js`, but the check constraint on the column cannot, so the database is the one place a mode has to be written down by hand and the one place that will refuse a score for a mode the rest of the game already offers. A rating from a mode that sends half again as many applicants is not comparable with one that does not, and ranking them together would rank the modes rather than the players.
+- One board per mode, on a `mode` column rather than a second table. Same name checks, same rate limit, same one submission per run: only the ordering and the plausibility ceiling are per mode. **A new mode is a migration.** The functions read the mode list out of `config/modes.js`, but the check constraint on the column cannot, so the database is the one place a mode has to be written down by hand and the one place that will refuse a score for a mode the rest of the game already offers. `tools/check-mode-list.mjs` compares the two and CI fails on the drift, which is the whole reason that check exists: the build could not see this and a player could. A rating from a mode that sends half again as many applicants is not comparable with one that does not, and ranking them together would rank the modes rather than the players.
 - Supabase table with Row Level Security enabled from the start.
 - Anon key may insert and select. It may not update or delete.
 - Score submission goes through a server-side function that validates plausibility (score consistent with wave reached, within a sane ceiling) and rate limits by IP. Either a Netlify function or a Supabase edge function. Netlify is likely simpler, since it lives in this repo and deploys with the site. Decide at implementation time and note the reasoning in the PR.
