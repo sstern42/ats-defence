@@ -116,6 +116,24 @@ export const COPY = {
         'A process they crowd round wears down and goes offline.',
         'Each intake opens on its own once the countdown runs out.'
       ]
+    },
+    backChannel: {
+      name: 'Back channel',
+      blurb: 'Nobody used the portal. They come in wherever they like and walk round anything that looks like a process, so the question is what the cheapest way in costs them.',
+      banner: 'Nobody used the portal',
+      board: 'Best screeners, back channel',
+      howTo: [
+        'Click a free tile to install. Keys 1 to 6 pick which one.',
+        'The lines show where they will go, and shift when you build.',
+        'Salary Expectations is the one thing they do not walk round.',
+        'Space opens each intake early, if you are ready.'
+      ],
+      howToTouch: [
+        'Press a free tile, slide to aim, then lift to install.',
+        'The lines show where they will go, and shift when you build.',
+        'Salary Expectations is the one thing they do not walk round.',
+        'Each intake opens on its own once the countdown runs out.'
+      ]
     }
   },
   hints: {

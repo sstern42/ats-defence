@@ -130,8 +130,13 @@ export default class Tower extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Picks the applicant in range that is furthest along the path, which is the
-   * one about to become the player's problem.
+   * Picks the applicant in range with the least walking left to do, which is
+   * the one about to become the player's problem.
+   *
+   * It used to be whoever was furthest along their path as a fraction of it,
+   * which is the same applicant on a board where everybody walks the same
+   * route, and is not on a board where they do not. Distance left is the same
+   * ordering in classic and the one that survives routes of different lengths.
    *
    * A type that this tower is the answer to jumps the queue whatever the
    * ordering says, which is how the Knockout Question finds The Overqualified
@@ -155,7 +160,8 @@ export default class Tower extends Phaser.GameObjects.Container {
       if (
         !target ||
         (preferred && !targetPreferred) ||
-        (preferred === targetPreferred && applicant.progress > target.progress)
+        (preferred === targetPreferred &&
+          applicant.remaining < target.remaining)
       ) {
         target = applicant;
         targetPreferred = preferred;

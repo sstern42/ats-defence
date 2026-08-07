@@ -64,12 +64,28 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
   }
 
   /**
-   * How far along the path the applicant is, from 0 to 1. Towers use it to
-   * pick the applicant closest to the vacancy, which is the one worth
-   * shooting first.
+   * How far along the path the applicant is, from 0 to 1.
    */
   get progress() {
     return this.pathTween ? this.pathTween.getValue() : 0;
+  }
+
+  /**
+   * How far there is left to walk, in pixels. Towers use it to pick the
+   * applicant closest to the vacancy, which is the one worth shooting first.
+   *
+   * The fraction above used to be what they compared, which was the same
+   * ordering back when everybody walked one shared path. It stopped being the
+   * same ordering the moment two applicants could be on routes of different
+   * lengths, and it stopped being an ordering at all once a route could be
+   * rebuilt mid walk: a re-routed applicant is at nought again on a shorter
+   * path, and would jump to the back of every queue on the board. Distance left
+   * is the thing that was actually meant all along.
+   */
+  get remaining() {
+    return this.pathTween
+      ? this.path.getLength() * (1 - this.pathTween.getValue())
+      : Infinity;
   }
 
   /**
@@ -81,6 +97,10 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
    * the duration, so starting further on does not also mean walking slower.
    */
   walk(onArrival) {
+    // Held so a re-route can hand the same callback to the new walk. There is
+    // only ever one way off the end of a path and it is still this one.
+    this.onArrival = onArrival;
+
     const from = this.definition.spawnProgress ?? 0;
     const remaining = this.path.getLength() * (1 - from);
     const durationMs = (remaining / this.definition.speed) * 1000;
@@ -109,6 +129,47 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
     }
 
     return this;
+  }
+
+  /**
+   * The applicant has changed its mind about the way in.
+   *
+   * Only the back channel calls this, and only when a tower has just been
+   * installed, since that is the only thing on any board that can change what a
+   * route costs. The new path starts where the applicant is standing rather
+   * than where it came in, so nobody is teleported and nobody walks back to the
+   * gate to start again.
+   *
+   * The speed multiplier is put back on by hand. The walk is a tween and a slow
+   * field works by scaling that tween's clock, so a new tween arrives at full
+   * speed however deep in a Take-Home Task's field the applicant is standing.
+   * The field itself would not notice: it only calls setSpeedMultiplier when
+   * the multiplier changes, and as far as it is concerned nothing has.
+   */
+  reroute(points) {
+    if (!this.active || !this.pathTween || points.length === 0) {
+      return;
+    }
+
+    const path = new Phaser.Curves.Path(this.x, this.y);
+
+    points.forEach((point) => path.lineTo(point.x, point.y));
+
+    const durationMs = (path.getLength() / this.definition.speed) * 1000;
+
+    this.setPath(path, {
+      from: 0,
+      to: 1,
+      duration: durationMs,
+      positionOnPath: true,
+      rotateToPath: true,
+      ease: 'Linear',
+      onComplete: () => {
+        this.onArrival(this);
+      }
+    });
+
+    this.pathTween.setTimeScale(this.speedMultiplier);
   }
 
   /**

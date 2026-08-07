@@ -15,6 +15,17 @@
  * `adjacencyBonus` is added to it while another tower is on a neighbouring
  * tile.
  *
+ * `threat` is how much an applicant would rather not walk through this one's
+ * range, and only the back channel reads it, since it is the only mode where
+ * anybody chooses where to walk. Bare carpet costs one to cross, and a threat of
+ * one doubles that for somebody with a caution of one, so the two numbers
+ * multiplied are roughly how many cells of walking a cell of this tower's
+ * ground is worth avoiding. A threat of nothing is not worth avoiding at all.
+ *
+ * Priced against how much a type minds being caught by it rather than against
+ * the damage it does: a Culture Fit Panel may well wave somebody through, but
+ * nobody walks into one on purpose.
+ *
  * `integrity` is how much leaning on a tower will take before it is suspended
  * pending review. Only the open advert mode reads it, since that is the only
  * mode where applicants push back, and it is loosely priced: the cheap turret
@@ -42,6 +53,10 @@ export const TOWERS = {
     bodyTint: 0x8fc4de,
     tracerColour: 0x8fc4de,
     tracerDurationMs: 90,
+    // The cheapest thing to walk past, and deliberately so. Half the board is
+    // inside one of these by the fourth intake, and a route that avoided them
+    // all would be no route.
+    threat: 0.35,
     integrity: 90
   },
   knockoutQuestion: {
@@ -57,6 +72,9 @@ export const TOWERS = {
     bodyTint: 0xd98a6a,
     tracerColour: 0xd98a6a,
     tracerDurationMs: 200,
+    // The most avoided thing on the board, because there is no arguing with it
+    // and everybody knows what it is.
+    threat: 1.6,
     integrity: 170
   },
   takeHomeTask: {
@@ -70,6 +88,7 @@ export const TOWERS = {
     sprite: { base: 'tower-base', barrel: 'turret-sensor' },
     bodyTint: 0xc7d94a,
     fieldColour: 0xc7d94a,
+    threat: 0.8,
     integrity: 140
   },
   cultureFitPanel: {
@@ -88,6 +107,7 @@ export const TOWERS = {
     tracerColour: 0xbf9ad9,
     tracerDurationMs: 140,
     burstDurationMs: 260,
+    threat: 1,
     integrity: 150
   },
   videoScreen: {
@@ -103,6 +123,7 @@ export const TOWERS = {
     tracerColour: 0x7fd9d0,
     tracerDurationMs: 110,
     linkColour: 0x7fd9d0,
+    threat: 0.5,
     integrity: 120
   },
   salaryExpectations: {
@@ -118,6 +139,10 @@ export const TOWERS = {
     triggerRadius: 34,
     damage: 140,
     footprint: 30,
+    // No `threat`, which is deliberate and is what makes this thing worth
+    // laying in the back channel. Nobody routes round a question that has not
+    // been asked yet, so the trap is the one screening mechanism that still
+    // works on ground the applicants have chosen for themselves.
     // No barrel, because a trap does not aim. It is a pad on the floor.
     sprite: { base: 'trap-pad' },
     bodyTint: 0xd9cf6a,

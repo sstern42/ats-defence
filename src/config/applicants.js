@@ -22,6 +22,12 @@
  *   only mode where applicants push back at all, and how far they can reach is
  *   a property of that mode rather than of the type. A Referral does the most
  *   damage by a distance, which is the joke: it knows somebody.
+ * - `caution` is how far out of its way it will go to avoid screening, and only
+ *   the back channel reads it, since it is the only mode where anybody chooses
+ *   where to walk. Zero is a straight line at the desk whatever is in the way.
+ *   One means a cell covered by an average process is worth about one cell of
+ *   walking to avoid, so the numbers below are read against each other rather
+ *   than against anything absolute.
  *
  * Every type has a `pressure` even where it is small, because a Graduate on its
  * own is not a problem and forty of them standing round one desk is.
@@ -40,7 +46,10 @@ export const APPLICANTS = {
     colour: 0xc7d94a,
     sprite: 'unit-round',
     bounty: 6,
-    pressure: 6
+    pressure: 6,
+    // Applies to everything and reads nothing before it does, so it walks at
+    // the desk in a straight line through whatever happens to be in the way.
+    caution: 0
   },
   careerChanger: {
     health: 260,
@@ -49,7 +58,8 @@ export const APPLICANTS = {
     colour: 0x6a8fd9,
     sprite: 'vehicle-wide',
     bounty: 20,
-    pressure: 12
+    pressure: 12,
+    caution: 0.5
   },
   overqualified: {
     health: 70,
@@ -59,7 +69,12 @@ export const APPLICANTS = {
     sprite: 'unit-finned',
     bounty: 12,
     priorityFor: 'knockoutQuestion',
-    pressure: 8
+    pressure: 8,
+    // Has been through all of this before and can see it coming, which makes it
+    // the hardest type to catch on a board it is allowed to choose its way
+    // across. The Knockout Question still goes for it first, so the answer is
+    // to make it walk somewhere it would rather not.
+    caution: 1.3
   },
   keywordStuffer: {
     health: 120,
@@ -69,7 +84,12 @@ export const APPLICANTS = {
     sprite: 'unit-plain',
     bounty: 15,
     immuneTo: ['keywordFilter'],
-    pressure: 11
+    pressure: 11,
+    // Minds the rest of the board as much as anybody, and walks straight
+    // through a Keyword Filter's ground because a Keyword Filter has nothing to
+    // say to it. The immunity was one line for the towers and it is the same
+    // line here, which is the whole reason the routing reads it.
+    caution: 1.1
   },
   referral: {
     health: 90,
@@ -79,7 +99,10 @@ export const APPLICANTS = {
     sprite: 'unit-slim',
     bounty: 14,
     spawnProgress: 0.28,
-    pressure: 26
+    pressure: 26,
+    // Knows somebody, so it uses the front door and barely looks at what is
+    // stood beside it.
+    caution: 0.2
   },
   boomerang: {
     health: 80,
@@ -89,6 +112,7 @@ export const APPLICANTS = {
     sprite: 'vehicle-boxy',
     bounty: 11,
     returns: true,
-    pressure: 12
+    pressure: 12,
+    caution: 0.9
   }
 };

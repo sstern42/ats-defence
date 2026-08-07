@@ -2,18 +2,24 @@
  * Game modes. Plain data, no logic, so a mode can be retuned without going
  * anywhere near the game loop.
  *
- * There are two. Classic is the game as it shipped, and every number in it is
+ * There are three. Classic is the game as it shipped, and every number in it is
  * the number it already had, so nothing about it moves for this. Open advert is
  * the same six towers and the same six applicant types walking a board that
- * behaves differently.
+ * behaves differently. Back channel is the same six again on a board with no
+ * route on it, where where they walk is worked out from where the screening is.
  *
  * The fields are the whole of what a mode changes. GameScene reads them and has
  * no idea which mode it is running, which is the point: there is one game loop
- * and two sets of numbers, rather than two games to keep in step.
+ * and three sets of numbers, rather than three games to keep in step.
  *
  * - `waypoints` is the route, from path.js. A waypoint carrying a `spread` is
  *   the middle of a crowd rather than a line to walk, and that one field is
- *   what turns a queue into a horde.
+ *   what turns a queue into a horde. A mode with a `field` has none.
+ * - `field` is the other kind of board, also from path.js: a floor and a desk
+ *   rather than a route, with the way across it worked out by services/routing.
+ *   Its presence is what switches the routing on, on the same terms `pressure`
+ *   switches applicants pushing back on, so the two modes that have no field
+ *   never find out that any of it exists.
  * - `waves` is the intake list, from waves.js.
  * - `experimentalFirstWave` says whether wave one comes from the starting
  *   difficulty assignment. Only classic does, because classic wave one is the
@@ -33,9 +39,17 @@
  *   two boards have different floors free: a corridor leaves pockets between
  *   its legs, and a crowd leaves a strip at the top and a strip at the bottom.
  */
-import { OPEN_FIELD_SPINE, PATH_WAYPOINTS } from './path.js';
-import { CLASSIC_SCENERY, OPEN_FIELD_SCENERY } from './scenery.js';
-import { OPEN_FIELD_WAVES, WAVES } from './waves.js';
+import {
+  BACK_CHANNEL_FIELD,
+  OPEN_FIELD_SPINE,
+  PATH_WAYPOINTS
+} from './path.js';
+import {
+  BACK_CHANNEL_SCENERY,
+  CLASSIC_SCENERY,
+  OPEN_FIELD_SCENERY
+} from './scenery.js';
+import { BACK_CHANNEL_WAVES, OPEN_FIELD_WAVES, WAVES } from './waves.js';
 
 export const MODES = {
   classic: {
@@ -94,6 +108,40 @@ export const MODES = {
       suspensionMs: 9000,
       recoveryPerSecond: 4
     }
+  },
+
+  /**
+   * The back channel. Nobody used the portal, so there is no queue to stand
+   * beside and no advertised front to hold: they come in across the left edge
+   * and find their own way to the desk, and every screening mechanism on the
+   * board is something to be walked round rather than something to be walked
+   * past.
+   *
+   * Nothing here blocks anybody. A tower makes the ground inside its range
+   * expensive, an applicant takes the cheapest way rather than the shortest,
+   * and how much any of them minds is `caution` on the type. So the player is
+   * not building a maze, they are deciding what the cheapest way in is going to
+   * cost, which is a different question and the one this mode exists to ask.
+   *
+   * `buildClearance` and `trapSnapDistance` are zero for the reason they are
+   * zero in open advert: there is no line to keep clear of and none to snap to.
+   * The trap is the one thing on the board that lays no threat down, so it is
+   * also the one thing nobody routes round, and setting it on the ground they
+   * have just been pushed onto is the whole of how it is played here.
+   *
+   * `pressure` is null. Applicants who can walk round a process have no reason
+   * to stand and lean on it, and giving this mode both would be two answers to
+   * the same question.
+   */
+  backChannel: {
+    field: BACK_CHANNEL_FIELD,
+    waves: BACK_CHANNEL_WAVES,
+    experimentalFirstWave: false,
+    buildClearance: 0,
+    trapSnapDistance: 0,
+    entryJitter: 70,
+    pressure: null,
+    scenery: BACK_CHANNEL_SCENERY
   }
 };
 
