@@ -64,13 +64,20 @@ export const COPY = {
     howToHeading: 'How the screening works'
   },
   /**
-   * The two ways to run a vacancy.
+   * The three ways to run a vacancy.
    *
    * `name` is the tab and the banner title, `blurb` sits under the tabs on the
    * front page, and `banner` is the line the board opens with. The how-to lists
-   * are per mode because two of the four lines are not true in both, and a list
-   * that quietly describes the other game is worse than one that repeats
-   * itself.
+   * are per mode because two of the four lines are not true in all three, and a
+   * list that quietly describes one of the other games is worse than one that
+   * repeats itself.
+   *
+   * Two things here have to fit rather than only read well, because the front
+   * page is laid out on fixed positions rather than on how much text turns up.
+   *
+   * A `blurb` gets two lines, between the tabs and the start button. There is
+   * no third line: a blurb that needs one is drawn underneath the button rather
+   * than being pushed clear of it.
    *
    * Every how-to line has to hold one line at the width the list is drawn at,
    * since the lines are laid out on a fixed gap and a wrapped one runs into the
@@ -119,7 +126,7 @@ export const COPY = {
     },
     backChannel: {
       name: 'Back channel',
-      blurb: 'Nobody used the portal. They come in wherever they like and walk round anything that looks like a process, so the question is what the cheapest way in costs them.',
+      blurb: 'Nobody used the portal. They walk round anything that looks like a process, so the question is what the cheapest way in costs.',
       banner: 'Nobody used the portal',
       board: 'Best screeners, back channel',
       howTo: [
