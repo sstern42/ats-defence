@@ -31,6 +31,10 @@ analysis notes, tooling and CI changes do not.
   walking reconsiders from where they are standing.
 - Its own intake list and its own leaderboard, on the same terms the second mode
   got them. A first pass, and less settled than either of the others.
+- The board needs `supabase/migrations/0007_leaderboard_back_channel.sql`
+  applied before it will take a score. The functions read the mode list out of
+  config, but a check constraint cannot, so the database is the one place a new
+  mode has to be written down by hand.
 
 Towers now pick whoever has the least walking left rather than whoever is
 furthest along their path as a fraction of it. In classic those are the same

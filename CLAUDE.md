@@ -247,7 +247,7 @@ Record the intended analysis before launch. An inconclusive result is a valid ou
 
 Assume it will be attacked. Client-submitted scores are trivially forged.
 
-- One board per mode, on a `mode` column rather than a second table. Same name checks, same rate limit, same one submission per run: only the ordering and the plausibility ceiling are per mode. A rating from a mode that sends half again as many applicants is not comparable with one that does not, and ranking them together would rank the modes rather than the players.
+- One board per mode, on a `mode` column rather than a second table. Same name checks, same rate limit, same one submission per run: only the ordering and the plausibility ceiling are per mode. **A new mode is a migration.** The functions read the mode list out of `config/modes.js`, but the check constraint on the column cannot, so the database is the one place a mode has to be written down by hand and the one place that will refuse a score for a mode the rest of the game already offers. A rating from a mode that sends half again as many applicants is not comparable with one that does not, and ranking them together would rank the modes rather than the players.
 - Supabase table with Row Level Security enabled from the start.
 - Anon key may insert and select. It may not update or delete.
 - Score submission goes through a server-side function that validates plausibility (score consistent with wave reached, within a sane ceiling) and rate limits by IP. Either a Netlify function or a Supabase edge function. Netlify is likely simpler, since it lives in this repo and deploys with the site. Decide at implementation time and note the reasoning in the PR.
@@ -324,8 +324,10 @@ same terms `pressure` is, so classic and open advert never find out any of it
 exists.
 
 What it cost is more than the second mode cost, and most of it was not the
-routing. A third wave list, less settled than either of the others. Two changes
-to Applicant.js, which the second mode was proud of not needing, and a change to
+routing. A third wave list, less settled than either of the others. A migration,
+which was missed until a run could not record its score, because the leaderboard
+column spells its modes out and nothing in the build says so. Two changes to
+Applicant.js, which the second mode was proud of not needing, and a change to
 how every tower on every board picks a target. That last one is the part to
 watch: it is the same applicant in classic, and the argument that it is the same
 applicant is the only thing standing between this mode and having retuned the
