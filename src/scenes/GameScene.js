@@ -25,6 +25,7 @@ import { shake } from '../services/feel.js';
 import { startMusic, stopMusic } from '../services/music.js';
 import { resolveWaves } from '../services/experiments.js';
 import { currentMode, currentModeKey } from '../services/mode.js';
+import CostField from '../services/routing.js';
 import {
   addVignette,
   DECOR_ALPHA,
@@ -75,6 +76,28 @@ const GROUND_TEXTURE_KEY = 'board-ground';
  */
 const BAND_EDGE_ALPHA = 0.55;
 const BAND_SPINE_ALPHA = 0.5;
+
+/**
+ * How the routed board says what it is doing.
+ *
+ * The shading is the ground the screening has made expensive, at its heaviest
+ * where the most of it overlaps. It is the cause, and it is all the player is
+ * given. The effect, which is the way in that the cause has left them, is not
+ * drawn: working that out from what is on the board is the mode, and a board
+ * that draws the answer next to the question is a board with nothing to ask.
+ *
+ * It was drawn for a while, as three lines from the entry, and it made the mode
+ * too easy in exactly the way you would expect. It is in the history if the
+ * decision ever wants revisiting.
+ *
+ * Redrawn when a tower goes down, and deliberately a redraw rather than
+ * anything that moves: a player who has asked for less motion is told exactly
+ * the same thing at exactly the same moment, because there was never an
+ * animation carrying it. Nobody is shown the route now, so nobody is shown less
+ * of it than anybody else.
+ */
+const THREAT_COLOUR = 0xd98a6a;
+const THREAT_ALPHA = 0.2;
 const VACANCY_SIZE = 54;
 const VACANCY_COLOUR = 0xb5553f;
 
@@ -263,18 +286,33 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
-    // Everything that differs between the two modes is read here and nowhere
-    // else, so the loop below runs the same whichever is being played.
+    // Everything that differs between the modes is read here and nowhere else,
+    // so the loop below runs the same whichever is being played.
     this.mode = currentMode();
-    this.waypoints = this.mode.waypoints;
+    this.waypoints = this.mode.waypoints ?? [];
+
+    // The routed board, where there is one. A mode with a field has no route
+    // written down at all: it has a floor, a desk, and a cost field that says
+    // what crossing each part of the floor is worth avoiding. Absent in the two
+    // modes that walk a line, which never find out any of this exists.
+    this.field = this.mode.field ? new CostField(this.mode.field) : null;
 
     // Whether anybody fans out. A route with no spread on any waypoint is a
     // line, and a line is walked by one shared path object exactly as it was
     // before there were modes at all.
     this.crowded = this.waypoints.some((point) => point.spread > 0);
+
+    // The one board that is still a corridor, which is the only one with an
+    // edging to draw into the carpet and a line for a trap to snap to.
+    this.corridor = !this.field && !this.crowded;
     this.arrivals = 0;
 
-    this.path = this.buildPath();
+    // A routed board has no shared path, since nobody walks the same way
+    // twice, so the desk is read off the mode rather than off the end of one.
+    this.path = this.field ? null : this.buildPath();
+    this.vacancy = this.field
+      ? this.mode.field.vacancy
+      : this.path.getEndPoint();
     this.applicants = this.add.group();
     this.towers = [];
     this.traps = [];
@@ -1045,9 +1083,20 @@ export default class GameScene extends Phaser.Scene {
     }));
 
     const [start, ...rest] = points;
-    const path = new Phaser.Curves.Path(start.x, start.y);
 
-    rest.forEach((point) => path.lineTo(point.x, point.y));
+    return this.pathThrough(start.x, start.y, rest);
+  }
+
+  /**
+   * A path from a point, through a list of points. The one thing all three
+   * modes have in common: however the route was arrived at, whether it was
+   * written down years ago or worked out a frame before somebody walked it, what
+   * walks it is a PathFollower on a path of straight segments.
+   */
+  pathThrough(x, y, points) {
+    const path = new Phaser.Curves.Path(x, y);
+
+    points.forEach((point) => path.lineTo(point.x, point.y));
 
     return path;
   }
@@ -1096,7 +1145,7 @@ export default class GameScene extends Phaser.Scene {
     // it afterwards is a rim a few pixels wide down each side. The crowd's band
     // is edged by drawPath instead, since a hairline that thin would be cut
     // away entirely by the hole it is meant to be edging.
-    if (!this.crowded) {
+    if (this.corridor) {
       const edging = this.make.graphics();
 
       edging.lineStyle(PATH_WIDTH, PATH_EDGE, 1);
@@ -1128,6 +1177,23 @@ export default class GameScene extends Phaser.Scene {
    */
   fillRoute(graphics) {
     graphics.fillStyle(0xffffff, 1);
+
+    // A routed board is worn everywhere inside its bounds, because everywhere
+    // inside its bounds is somewhere somebody might come in. The two strips it
+    // stops short of are the unwalked carpet, and they are the only part of
+    // this floor a player can build on without being walked over.
+    if (this.field) {
+      const { bounds } = this.mode.field;
+
+      graphics.fillRect(
+        bounds.left,
+        bounds.top,
+        bounds.right - bounds.left,
+        bounds.bottom - bounds.top
+      );
+
+      return;
+    }
 
     if (this.crowded) {
       graphics.fillPoints(this.bandOutline(), true);
@@ -1205,12 +1271,21 @@ export default class GameScene extends Phaser.Scene {
   /**
    * What is left to draw once the ground has been cut: the edges of the crowd's
    * band, which are too thin to survive being cut into the carpet, and the spine
-   * down the middle of it.
+   * down the middle of it. The routed board is drawn here too, and it is the one
+   * that has to be drawn again later, so it keeps hold of its graphics.
    *
    * The corridor needs nothing here. Its edging was drawn into the carpet before
    * the hole went through it.
    */
   drawPath() {
+    if (this.field) {
+      this.routeGraphics = this.add.graphics().setDepth(DEPTHS.route);
+
+      this.drawRouting();
+
+      return;
+    }
+
     if (!this.crowded) {
       return;
     }
@@ -1230,8 +1305,96 @@ export default class GameScene extends Phaser.Scene {
     graphics.strokePoints(this.waypoints, false, false);
   }
 
+  /**
+   * What the routed board looks like at this moment: the ground the screening
+   * has made expensive, and the edges of the floor they may cross.
+   *
+   * The shading is scaled against the worst cell on the board rather than
+   * against a fixed ceiling, so the first tower of a run shades something and
+   * the shading always says where the screening is rather than how much of it
+   * has been bought.
+   *
+   * Where they will actually walk is not drawn. The player is given what the
+   * screening covers and has to work out what that leaves, which is the whole
+   * of the mode, and the applicants themselves answer it a few seconds later
+   * whether the answer was worked out or not.
+   */
+  drawRouting() {
+    const { bounds, cell } = this.mode.field;
+
+    this.routeGraphics.clear();
+
+    if (this.field.worstThreat > 0) {
+      this.field.eachCell((gridX, gridY, index) => {
+        const threat = this.field.threat[index];
+
+        if (threat === 0) {
+          return;
+        }
+
+        const centre = this.field.centreOf(gridX, gridY);
+
+        this.routeGraphics.fillStyle(
+          THREAT_COLOUR,
+          THREAT_ALPHA * (threat / this.field.worstThreat)
+        );
+        this.routeGraphics.fillRect(
+          centre.x - cell / 2,
+          centre.y - cell / 2,
+          cell,
+          cell
+        );
+      });
+    }
+
+    this.routeGraphics.lineStyle(1, PATH_EDGE, BAND_EDGE_ALPHA);
+
+    [bounds.top, bounds.bottom].forEach((y) =>
+      this.routeGraphics.strokePoints(
+        [
+          { x: bounds.left, y },
+          { x: bounds.right, y }
+        ],
+        false,
+        false
+      )
+    );
+
+  }
+
+  /**
+   * A tower has gone down, so the way in is not what it was.
+   *
+   * The field is worked out again, the shading is redrawn to say where the
+   * expensive ground now is, and everyone already walking reconsiders from
+   * where they are standing. Reconsidering is the part that matters: a player
+   * who watches a crowd bend away from a panel they have just installed has
+   * been told what the mode is without a word of copy, and since the route
+   * itself is not drawn anywhere, that crowd is the only thing that tells
+   * them.
+   *
+   * Nothing else on the board can change what a route costs, so nothing else
+   * calls this.
+   */
+  refreshRouting() {
+    if (!this.field) {
+      return;
+    }
+
+    this.field.update(this.towers);
+    this.drawRouting();
+
+    this.applicants.getChildren().forEach((applicant) => {
+      if (applicant.active) {
+        applicant.reroute(
+          this.field.routeFrom(applicant.x, applicant.y, applicant.typeKey)
+        );
+      }
+    });
+  }
+
   drawVacancy() {
-    const vacancy = this.path.getEndPoint();
+    const vacancy = this.vacancy;
 
     this.vacancyGraphics = this.add.graphics().setDepth(DEPTHS.board);
 
@@ -1256,7 +1419,7 @@ export default class GameScene extends Phaser.Scene {
    * is going without anyone having to read the HUD.
    */
   refreshVacancy() {
-    const vacancy = this.path.getEndPoint();
+    const vacancy = this.vacancy;
     const damage = 1 - this.lives / GAME.startingLives;
     const left = vacancy.x - VACANCY_SIZE / 2;
     const top = vacancy.y - VACANCY_SIZE / 2;
@@ -1285,7 +1448,7 @@ export default class GameScene extends Phaser.Scene {
    * being about how much of the crowd it can see.
    */
   findBuildableCells() {
-    const vacancy = this.path.getEndPoint();
+    const vacancy = this.vacancy;
     const clearance = this.mode.buildClearance;
     const columns = Math.floor(this.scale.width / CELL_SIZE);
     const rows = Math.floor(this.scale.height / CELL_SIZE);
@@ -1721,6 +1884,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.refreshAdjacency();
     this.drawFields();
+    this.refreshRouting();
 
     // The cell is taken now, so the ghost under the pointer turns red.
     this.updateGhost(x, y);
@@ -1931,7 +2095,7 @@ export default class GameScene extends Phaser.Scene {
 
     const applicant = new Applicant(
       this,
-      this.nextPath(),
+      this.nextPath(typeKey),
       typeKey,
       APPLICANTS[typeKey],
       this.textureKeyFor(typeKey)
@@ -1954,7 +2118,9 @@ export default class GameScene extends Phaser.Scene {
    * Where nobody fans out that is the one shared path, exactly as it was, and
    * the whole crowd apparatus below costs nothing. Where they do, each one gets
    * its own copy of the spine, displaced by its share of the spread and started
-   * a little way back from the gate.
+   * a little way back from the gate. Where there is no spine at all, the cost
+   * field is asked for the cheapest way in for this particular type, which is
+   * the only place in the game where who is walking decides where they walk.
    *
    * A path each rather than a shared one with per applicant steering, because
    * everything downstream already reads a PathFollower: the tween is still what
@@ -1969,7 +2135,19 @@ export default class GameScene extends Phaser.Scene {
    * is pixels per second, so the one who takes the wide route takes longer, and
    * the front of a crowd arrives ragged.
    */
-  nextPath() {
+  nextPath(typeKey) {
+    if (this.field) {
+      this.arrivals += 1;
+
+      const { entry } = this.mode.field;
+      const across = (this.arrivals * R2_ALPHA_1) % 1;
+      const back = ((this.arrivals * R2_ALPHA_2) % 1) * this.mode.entryJitter;
+      const x = entry.x - back;
+      const y = entry.top + across * (entry.bottom - entry.top);
+
+      return this.pathThrough(x, y, this.field.routeFrom(x, y, typeKey));
+    }
+
     if (!this.crowded) {
       return this.path;
     }
@@ -2135,7 +2313,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   showLeak() {
-    const vacancy = this.path.getEndPoint();
+    const vacancy = this.vacancy;
 
     playSound('leak');
 

@@ -16,7 +16,7 @@ The joke is that you are the one doing the rejecting, and that the tools are rec
 
 The applicants know the game too. The Keyword Stuffer is immune to keyword matching. The Referral starts a third of the way down the path. The Boomerang comes back at the end of the intake whether you rejected it or not.
 
-## Two ways to run a vacancy
+## Three ways to run a vacancy
 
 **Classic intake** is the game above. One path in, walked in single file, towers beside it.
 
@@ -24,7 +24,11 @@ The applicants know the game too. The Keyword Stuffer is immune to keyword match
 
 It also gives the applicants something back. Enough of them crowded round a screening process wears it down until it is suspended pending review, and it is nine seconds before it comes back, at full integrity, having learned nothing. A Graduate on its own cannot manage it. A Referral very nearly can, because it knows somebody.
 
-The two modes keep separate leaderboards. They send different numbers of applicants at boards of a different shape, so a rating from one is not a rating from the other.
+**Back channel** is what happens when nobody uses the portal at all. There is no route on the board, advertised or otherwise: they come in across the left edge and work out their own way to the desk, and every screening process installed is something to be walked round rather than something to be walked past. Nothing blocks anybody, so there is no maze to build. A tower makes the ground it covers expensive, applicants take the cheapest way in rather than the shortest, and the question stops being where to stand and becomes what the cheapest way in is going to cost.
+
+How much any of them minds is a property of the type, which is where most of the mode lives. The Graduate applies to everything and walks at the desk in a straight line through whatever is in the way. The Overqualified has seen a knockout question before and goes a very long way round one. The Keyword Stuffer minds the rest of the board as much as anybody and strolls straight through a Keyword Filter, because a Keyword Filter has nothing to say to it. And Salary Expectations, which lays down no threat at all, is the one thing nobody routes round: it goes on the ground they have just been pushed onto.
+
+The three modes keep separate leaderboards. They send different numbers of applicants at boards of a different shape, so a rating from one is not a rating from the others.
 
 ## Running it
 
@@ -48,7 +52,9 @@ Two optional environment variables, neither of them secret, both documented in `
 | Backend | Supabase, behind Netlify functions |
 | Experiments | GrowthBook |
 
-**Balance lives in data.** `src/config/waves.js`, `towers.js`, `applicants.js`, `game.js` and `modes.js` are plain exported objects with no logic in them, so tuning never means touching the game loop. The path is a hardcoded list of waypoints. There is no pathfinding and there is not going to be, including in the mode that looks like it must have some: a waypoint there carries a spread, each applicant walks their own copy of the line displaced by their share of it, and a crowd is what that looks like from the outside.
+**Balance lives in data.** `src/config/waves.js`, `towers.js`, `applicants.js`, `game.js` and `modes.js` are plain exported objects with no logic in them, so tuning never means touching the game loop. Two of the three boards are a hardcoded list of waypoints, and the crowd is not the exception it looks like: a waypoint there carries a spread, each applicant walks their own copy of the line displaced by their share of it, and a horde is what that looks like from the outside.
+
+The third board does have pathfinding, which this file said for a long time it never would. It earned the exception by being the only way to tell the joke it exists for, and it kept the rule that mattered: what it varies is still data. How frightening each tower is and how much each applicant type minds are numbers in `towers.js` and `applicants.js`, `services/routing.js` is the only file that knows what to do with them, and the modes that have no field on them never find out any of it is there.
 
 **Copy lives in one file.** Every user-facing string is in `src/content/copy.js`.
 
@@ -58,7 +64,7 @@ Two optional environment variables, neither of them secret, both documented in `
 
 Thirteen events, seven global properties on every one of them, all landing in Supabase. The intent was to answer specific questions rather than to collect telemetry in general: where players quit, whether the difficulty curve is right, whether they replay after losing, which towers are dead weight.
 
-The seventh global is `mode`, and it arrived with the second mode rather than with the spec. Every question in the list above has two answers now, and an event that does not say which game it came from cannot tell them apart. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run the other thirteen are already reporting. The queries in `docs/` now read one mode at a time, defaulting to classic, since wave five means a different intake in each and the boards are separate. The tower usage fixture carries five open advert runs that must not reach any of its expected figures, and each places the one tower no classic run in it ever places: strip the filter and the deadest tower in the game climbs to a fifth of all runs, which is the finding the filter exists to protect.
+The seventh global is `mode`, and it arrived with the second mode rather than with the spec. Every question in the list above has three answers now, and an event that does not say which game it came from cannot tell them apart. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run the other thirteen are already reporting. The queries in `docs/` now read one mode at a time, defaulting to classic, since wave five means a different intake in each and the boards are separate. The tower usage fixture carries five open advert runs that must not reach any of its expected figures, and each places the one tower no classic run in it ever places: strip the filter and the deadest tower in the game climbs to a fifth of all runs, which is the finding the filter exists to protect.
 
 It has already earned its keep twice. The wave curve for the balancing pass was read off these events rather than guessed at, and the first real run through the collector exposed a bug in the abandonment tracking that would otherwise have quietly ruined the experiment's secondary metric.
 

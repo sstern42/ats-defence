@@ -47,14 +47,21 @@ The player is Requisita, an applicant tracking system. Applicants advance along 
 
 ### Modes
 
-Two, chosen on the home screen, and they share every tower, every applicant type and the whole game loop. What differs is data in `config/modes.js`.
+Three, chosen on the home screen, and they share every tower, every applicant type and the whole game loop. What differs is data in `config/modes.js`.
 
 | Mode | What it is |
 | --- | --- |
 | Classic intake | The game as it shipped. One corridor, walked in single file, towers beside it. Every number in it is the number it already had. |
 | Open advert | No corridor. Applicants arrive across the whole left edge and converge on the desk, fanning out and squeezing according to the `spread` on each waypoint. Towers go anywhere off the HUD and the desk, traps go wherever they are put, and applicants push back. |
+| Back channel | No route at all. A floor, a desk in the corner of it, and applicants who work out their own way across. Every tower makes the ground it covers expensive rather than impassable, and how far out of their way they will go to avoid it is a property of the applicant type. |
 
-**Still no pathfinding.** The crowd is waypoints, same as the path always was. Each applicant walks its own copy of the spine, displaced by its share of the spread at every point and tapering to zero at the vacancy so everybody converges on the one desk. Applicant.js did not change to allow this and should not have to.
+**The crowd is still not pathfinding.** Open advert is waypoints, same as the path always was. Each applicant walks its own copy of the spine, displaced by its share of the spread at every point and tapering to zero at the vacancy so everybody converges on the one desk. Applicant.js did not change to allow it and should not have to.
+
+**Back channel is pathfinding, and it is the exception this file spent two modes refusing.** It was allowed for one reason: applicants routing round the process is the joke the whole game has been telling, and there is no way to tell it with a line drawn in advance. What it had to keep in exchange is written down under "Beyond the MVP", and the short version is that everything it varies is still data.
+
+**Nothing in it is ever blocked.** A tower adds `threat` to the cells inside its range, an applicant takes the cheapest way to the desk rather than the shortest, and `caution` on the type decides how much that costs it. So there is no maze to build and no route to seal by accident, which is why placement needed no new rule and why a tower can never be refused on the grounds that it would trap somebody. A screening process nobody can get round is not a screening process, it is a locked door.
+
+Applicant.js did change for this one, in two places, and both were already wrong before it: what a tower targets is now distance left to the desk rather than a fraction of a path, which is the same applicant in classic and stops being the same applicant the moment two people are on routes of different lengths; and a walk can be restarted from where somebody is standing, which is the whole of what a re-route is.
 
 **Pushing back is open advert only.** Applicants near a tower wear its `integrity` down; a tower worn to nothing is suspended pending review for a few seconds and comes back at full integrity. Recovery is applied against incoming pressure rather than after it, which is what makes one applicant harmless and a crowd a problem. Suspension rather than destruction, because losing a tower outright to a crowd whose edges you cannot see is a punishment rather than a decision. That is one number in `modes.js` if it should ever become the other.
 
@@ -105,7 +112,7 @@ src/
     applicants.js      Applicant stats as data
     game.js            Lives, budget, prep times, scoring
     modes.js           What each mode changes, as data
-    path.js            Waypoint coordinates, one route per mode
+    path.js            Waypoint coordinates per mode, and the one board that has none instead
     version.js         The version the build was cut from
     art.js             Sprite manifest
     scenery.js         Ground and furniture manifest, and where it stands
@@ -121,12 +128,14 @@ src/
     feel.js            The small movements, and the one place that knows to sit still
     experiments.js     GrowthBook wrapper
     mode.js            Which mode the current run is
+    routing.js         The cost field, and the routes read out of it
     leaderboard.js     Score submission and top ten
     nameInput.js       The invisible field a touchscreen types a name into
   content/
     copy.js            All user-facing strings
 netlify/functions/     collect, health, leaderboard, submit-score, and their lib
 supabase/migrations/   Tables, RLS policies and later columns
+tools/check-mode-list.mjs  Checks the modes the game plays against the ones the leaderboard will take
 tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-textures.mjs  Draws the ground and the furniture, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
@@ -138,7 +147,7 @@ CHANGELOG.md           One entry per version, newest first
 
 **Balance lives in data, not code.** `waves.js`, `towers.js` and `applicants.js` must be plain exported objects with no logic. Tuning is the longest phase of this project and it must not require touching game logic.
 
-**Path is hardcoded waypoints.** No pathfinding. An array of coordinates in `config/path.js`.
+**Two of the three boards are hardcoded waypoints.** An array of coordinates in `config/path.js`, and that is still the default answer for anything new. The third is a field in the same file, and it took a reason to get there rather than a preference.
 
 ## Build order
 
@@ -183,7 +192,7 @@ Attached to every event without exception:
 
 `session_id`, `run_id`, `wave_number`, `variant_assignments`, `device_type`, `referrer`, `mode`
 
-`mode` is the seventh and arrived with the second game mode. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run every other event is already reporting, and without it all six questions above have two answers with no way to tell them apart. It is on `session_started` too, where it records the setting rather than a decision, since nothing has been played yet.
+`mode` is the seventh and arrived with the second game mode. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run every other event is already reporting, and without it all six questions above have one answer per mode with no way to tell them apart. A third mode cost it nothing, which is the point of having put it on a property. It is on `session_started` too, where it records the setting rather than a decision, since nothing has been played yet.
 
 The queries in `docs/` read one mode, and read classic unless told otherwise. The filter is marked `-- mode`, on the same terms as the cutoff line next to it: it goes on the `game_started` CTE that defines a run and on any read of the board, and if it moves, move all of them. Three places deliberately do without it, and all three are session level rather than run level: the two coverage queries, which split by mode because a census should say what is in the table, and the exposure cross-check, because bucketing happens before a mode is chosen and filtering it would break the sample ratio check it exists to perform.
 
@@ -231,7 +240,7 @@ One experiment at launch, via GrowthBook.
 
 Wave one parameters are read from the GrowthBook assignment at run start rather than hardcoded, which is what makes this possible. Keep it that way.
 
-It varies **classic** wave one and only classic wave one. An open advert run has its own opening and is handed its own list untouched, because swapping a classic wave into it would measure a wave the player never played. The arm is still reported on those runs, since the player was still bucketed, so the analysis filters on `mode` to leave them out rather than quietly widening one side.
+It varies **classic** wave one and only classic wave one. Every other mode has its own opening and is handed its own list untouched, because swapping a classic wave into one would measure a wave the player never played. The arm is still reported on those runs, since the player was still bucketed, so the analysis filters on `mode` to leave them out rather than quietly widening one side.
 
 Record the intended analysis before launch. An inconclusive result is a valid outcome and will be reported as one.
 
@@ -239,7 +248,7 @@ Record the intended analysis before launch. An inconclusive result is a valid ou
 
 Assume it will be attacked. Client-submitted scores are trivially forged.
 
-- One board per mode, on a `mode` column rather than a second table. Same name checks, same rate limit, same one submission per run: only the ordering and the plausibility ceiling are per mode. A rating from a mode that sends half again as many applicants is not comparable with one that does not, and ranking them together would rank the modes rather than the players.
+- One board per mode, on a `mode` column rather than a second table. Same name checks, same rate limit, same one submission per run: only the ordering and the plausibility ceiling are per mode. **A new mode is a migration.** The functions read the mode list out of `config/modes.js`, but the check constraint on the column cannot, so the database is the one place a mode has to be written down by hand and the one place that will refuse a score for a mode the rest of the game already offers. `tools/check-mode-list.mjs` compares the two and CI fails on the drift, which is the whole reason that check exists: the build could not see this and a player could. A rating from a mode that sends half again as many applicants is not comparable with one that does not, and ranking them together would rank the modes rather than the players.
 - Supabase table with Row Level Security enabled from the start.
 - Anon key may insert and select. It may not update or delete.
 - Score submission goes through a server-side function that validates plausibility (score consistent with wave reached, within a sane ceiling) and rate limits by IP. Either a Netlify function or a Supabase edge function. Netlify is likely simpler, since it lives in this repo and deploys with the site. Decide at implementation time and note the reasoning in the PR.
@@ -303,6 +312,27 @@ existing analysis queries needing a filter they do not yet have. A second
 leaderboard, and a migration to backfill every score already on the first one as
 classic. None of that was avoidable and all of it was the price of the mode
 being real rather than a reskin.
+
+Pathfinding came off this list too, and it is the only thing so far that came
+off it by overturning a rule rather than by fitting round one. This file said
+twice that there was no pathfinding and there was not going to be, and the back
+channel is pathfinding. It qualified on three things. It reuses the six towers
+and the six applicant types without editing either, and the one number each of
+them gained is a number rather than a branch. What it varies is data: `threat`
+on a tower, `caution` on an applicant, a field on the mode, and one service that
+knows what to do with them. And it is off unless the mode says otherwise, on the
+same terms `pressure` is, so classic and open advert never find out any of it
+exists.
+
+What it cost is more than the second mode cost, and most of it was not the
+routing. A third wave list, less settled than either of the others. A migration,
+which was missed until a run could not record its score, because the leaderboard
+column spells its modes out and nothing in the build says so. Two changes to
+Applicant.js, which the second mode was proud of not needing, and a change to
+how every tower on every board picks a target. That last one is the part to
+watch: it is the same applicant in classic, and the argument that it is the same
+applicant is the only thing standing between this mode and having retuned the
+one mode that must not move.
 
 Sound was on this list and came off it after launch, on request. Six clips,
 synthesised rather than licensed, with a toggle in the HUD and the choice
@@ -368,7 +398,10 @@ canvas gets moved.
   reason on its own. Sound shipped without one, and so did the whole of the
   second mode: towers going offline is the most eventful thing in it and it
   emits nothing, because no question in the spec asks how often that happens.
-  A property is not an event, which is the seam `mode` went through.
+  A property is not an event, which is the seam `mode` went through. The third
+  mode emits nothing new either: applicants choosing a different way in is the
+  most eventful thing in it and no question in the spec asks how often they do
+  it.
 - **Classic does not move.** It is the mode with a balancing pass behind it, a
   leaderboard with real scores on it and a live experiment reading its wave one.
   A change that retunes it to suit something else has broken all three.

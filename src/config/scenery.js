@@ -136,3 +136,31 @@ export const OPEN_FIELD_SCENERY = [
   { key: 'prop-boxes', x: 760, y: 700, angle: 8 },
   { key: 'prop-cooler', x: 940, y: 660, angle: 0 }
 ];
+
+/**
+ * The back channel floor. The field they may cross runs from a little under the
+ * HUD to a little above the bottom edge, so the furniture goes in the two
+ * strips left over, which are also the two places a tower is never walked over.
+ * That makes this the one board where the scenery is standing exactly where the
+ * player wants to build, which is true to life and is why there is not much of
+ * it.
+ *
+ * Everything in the top strip is flat. It is a single grid row deep, and a prop
+ * with height put there would stand up into the HUD.
+ */
+export const BACK_CHANNEL_SCENERY = [
+  { key: 'prop-desk', x: 300, y: 162, angle: 5 },
+  { key: 'prop-chairs', x: 420, y: 168, angle: 0 },
+  { key: 'prop-boxes', x: 545, y: 160, angle: -9 },
+  { key: 'prop-plant', x: 650, y: 166, angle: 0 },
+  { key: 'prop-desk', x: 790, y: 163, angle: -4 },
+
+  // The lower strip is deeper and takes the things that stand up.
+  { key: 'prop-cabinet', x: 180, y: 752, angle: 0 },
+  { key: 'prop-cooler', x: 300, y: 736, angle: 0 },
+  { key: 'prop-desk', x: 430, y: 740, angle: 6 },
+  { key: 'prop-chairs', x: 560, y: 744, angle: 0 },
+  { key: 'prop-cabinet', x: 690, y: 754, angle: 0 },
+  { key: 'prop-plant', x: 800, y: 738, angle: 0 },
+  { key: 'prop-boxes', x: 920, y: 742, angle: -6 }
+];

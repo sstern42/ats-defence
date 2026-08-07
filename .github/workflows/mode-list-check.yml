@@ -1,0 +1,44 @@
+# A third mode shipped and the leaderboard would not take a score for it.
+#
+# The mode list lives in src/config/modes.js and everything reads it: the home
+# page builds its tabs from it, the collector validates against it, the score
+# function measures a submission against the mode's own wave list. Everything
+# except the check constraint on the leaderboard's mode column, which names the
+# modes one by one because a check constraint cannot import a config file.
+#
+# Nothing in the build could see that. The game compiled, the functions worked,
+# the board read back an empty list exactly as a new board should, and the first
+# anybody heard of it was somebody finishing a run and being told the score
+# could not be recorded.
+#
+# So this runs on every pull request rather than on a schedule, unlike the other
+# two workflows here. They watch a live site for a failure that has already
+# happened. This one refuses to let the failure be written in the first place,
+# which is the only part of it that CI can reach: no database credentials exist
+# in this repository, deliberately, so nothing here can check what the
+# production database actually has. It checks that the migration was written,
+# and writing the migration is the part that gets forgotten.
+name: Check the modes agree
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No install step. The check reads config/modes.js, which is plain data
+      # importing more plain data, so it runs on a bare Node with nothing
+      # fetched.
+      - name: Compare the mode list against the leaderboard constraint
+        run: node tools/check-mode-list.mjs

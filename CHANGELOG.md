@@ -7,6 +7,42 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.5.0 - 2026-08-07
+
+- A third mode, back channel. Nobody used the portal, so there is no route on
+  the board at all: applicants come in across the left edge and work out their
+  own way to the desk, and every screening process installed is something to be
+  walked round rather than something to be walked past.
+- Nothing blocks anybody, which is the decision the rest of it follows from. A
+  tower makes the ground inside its range expensive, applicants take the
+  cheapest way in rather than the shortest, and there is no maze to build and no
+  route to seal by accident.
+- How far out of their way they will go is a property of the type. The Graduate
+  applies to everything and walks in a straight line through whatever is in the
+  way. The Overqualified goes a long way round a knockout question. The Keyword
+  Stuffer strolls straight through a Keyword Filter, because a Keyword Filter
+  has nothing to say to it.
+- Salary Expectations lays down no threat, so it is the one thing nobody routes
+  round, and setting it on the ground they have just been pushed onto is how the
+  mode is played.
+- The board shades the ground the screening has made expensive, and redraws it
+  when a tower goes down. Where they will actually walk is not drawn: the player
+  is given what the screening covers and has to work out what that leaves, and
+  everybody already walking reconsiders from where they are standing, which is
+  the only thing that answers it.
+- Its own intake list and its own leaderboard, on the same terms the second mode
+  got them. A first pass, and less settled than either of the others.
+- The board needs `supabase/migrations/0007_leaderboard_back_channel.sql`
+  applied before it will take a score. The functions read the mode list out of
+  config, but a check constraint cannot, so the database is the one place a new
+  mode has to be written down by hand.
+
+Towers now pick whoever has the least walking left rather than whoever is
+furthest along their path as a fraction of it. In classic those are the same
+applicant, which is the only reason the change was allowed: classic does not
+move. Everything else in the two existing modes is untouched, and neither of
+them reads a single one of the numbers this release added.
+
 ## 1.4.1 - 2026-08-06
 
 - The board knows what is in front of what. Furniture, towers and applicants
