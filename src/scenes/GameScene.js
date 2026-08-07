@@ -78,31 +78,26 @@ const BAND_EDGE_ALPHA = 0.55;
 const BAND_SPINE_ALPHA = 0.5;
 
 /**
- * How the routed board says what it is doing, which it has to do more loudly
- * than the other two because it is the only one where the answer changes.
+ * How the routed board says what it is doing.
  *
  * The shading is the ground the screening has made expensive, at its heaviest
- * where the most of it overlaps. The lines are where somebody paying attention
- * would walk right now, drawn from three points along the entry so the player
- * can see a route bend rather than having to wait for the next intake to walk
- * through and find out.
+ * where the most of it overlaps. It is the cause, and it is all the player is
+ * given. The effect, which is the way in that the cause has left them, is not
+ * drawn: working that out from what is on the board is the mode, and a board
+ * that draws the answer next to the question is a board with nothing to ask.
  *
- * Both are redrawn when a tower goes down. That is the whole of the feedback,
- * and it is deliberately a redraw rather than anything that moves: a player who
- * has asked for less motion is told exactly the same thing at exactly the same
- * moment, because there was never an animation carrying it.
+ * It was drawn for a while, as three lines from the entry, and it made the mode
+ * too easy in exactly the way you would expect. It is in the history if the
+ * decision ever wants revisiting.
+ *
+ * Redrawn when a tower goes down, and deliberately a redraw rather than
+ * anything that moves: a player who has asked for less motion is told exactly
+ * the same thing at exactly the same moment, because there was never an
+ * animation carrying it. Nobody is shown the route now, so nobody is shown less
+ * of it than anybody else.
  */
 const THREAT_COLOUR = 0xd98a6a;
 const THREAT_ALPHA = 0.2;
-/**
- * The lines are drawn in their own colour rather than in the one the corridor
- * and the band are edged with. That colour is a shade off the carpet, which is
- * what an edge wants to be and is exactly wrong for the one thing on this board
- * a player has to be able to read at a glance.
- */
-const ROUTE_COLOUR = 0x8095a8;
-const ROUTE_ALPHA = 0.55;
-const ROUTE_LINES = 3;
 const VACANCY_SIZE = 54;
 const VACANCY_COLOUR = 0xb5553f;
 
@@ -1312,22 +1307,20 @@ export default class GameScene extends Phaser.Scene {
 
   /**
    * What the routed board looks like at this moment: the ground the screening
-   * has made expensive, the edges of the floor they may cross, and the way in
-   * as it currently stands.
+   * has made expensive, and the edges of the floor they may cross.
    *
    * The shading is scaled against the worst cell on the board rather than
    * against a fixed ceiling, so the first tower of a run shades something and
    * the shading always says where the screening is rather than how much of it
    * has been bought.
    *
-   * The lines are drawn for nobody in particular, at a caution that is nobody's
-   * either. A Graduate ignores all of this and a Referral very nearly does, so
-   * a line drawn from a real applicant type would either be a straight one or
-   * would need six of them. What the player needs to see is what the screening
-   * has done to the shape of the board, and that is what this is.
+   * Where they will actually walk is not drawn. The player is given what the
+   * screening covers and has to work out what that leaves, which is the whole
+   * of the mode, and the applicants themselves answer it a few seconds later
+   * whether the answer was worked out or not.
    */
   drawRouting() {
-    const { bounds, cell, entry } = this.mode.field;
+    const { bounds, cell } = this.mode.field;
 
     this.routeGraphics.clear();
 
@@ -1367,29 +1360,18 @@ export default class GameScene extends Phaser.Scene {
       )
     );
 
-    this.routeGraphics.lineStyle(1, ROUTE_COLOUR, ROUTE_ALPHA);
-
-    for (let line = 0; line < ROUTE_LINES; line += 1) {
-      const y =
-        entry.top +
-        ((entry.bottom - entry.top) * line) / (ROUTE_LINES - 1);
-
-      this.routeGraphics.strokePoints(
-        [{ x: entry.x, y }, ...this.field.previewRoute(y)],
-        false,
-        false
-      );
-    }
   }
 
   /**
    * A tower has gone down, so the way in is not what it was.
    *
-   * The field is worked out again, the board is redrawn to say so, and everyone
-   * already walking reconsiders from where they are standing. Reconsidering is
-   * the part that matters: a player who watches a crowd bend away from a panel
-   * they have just installed has been told what the mode is without a word of
-   * copy, and one who has to wait for the next intake to find out has not.
+   * The field is worked out again, the shading is redrawn to say where the
+   * expensive ground now is, and everyone already walking reconsiders from
+   * where they are standing. Reconsidering is the part that matters: a player
+   * who watches a crowd bend away from a panel they have just installed has
+   * been told what the mode is without a word of copy, and since the route
+   * itself is not drawn anywhere, that crowd is the only thing that tells
+   * them.
    *
    * Nothing else on the board can change what a route costs, so nothing else
    * calls this.

@@ -25,10 +25,11 @@ analysis notes, tooling and CI changes do not.
 - Salary Expectations lays down no threat, so it is the one thing nobody routes
   round, and setting it on the ground they have just been pushed onto is how the
   mode is played.
-- The board says what it is doing. The ground the screening has made expensive
-  is shaded, and three lines show where somebody paying attention would walk
-  right now. Both are redrawn when a tower goes down, and everybody already
-  walking reconsiders from where they are standing.
+- The board shades the ground the screening has made expensive, and redraws it
+  when a tower goes down. Where they will actually walk is not drawn: the player
+  is given what the screening covers and has to work out what that leaves, and
+  everybody already walking reconsiders from where they are standing, which is
+  the only thing that answers it.
 - Its own intake list and its own leaderboard, on the same terms the second mode
   got them. A first pass, and less settled than either of the others.
 - The board needs `supabase/migrations/0007_leaderboard_back_channel.sql`

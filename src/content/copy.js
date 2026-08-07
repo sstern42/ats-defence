@@ -131,13 +131,13 @@ export const COPY = {
       board: 'Best screeners, back channel',
       howTo: [
         'Click a free tile to install. Keys 1 to 6 pick which one.',
-        'The lines show where they will go, and shift when you build.',
+        'The shaded ground is what they will try to walk round.',
         'Salary Expectations is the one thing they do not walk round.',
         'Space opens each intake early, if you are ready.'
       ],
       howToTouch: [
         'Press a free tile, slide to aim, then lift to install.',
-        'The lines show where they will go, and shift when you build.',
+        'The shaded ground is what they will try to walk round.',
         'Salary Expectations is the one thing they do not walk round.',
         'Each intake opens on its own once the countdown runs out.'
       ]

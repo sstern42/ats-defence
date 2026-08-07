@@ -49,13 +49,16 @@ const NEIGHBOURS = [
 ];
 
 /**
- * The caution the board is drawn for, which is nobody in particular. The
- * preview lines have to describe the mode rather than one applicant type, and
- * a type has to be picked to draw them from, so this is a middling one that
- * minds a normal amount and is immune to nothing.
+ * The route somebody nobody in particular would take: a middling caution,
+ * immune to nothing.
+ *
+ * It is what an applicant type the game has never heard of is routed with, so a
+ * type added to the config and not to this file walks a sensible line rather
+ * than nothing at all. Cheap to keep, since it is one more flood over a few
+ * hundred cells, and it means the routing has no way to fail closed.
  */
-const PREVIEW_CAUTION = 1;
-const PREVIEW_KEY = 'preview';
+const FALLBACK_CAUTION = 1;
+const FALLBACK_KEY = 'fallback';
 
 /**
  * How far off a straight line three points have to be before the middle one is
@@ -188,8 +191,8 @@ export default class CostField {
     });
 
     this.fields.set(
-      PREVIEW_KEY,
-      this.measure(byTower, PREVIEW_CAUTION, undefined)
+      FALLBACK_KEY,
+      this.measure(byTower, FALLBACK_CAUTION, undefined)
     );
   }
 
@@ -302,7 +305,7 @@ export default class CostField {
    */
   routeFrom(x, y, typeKey) {
     const { cost, distance } =
-      this.fields.get(typeKey) ?? this.fields.get(PREVIEW_KEY);
+      this.fields.get(typeKey) ?? this.fields.get(FALLBACK_KEY);
     const points = [];
 
     let { cx, cy } = this.cellAt(x, y);
@@ -331,16 +334,6 @@ export default class CostField {
     points.push({ ...this.field.vacancy });
 
     return this.pull({ x, y }, this.straighten(points), cost);
-  }
-
-  /**
-   * The route the board is drawn with, from a point on the left edge. Nobody in
-   * particular walks it: it is what the screening currently costs somebody who
-   * is paying attention, which is the only way a player can see what a tower
-   * did to the flow without waiting for the next intake to walk through it.
-   */
-  previewRoute(y) {
-    return this.routeFrom(this.field.entry.x, y, PREVIEW_KEY);
   }
 
   /**
