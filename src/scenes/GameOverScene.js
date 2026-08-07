@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { FEEDBACK_ANSWERS } from '../config/feedback.js';
 import { NAME_CHARACTER, NAME_MAX_LENGTH } from '../config/leaderboard.js';
 import { KOFI_URL } from '../config/links.js';
 import { COPY } from '../content/copy.js';
@@ -10,6 +11,7 @@ import {
   trackScoreSubmitted
 } from '../services/analytics.js';
 import { COARSE_POINTER, HAS_KEYBOARD } from '../services/device.js';
+import { feedbackWanted, recordFeedback } from '../services/feedback.js';
 import { FEEL, nudge } from '../services/feel.js';
 import { submitScore } from '../services/leaderboard.js';
 import { currentModeKey } from '../services/mode.js';
@@ -44,6 +46,18 @@ const CARET_MS = 530;
 
 const KOFI_COLOUR = '#7d8a99';
 const KOFI_HOVER_COLOUR = '#c7d94a';
+
+/**
+ * The one question, in the right hand column under the tip jar. The board above
+ * it ends around 430 and the link under it around 486, so this has the bottom
+ * of the screen to itself.
+ */
+const FEEDBACK_Y = 518;
+const FEEDBACK_QUESTION_Y = 544;
+const FEEDBACK_OPTION_Y = 576;
+const FEEDBACK_OPTION_GAP = 32;
+const FEEDBACK_THANKS_Y = 706;
+const FEEDBACK_WRAP = 400;
 
 /**
  * Picks the wording that suits what the player is holding.
@@ -97,6 +111,14 @@ export default class GameOverScene extends Phaser.Scene {
     this.submitted = false;
     this.submitting = false;
     this.restarted = false;
+    this.feedbackAnswered = false;
+
+    // Phaser keeps the scene instance across a restart, so these are cleared
+    // rather than left holding the objects the last run over drew. Nothing
+    // reads them once the question has been answered, but a field pointing at
+    // a destroyed text object is a trap for whatever reads it next.
+    this.feedbackOptions = null;
+    this.feedbackThanks = null;
 
     this.add
       .rectangle(0, 0, width, height, VEIL_COLOUR, VEIL_ALPHA)
@@ -118,6 +140,7 @@ export default class GameOverScene extends Phaser.Scene {
     this.createNameEntry();
     this.createRestartButton(LEFT_X, 624);
     this.createKofiLink();
+    this.createFeedback();
 
     this.board = new LeaderboardPanel(this, BOARD_X, 150, {
       fromScreen: 'game_over'
@@ -455,6 +478,122 @@ export default class GameOverScene extends Phaser.Scene {
       // window.opener by whatever is on the other end.
       window.open(KOFI_URL, '_blank', 'noopener,noreferrer');
     });
+  }
+
+  /**
+   * The one question the game asks.
+   *
+   * It is in the right hand column rather than the left on purpose. The left is
+   * asking for a name for the board, and a survey sat next to it would collect
+   * the answer of whoever wanted to get past it rather than whoever meant one.
+   * Down here it is the last thing on the screen and it can be ignored, which is
+   * the correct amount of pressure to put on somebody who has just lost.
+   *
+   * Nothing at all is drawn unless the session has yet to answer, which is
+   * decided in services/feedback.js rather than here.
+   *
+   * The options are drawn as a list of radio buttons rather than four filled
+   * buttons, partly because a form is what the joke is about and partly because
+   * four bright buttons under a leaderboard is a screen shouting at somebody.
+   * They are monospaced so the marker and the space it replaces are the same
+   * width and the labels do not shift when one is chosen, which also puts them
+   * in the same font as the board directly above.
+   */
+  createFeedback() {
+    if (!feedbackWanted()) {
+      return;
+    }
+
+    this.add
+      .text(BOARD_X, FEEDBACK_Y, COPY.feedback.prompt, {
+        fontFamily: FONT,
+        fontSize: '14px',
+        color: BODY_COLOUR,
+        wordWrap: { width: FEEDBACK_WRAP }
+      })
+      .setOrigin(0, 0);
+
+    this.add
+      .text(BOARD_X, FEEDBACK_QUESTION_Y, COPY.feedback.question, {
+        fontFamily: FONT,
+        fontSize: '14px',
+        color: TITLE_COLOUR
+      })
+      .setOrigin(0, 0);
+
+    this.feedbackOptions = FEEDBACK_ANSWERS.map((answer, index) => {
+      const option = this.add
+        .text(
+          BOARD_X,
+          FEEDBACK_OPTION_Y + index * FEEDBACK_OPTION_GAP,
+          this.optionLabel(answer, false),
+          {
+            fontFamily: MONO,
+            fontSize: '13px',
+            color: BODY_COLOUR
+          }
+        )
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+
+      option.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
+        option.setColor(TITLE_COLOUR)
+      );
+
+      option.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
+        option.setColor(BODY_COLOUR)
+      );
+
+      option.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+        nudge(option, 0, FEEL.pressDrop)
+      );
+
+      option.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () =>
+        this.answerFeedback(answer)
+      );
+
+      return { answer, option };
+    });
+
+    this.feedbackThanks = this.add
+      .text(BOARD_X, FEEDBACK_THANKS_Y, '', {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: MUTED_COLOUR,
+        wordWrap: { width: FEEDBACK_WRAP },
+        lineSpacing: 4
+      })
+      .setOrigin(0, 0);
+  }
+
+  optionLabel(answer, chosen) {
+    return `(${chosen ? '•' : ' '}) ${COPY.feedback.options[answer]}`;
+  }
+
+  /**
+   * One answer, and only one. The options stay on screen afterwards rather than
+   * being cleared, so the player can see what they said, and the answer is said
+   * by the marker and the colour together rather than by either alone.
+   */
+  answerFeedback(answer) {
+    if (this.feedbackAnswered) {
+      return;
+    }
+
+    this.feedbackAnswered = true;
+
+    recordFeedback({ answer, finalWave: this.waveNumber });
+
+    this.feedbackOptions.forEach((entry) => {
+      const chosen = entry.answer === answer;
+
+      entry.option
+        .setText(this.optionLabel(entry.answer, chosen))
+        .setColor(chosen ? GOOD_COLOUR : MUTED_COLOUR)
+        .disableInteractive();
+    });
+
+    this.feedbackThanks.setText(COPY.feedback.thanks);
   }
 
   createRestartButton(x, y) {

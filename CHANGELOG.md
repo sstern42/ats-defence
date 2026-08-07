@@ -7,6 +7,25 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.6.0 - 2026-08-07
+
+- The game asks a question now. One, on the game over screen, under the board
+  and the tip jar, and once a session rather than once a run. Requisita is
+  required to gather feedback on the process, and it would like to know how you
+  found the screening.
+- Four fixed answers and no box to type in. Three of them are a difficulty
+  scale and the fourth is never having worked out what was going on, which is
+  the one worth having: the events already say which intake a run ended on and
+  have never said whether ending there felt earned. A player who was outplayed
+  at intake five and a player who was lost at intake five need opposite fixes.
+- The answer is filed, acknowledged and will be reviewed in due course.
+- Ignoring it costs nothing and it never asks twice. It is the last thing on a
+  screen that has just told somebody they lost, which is as much pressure as
+  that screen should apply.
+- Nothing else moved. No mode was retuned, no wave list was touched, and the
+  question is the same question on all three boards. It needs no migration
+  either, so a preview shows it working with nothing applied to the database.
+
 ## 1.5.0 - 2026-08-07
 
 - A third mode, back channel. Nobody used the portal, so there is no route on

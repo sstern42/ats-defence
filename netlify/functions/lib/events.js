@@ -7,6 +7,7 @@
  * that writes arbitrary JSON to a 500MB database is a filling station for
  * anybody who finds it.
  */
+import { FEEDBACK_ANSWERS } from '../../../src/config/feedback.js';
 import { MODE_KEYS } from '../../../src/config/modes.js';
 
 /**
@@ -16,7 +17,10 @@ import { MODE_KEYS } from '../../../src/config/modes.js';
  * notices until they try to analyse it.
  *
  * Twelve of them are the game reporting itself. The thirteenth,
- * `experiment_viewed`, is GrowthBook reporting that a player was bucketed.
+ * `experiment_viewed`, is GrowthBook reporting that a player was bucketed. The
+ * fourteenth, `feedback_given`, is the player answering the one question the
+ * game asks, and it is the only one carrying anything a person chose rather
+ * than something the game observed. See the answer check below.
  */
 export const ALLOWED_EVENTS = new Set([
   'session_started',
@@ -31,7 +35,8 @@ export const ALLOWED_EVENTS = new Set([
   'score_submitted',
   'leaderboard_viewed',
   'kofi_clicked',
-  'experiment_viewed'
+  'experiment_viewed',
+  'feedback_given'
 ]);
 
 /** Long enough for the largest real event several times over. */
@@ -49,6 +54,19 @@ const DEVICE_TYPES = new Set(['desktop', 'mobile', 'tablet']);
  * what it says over one field.
  */
 const MODES = new Set(MODE_KEYS);
+
+/**
+ * The answers the one survey question will take, read from the same config the
+ * game draws its options from, so an answer the game can give and an answer the
+ * collector will store cannot drift apart.
+ *
+ * This is the only per-event property check in this file, and it is the whole
+ * reason the question is four fixed answers rather than a box to type in.
+ * Without it the property bag would happily take four kilobytes of anything at
+ * all posted under the name of an answer, which is a public unauthenticated
+ * text field with extra steps, and nothing else here would notice.
+ */
+const FEEDBACK_ANSWER = new Set(FEEDBACK_ANSWERS);
 
 function trimmed(value, limit) {
   return typeof value === 'string' ? value.slice(0, limit) : null;
@@ -85,6 +103,13 @@ export function checkEvent(payload) {
 
   if (serialised.length > MAX_PROPERTIES_BYTES) {
     return { error: 'properties too large' };
+  }
+
+  // Refused rather than stored with the field quietly dropped. The answer is
+  // the whole of what this event says, so an event that does not carry one has
+  // nothing left in it worth keeping.
+  if (event === 'feedback_given' && !FEEDBACK_ANSWER.has(properties.answer)) {
+    return { error: 'unknown answer' };
   }
 
   const sessionId = trimmed(properties.session_id, MAX_ID);
