@@ -34,6 +34,17 @@
  * day with no events is an ordinary Tuesday. A late alarm that is always right
  * beats a prompt one that is usually wrong and gets muted.
  *
+ * The first time it went off in earnest, it was right about the symptom and
+ * wrong about the cause, and both are recorded here because the second is the
+ * more useful lesson. Seven of eleven submissions had no events behind them,
+ * and the newest event in the table was forty five minutes old, so the
+ * collector was plainly up and the message still sent the reader to a function
+ * log and a list of migrations. An outage and a handful of runs going missing
+ * are different faults with different fixes, and the one number that tells them
+ * apart, the age of the newest event, was already in the payload and ignored.
+ * So `collector_silent` says which shape it is, and the scheduled check says
+ * different things about the two.
+ *
  * Unauthenticated, like the other three. It reports three numbers and no
  * identifiers, and a shared secret would mean another environment variable to
  * set correctly on two services, which is the class of mistake that caused the
@@ -63,12 +74,27 @@ const json = (body, status = 200) =>
   });
 
 /**
- * A run id on its way into a PostgREST `in.` list. Run ids are client supplied
- * and validated only for type and length, so they are quoted and their quotes
- * doubled rather than trusted to be tidy.
+ * Whether anything at all was ever recorded for one run.
+ *
+ * Asked one run at a time, which is more requests than it looks like it needs.
+ * The version it replaces put every run into a single `in.` list and read back
+ * up to a thousand rows, and a run generates something like sixty events, so
+ * fifty submissions is three thousand rows through a thousand row window. A run
+ * whose events fell the wrong side of that cap read as a run with no events at
+ * all, which is the exact thing this file exists to alarm on. Fifty small
+ * questions that cannot be wrong beat one large one that can, on a check whose
+ * only value is being right when it goes off.
+ *
+ * Run ids are client supplied and validated only for type and length, so the
+ * value is encoded rather than trusted to be tidy.
  */
-function quoted(value) {
-  return `"${String(value).replace(/"/g, '""')}"`;
+async function hasEvents(runId) {
+  const rows = await select(
+    'analytics_events',
+    `select=run_id&run_id=eq.${encodeURIComponent(runId)}&limit=1`
+  );
+
+  return rows.length > 0;
 }
 
 export default async (request) => {
@@ -104,22 +130,8 @@ export default async (request) => {
       ...new Set(submissions.map((row) => row.run_id).filter(Boolean))
     ];
 
-    let withEvents = new Set();
-
-    if (runIds.length > 0) {
-      const rows = await select(
-        'analytics_events',
-        [
-          'select=run_id',
-          `run_id=in.(${runIds.map((id) => encodeURIComponent(quoted(id))).join(',')})`,
-          'limit=1000'
-        ].join('&')
-      );
-
-      withEvents = new Set(rows.map((row) => row.run_id));
-    }
-
-    const orphans = runIds.filter((id) => !withEvents.has(id));
+    const found = await Promise.all(runIds.map(hasEvents));
+    const orphans = runIds.filter((id, index) => !found[index]);
     const newestAt = newest[0]?.received_at ?? null;
 
     return json({
@@ -134,7 +146,12 @@ export default async (request) => {
         ? Math.round((Date.now() - Date.parse(newestAt)) / 36000) / 100
         : null,
       submissions_in_window: runIds.length,
-      submissions_without_events: orphans.length
+      submissions_without_events: orphans.length,
+      // Which shape a failure is. Nothing arriving at all is the collector
+      // being down, and is the fault this file was written for. Events still
+      // arriving alongside runs that have none is a different fault, and
+      // sending somebody to read a function log for it wastes the alarm.
+      collector_silent: !newestAt || Date.parse(newestAt) < Date.parse(since)
     });
   } catch (error) {
     console.error('health check failed', error);

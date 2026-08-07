@@ -11,6 +11,14 @@
 # reasoning behind that choice, and its limitation, are in
 # netlify/functions/health.mjs.
 #
+# There are two messages below because that symptom has two causes and they are
+# not fixed in the same place. If nothing has arrived in the window at all, the
+# collector is down and the outage above is the thing to go and check. If events
+# are arriving and some runs still have none, the collector is up, no migration
+# is missing, and the question is about those particular runs instead. The first
+# real firing of this check was the second kind and the message said the first,
+# which is a morning spent reading a healthy function log.
+#
 # It goes through the site's own function rather than talking to Supabase, so
 # no database credentials need to exist as GitHub secrets, which is the same
 # bargain keep-alive.yml makes and for the same reason.
@@ -51,11 +59,22 @@ jobs:
 
           healthy=$(jq -r '.healthy' /tmp/health.json)
           orphans=$(jq -r '.submissions_without_events' /tmp/health.json)
+          total=$(jq -r '.submissions_in_window' /tmp/health.json)
           window=$(jq -r '.window_hours' /tmp/health.json)
+          silent=$(jq -r '.collector_silent' /tmp/health.json)
+          age=$(jq -r '.hours_since_newest_event' /tmp/health.json)
 
-          if [ "$healthy" != "true" ]; then
-            echo "::error::$orphans score submissions in the last $window hours have no events behind them. Somebody played a whole run and none of it was recorded, so the collector is dropping events. Check the Netlify log for the collect function, and check that every migration in supabase/migrations has been applied."
-            exit 1
+          if [ "$healthy" = "true" ]; then
+            echo "Collection looks healthy."
+            exit 0
           fi
 
-          echo "Collection looks healthy."
+          missing="$orphans of $total score submissions in the last $window hours have no events behind them."
+
+          if [ "$silent" = "true" ]; then
+            echo "::error::$missing No event has arrived in that time either, so the collector is down and nothing is being recorded. Check the Netlify log for the collect function, and check that every migration in supabase/migrations has been applied."
+          else
+            echo "::error::$missing Events are still arriving though, the newest is $age hours old, so the collector is up and this is not a missing migration. Somebody finished a run that sent nothing: either a browser that never delivered a beacon, or a score posted to submit-score with no game behind it. Read the leaderboard rows in the window rather than the function log."
+          fi
+
+          exit 1
