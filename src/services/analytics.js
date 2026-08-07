@@ -24,6 +24,12 @@
  * is not something the game does: it is GrowthBook saying a player was
  * bucketed, so it arrives through a handler registered below.
  *
+ * The fourteenth is `feedback_given`, and it is the only one of them that is
+ * something the player says rather than something they did. It is emitted from
+ * `services/feedback.js` rather than from the scene that draws the question,
+ * since asking once a session and recording the answer are the same piece of
+ * bookkeeping and splitting them across two call sites is how they drift.
+ *
  * Where the events are posted is set by `VITE_ANALYTICS_ENDPOINT` at build
  * time. With no endpoint set, nothing is posted and everything still runs:
  * events are kept on `window.requisita.events` and, with `?analytics` in the
@@ -286,6 +292,32 @@ export function trackLeaderboardViewed(fromScreen) {
 
 export function trackKofiClicked({ fromScreen, finalWave }) {
   track('kofi_clicked', { from_screen: fromScreen, final_wave: finalWave });
+}
+
+/**
+ * The player's answer to the one question the game asks.
+ *
+ * The fourteenth event, and the bar for a fourteenth is a question that none of
+ * the other thirteen can answer. This one sits inside question two, whether the
+ * difficulty curve is right. The events already say which intake a run ended
+ * on. Nothing in them separates a player who was outplayed at intake five from
+ * a player who reached intake five without ever working out what was happening,
+ * and those two need opposite fixes: one is tuning and the other is legibility.
+ *
+ * It is an event rather than a property because it is a thing that happens, and
+ * it happens seconds after `game_over` has already gone. That is the same seam
+ * `mode` went through in the other direction.
+ *
+ * It needs no migration, which is most of why the question is a closed set
+ * rather than a box to type in. Everything it wants is either a global that is
+ * already a column or a field the property bag already keeps.
+ */
+export function trackFeedbackGiven({ question, answer, finalWave }) {
+  track('feedback_given', {
+    question,
+    answer,
+    final_wave: finalWave
+  });
 }
 
 /**

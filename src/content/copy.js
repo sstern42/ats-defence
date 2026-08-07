@@ -222,6 +222,30 @@ export const COPY = {
   kofi: {
     link: 'Requisita cannot be bribed. The developer can.'
   },
+  /**
+   * The one question the game asks, on the end of a run and once a session.
+   *
+   * The keys under `options` are the answers in `config/feedback.js`, and the
+   * two lists have to agree: an answer with no label is an option drawn blank,
+   * and a label with no answer is never shown at all.
+   *
+   * Every option has to hold one line at the width the list is drawn at, since
+   * the options sit on a fixed gap in the right hand column and a wrapped one
+   * runs into the one below it. `thanks` is the exception and is wrapped on
+   * purpose, because it is the last thing on the screen with nothing under it.
+   */
+  feedback: {
+    prompt: 'Requisita is required to gather feedback on the process.',
+    question: 'How did you find the screening?',
+    options: {
+      straightforward: 'Straightforward',
+      aboutRight: 'About right',
+      gruelling: 'Gruelling',
+      lost: 'Never worked out what was going on'
+    },
+    thanks:
+      'Thank you. Your feedback has been logged and will be reviewed in due course.'
+  },
   credit: {
     link: 'A project by spencerstern.com',
     // {year} is filled in from the clock when the footer is drawn, so nobody

@@ -8,7 +8,8 @@
  *
  * The endpoint is public and unauthenticated because the events come from a
  * browser holding no key. What protects it is narrowness rather than secrecy:
- * a fixed list of twelve event names, a size cap, and a rate limit per address.
+ * a fixed list of fourteen event names, a size cap, a check on the one property
+ * a player chooses the value of, and a rate limit per address.
  * None of that makes it unspammable. It makes spamming it tedious and cheap to
  * clean up, which is the same bargain as the leaderboard.
  */

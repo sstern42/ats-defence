@@ -120,6 +120,7 @@ src/
     music.js           The chords the background music is played from
     intros.js          Applicant introduction manifest, frames and rate
     leaderboard.js     Name rules and read limits
+    feedback.js        The one question, and the answers it will take
     links.js           Outbound links
   services/
     analytics.js       Event emission
@@ -130,6 +131,7 @@ src/
     mode.js            Which mode the current run is
     routing.js         The cost field, and the routes read out of it
     leaderboard.js     Score submission and top ten
+    feedback.js        Asks the one question once a session, and sends the answer
     nameInput.js       The invisible field a touchscreen types a name into
   content/
     copy.js            All user-facing strings
@@ -192,7 +194,7 @@ Attached to every event without exception:
 
 `session_id`, `run_id`, `wave_number`, `variant_assignments`, `device_type`, `referrer`, `mode`
 
-`mode` is the seventh and arrived with the second game mode. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run every other event is already reporting, and without it all six questions above have one answer per mode with no way to tell them apart. A third mode cost it nothing, which is the point of having put it on a property. It is on `session_started` too, where it records the setting rather than a decision, since nothing has been played yet.
+`mode` is the seventh and arrived with the second game mode. It is a property rather than an event of its own because it is not a thing that happens: it is a fact about the run every other event is already reporting, and without it all six questions above have one answer per mode with no way to tell them apart. A third mode cost it nothing, which is the point of having put it on a property. It is on `session_started` too, where it records the setting rather than a decision, since nothing has been played yet.
 
 The queries in `docs/` read one mode, and read classic unless told otherwise. The filter is marked `-- mode`, on the same terms as the cutoff line next to it: it goes on the `game_started` CTE that defines a run and on any read of the board, and if it moves, move all of them. Three places deliberately do without it, and all three are session level rather than run level: the two coverage queries, which split by mode because a census should say what is in the table, and the exposure cross-check, because bucketing happens before a mode is chosen and filtering it would break the sample ratio check it exists to perform.
 
@@ -213,6 +215,33 @@ The queries in `docs/` read one mode, and read classic unless told otherwise. Th
 | `leaderboard_viewed` | from_screen |
 | `kofi_clicked` | from_screen, final_wave |
 | `experiment_viewed` | experiment_key, variation_id, arm |
+| `feedback_given` | question, answer, final_wave |
+
+`feedback_given` is the fourteenth, and the only one of them carrying something
+a player said rather than something they did. It is the answer to one question,
+asked on the game over screen once a session and never once a run, with four
+fixed answers and no box to type in.
+
+It clears the bar because question 2 has a part none of the other thirteen can
+reach. The events say which intake a run ended on. Nothing in them separates a
+player who was outplayed at intake five from a player who reached intake five
+without ever working out what was happening, and those two need opposite fixes:
+one is tuning and the other is legibility. Three of the four answers are a
+difficulty scale and the fourth is not on it, which is the whole point of the
+fourth.
+
+It is an event rather than a property because it is a thing that happens, and it
+happens seconds after `game_over` has already gone. That is the same seam `mode`
+went through in the other direction.
+
+The answers are a closed set in `config/feedback.js`, read by the game to draw
+the options and by the collector to check one before storing it, which is what
+makes the set closed rather than decorative. Free text was considered and left
+out: the collector's whole defence is narrowness on a public unauthenticated
+endpoint, an open field is the opposite of that, and nothing in the property bag
+would have refused four kilobytes of anything posted under the name of an
+answer. It also needs no migration, since the globals it wants are already
+columns and the bag already keeps what it does not recognise.
 
 `experiment_viewed` is the one event the game does not send. It comes from
 GrowthBook's tracking callback, fires once per session, and only when a player
@@ -224,7 +253,7 @@ reached GrowthBook.
 
 `run_abandoned` fires on `beforeunload`, after 30 seconds of the tab staying hidden, and after 60 seconds of no input. It fires at most once per run, and `reason` says which of the three it was: `unload`, `hidden` or `idle`.
 
-Two more reasons arrived with the pause screen, which gave a run in progress a way out that it did not have before: `restart` when the player starts another run from it, and `quit` when they go back to the home screen. Both are the same thing the other three are, a run that ended without a `game_over`, so they are reasons rather than a fourteenth event. The early abandonment metric already filters on reason, so nothing it was measuring moves.
+Two more reasons arrived with the pause screen, which gave a run in progress a way out that it did not have before: `restart` when the player starts another run from it, and `quit` when they go back to the home screen. Both are the same thing the other three are, a run that ended without a `game_over`, so they are reasons rather than an event of their own. The early abandonment metric already filters on reason, so nothing it was measuring moves.
 
 The delay on hidden and the `reason` property were both added after launch preparation, because firing the instant the tab was hidden meant the event recorded the first time somebody glanced away, and since it only fires once, their real exit was never recorded at all. A player abandoned at wave five and went on to reach wave eight.
 
@@ -387,21 +416,55 @@ covers the box it opens for. The game is lifted clear while the field has focus
 and drops back when it loses it, which is the only reason anything outside the
 canvas gets moved.
 
+The one thing on the list that was never on it is qualitative feedback, because
+everything the store holds is a record of what a player did and none of it is a
+record of what they thought. That gap only matters in one place, and it is the
+place the longest phase of this project lives in: the events say which intake a
+run ended on and say nothing about whether losing there felt earned. So the game
+asks one question, once a session, on the screen where the run has just ended.
+
+It qualified on the same terms sound and the touch controls did, and the shape
+of the refusals is the interesting part. Not stars, because a mean of 3.9 does
+not name a wave to retune. Not a thumb, because players who liked it play more
+runs and `restart_clicked` already counts that. Not a text box, for the reasons
+under "Qualitative stays closed" below. What is left is four fixed answers,
+three of which are a difficulty scale and one of which is not, and the one that
+is not is the only new thing in the data.
+
+What it cost is the least of anything here so far. A fourteenth event, which is
+the whole of the argument and is made in the analytics spec above. One check in
+the collector, which is the first per-event property check it has ever had and
+exists because a closed set is only closed if the endpoint knows what the set
+is. No migration, because the globals it wants are already columns. It is also
+the first thing added that is content as much as instrumentation: an automated
+rejection followed by a survey nobody reads is the artefact the whole game is
+parodying, so the question is in character for the system rather than bolted to
+the outside of it.
+
 ### Still true whatever gets built
 
 - Deploy is not a late step, and a red deploy preview is a failed step.
 - Balance lives in data. A post-MVP feature that puts a number in the game loop
   is the wrong shape.
-- The event list stays at thirteen unless there is a question that needs a
-  fourteenth. The thirteenth was added because an exposure could not be
-  recorded any other way, and that is the bar. A feature existing is not a
-  reason on its own. Sound shipped without one, and so did the whole of the
-  second mode: towers going offline is the most eventful thing in it and it
+- The event list stays at fourteen unless there is a question that needs a
+  fifteenth. Both of the last two cleared the same bar. The thirteenth was added
+  because an exposure could not be recorded any other way. The fourteenth was
+  added because question 2 asks whether the difficulty curve is right and no
+  amount of counting where runs ended says whether losing there felt earned,
+  which is a different fix from a wave being too heavy. A feature existing is
+  not a reason on its own. Sound shipped without one, and so did the whole of
+  the second mode: towers going offline is the most eventful thing in it and it
   emits nothing, because no question in the spec asks how often that happens.
   A property is not an event, which is the seam `mode` went through. The third
   mode emits nothing new either: applicants choosing a different way in is the
   most eventful thing in it and no question in the spec asks how often they do
   it.
+- **Qualitative stays closed.** The one question the game asks has four fixed
+  answers and it is not a way in for a text box later. An open field on a public
+  unauthenticated collector is a different thing to defend, needs the name rules
+  the leaderboard has and then some, and needs somebody to read it. If prose is
+  ever genuinely wanted, the Ko-fi link and the launch post are already the
+  channel for it.
 - **Classic does not move.** It is the mode with a balancing pass behind it, a
   leaderboard with real scores on it and a live experiment reading its wave one.
   A change that retunes it to suit something else has broken all three.
