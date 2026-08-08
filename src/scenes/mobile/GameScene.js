@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { COPY } from '../../content/copy.js';
 import { ART_DIRECTORY, ART_KEYS } from '../../config/art.js';
 import { APPLICANTS } from '../../config/applicants.js';
 import {
@@ -38,8 +39,9 @@ import Tower from '../../entities/Tower.js';
  * So the strongest form of "classic does not move" is available and taken: the
  * file three tuned modes depend on is not touched at all.
  *
- * What this is not, yet: no HUD beyond a diagnostic readout, no scoring, no game
- * over screen and no analytics. Each of those is its own step.
+ * What this is not, yet: no analytics, no leaderboard, and no floating damage
+ * numbers. The last of those is unsettled rather than unbuilt, and the reason is
+ * at buildHud below.
  */
 
 const FONT = 'system-ui, sans-serif';
@@ -125,18 +127,7 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.beginPreparation(MOBILE_RUN.firstPrepMs);
 
-    // Diagnostic, not the HUD. The HUD is a wave counter and one bar and it is
-    // its own step, with its own copy. This is here so the preview can be read.
-    this.readout = this.add
-      .text(20, 20, '', {
-        fontFamily: FONT,
-        fontSize: '22px',
-        color: '#e8ecf2',
-        backgroundColor: '#000000a0',
-        padding: { x: 12, y: 10 },
-        lineSpacing: 4
-      })
-      .setDepth(100);
+    this.buildHud();
   }
 
   update(time) {
@@ -147,7 +138,52 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.drawTracers(time);
     this.drawBar();
-    this.refreshReadout();
+  }
+
+  // ---------------------------------------------------------------------- HUD
+
+  /**
+   * The whole HUD: which intake this is, and the bar under the tower drawn by
+   * drawBar. The design asks for a wave counter, one health bar and floating
+   * damage numbers, and nothing else. Two of the three are here.
+   *
+   * Floating damage numbers are deliberately absent rather than forgotten. They
+   * are unsettled on #47: information carried by an animation runs into "nothing
+   * is said by movement alone", and the question of whether they say anything at
+   * all is worth answering before they are built. If the bar and the deaths
+   * carry the state they are decoration and reduced motion can drop them.
+   *
+   * The diagnostic readout this replaces is gone. It was debug output, it ran off
+   * the right edge once a few cards were listed, and it showed through the game
+   * over veil.
+   *
+   * Drawn on this scene rather than on a UIScene of its own. The desktop splits
+   * them because its HUD is a six button palette with state to keep in step; this
+   * is one line of text that is told what to say when the intake changes.
+   */
+  buildHud() {
+    this.intakeLabel = this.add
+      .text(RADIAL_BOARD.board.width / 2, 78, '', {
+        fontFamily: FONT,
+        fontSize: '30px',
+        color: '#8b98a6'
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(100);
+
+    this.showIntake();
+  }
+
+  /**
+   * Pushed when it changes rather than rebuilt every frame, because a Phaser Text
+   * is a canvas render and a texture upload, and this one says the same thing for
+   * twenty seconds at a time.
+   */
+  showIntake() {
+    this.intakeLabel.setText(
+      `${COPY.hud.wave} ${Math.min(this.waveIndex + 1, MOBILE_WAVES.length)}` +
+        ` ${COPY.hud.waveOf} ${MOBILE_WAVES.length}`
+    );
   }
 
   // -------------------------------------------------------------------- waves
@@ -174,6 +210,7 @@ export default class MobileGameScene extends Phaser.Scene {
     const wave = MOBILE_WAVES[this.waveIndex];
 
     this.phase = 'running';
+    this.showIntake();
     this.spawnsRemaining = wave.groups.reduce(
       (total, group) => total + group.count,
       0
@@ -600,23 +637,4 @@ export default class MobileGameScene extends Phaser.Scene {
     this.bar.fillRect(left, top, width * fraction, height);
   }
 
-  refreshReadout() {
-    this.readout.setText(
-      [
-        `intake    ${Math.min(this.waveIndex + 1, MOBILE_WAVES.length)}` +
-          ` / ${MOBILE_WAVES.length}  (${this.phase})`,
-        `tower     ${this.health} / ${this.maxHealth}`,
-        `standing  ${this.applicants.length}`,
-        `to come   ${Math.max(this.spawnsRemaining, 0)}`,
-        `rejected  ${this.rejected}`,
-        `got in    ${this.arrived}`,
-        `cards     ${this.taken.length ? this.taken.join(', ') : 'none'}`,
-        this.over
-          ? this.outcome === 'held'
-            ? 'vacancy held'
-            : 'position filled'
-          : ''
-      ].join('\n')
-    );
-  }
 }
