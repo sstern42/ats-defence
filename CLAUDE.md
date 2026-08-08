@@ -112,7 +112,7 @@ src/
     applicants.js      Applicant stats as data
     game.js            Lives, budget, prep times, scoring
     modes.js           What each mode changes, as data
-    path.js            Waypoint coordinates per mode, and the one board that has none instead
+    path.js            Waypoint coordinates per mode, and the two boards that have none instead
     version.js         The version the build was cut from
     art.js             Sprite manifest
     scenery.js         Ground and furniture manifest, and where it stands
@@ -130,6 +130,7 @@ src/
     experiments.js     GrowthBook wrapper
     mode.js            Which mode the current run is
     routing.js         The cost field, and the routes read out of it
+    radial.js          The spawn ring, and the straight line in from it
     leaderboard.js     Score submission and top ten
     feedback.js        Asks the one question once a session, and sends the answer
     nameInput.js       The invisible field a touchscreen types a name into

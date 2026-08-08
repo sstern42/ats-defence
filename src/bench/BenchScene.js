@@ -1,5 +1,13 @@
 import Phaser from 'phaser';
 
+import { RADIAL_BOARD } from '../config/path.js';
+import {
+  arrivalPoint,
+  hasArrived,
+  spawnPoint,
+  walkDurationMs
+} from '../services/radial.js';
+
 /**
  * The measurement harness for issue #47.
  *
@@ -26,8 +34,13 @@ import Phaser from 'phaser';
  */
 
 /**
- * The portrait backing store, and the audit's suggested analogue of the
- * existing fixed 1024 by 768.
+ * The board, read from config rather than held here.
+ *
+ * The bench used to carry its own centre, ring and arrival distance, picked to
+ * look about right. They are now the real radial board's, so what this measures
+ * is the geometry the phone version will actually use rather than an
+ * approximation of it. The ring moved in from 420 to 320 as a result. No reading
+ * has been taken off a handset yet, so there is nothing to invalidate.
  *
  * The renderer is left on AUTO rather than forced to WebGL, which is the
  * opposite of what the audit recommends for the real build. That is on purpose
@@ -35,15 +48,7 @@ import Phaser from 'phaser';
  * finding out, and forcing WebGL would hide it. The readout says which one it
  * got.
  */
-export const BENCH_SIZE = { width: 720, height: 1280 };
-
-const CENTRE = { x: BENCH_SIZE.width / 2, y: BENCH_SIZE.height / 2 };
-
-/** Where they walk in from. Far enough out to leave the middle third clear. */
-const SPAWN_RADIUS = 420;
-
-/** How close to the middle counts as having arrived. */
-const ARRIVAL = 24;
+export const BENCH_SIZE = RADIAL_BOARD.board;
 
 /**
  * The six applicant sprites, loaded straight from the manifest's directory
@@ -90,11 +95,60 @@ const SPRITE_SCALE = 1.25;
  */
 const KILL_PER_SECOND = 0.5;
 
-/** The counts the buttons and the ramp step through. */
-const STEPS = [50, 100, 150, 200, 300, 400, 500, 600, 800, 1000];
+/**
+ * The counts the buttons and the ramp step through.
+ *
+ * They used to stop at 1000, which was chosen against the audit's belief that
+ * the current entity shape would struggle to reach 300. The first handset to
+ * read them held 1000 in every one of the six shapes, including the shape the
+ * game ships today, so the list was not measuring a ceiling, it was measuring
+ * its own top step.
+ *
+ * There is a second reason the old range could not separate the six, and it is
+ * the more interesting one. The budget is the display's own interval, so
+ * anything comfortably inside vsync reads as the same number however cheap it
+ * is: a count costing five milliseconds and a count costing fifteen both come
+ * back as sixteen point seven. Six identical results is exactly what that looks
+ * like. The only way to tell the shapes apart is to push the count until vsync
+ * actually breaks, which is what this range now does.
+ */
+const STEPS = [
+  100, 300, 600, 1000, 1500, 2200, 3000, 4000, 5500, 7000, 9000, 12000
+];
 
-/** 60 frames a second, which is what the ramp is looking for. */
-const BUDGET_MS = 1000 / 60;
+/** How many may arrive in a single frame while a count is being reached. */
+const MAX_ARRIVALS_PER_FRAME = 500;
+
+/** What is standing there before anybody asks for a count. Must be in STEPS. */
+const DEFAULT_COUNT = 600;
+
+/**
+ * How much over the display's own frame interval the crowd may push the mean
+ * before the ramp calls it missed.
+ *
+ * This used to be a flat 1000/60, tested as `mean <= 16.667`, and that is a test
+ * no real device can pass. A screen locked to its refresh cannot average below
+ * its own interval, and jitter only ever pushes the mean above it, so a phone
+ * running perfectly at 60 reports about 16.7 and was told it had failed at the
+ * smallest count on the list. The first handset it was tried on said it held
+ * nothing.
+ *
+ * Measuring the display instead fixes the other half of the same mistake, which
+ * nobody had hit yet: 60 is not what a 90 or 120 hertz phone runs at, and a
+ * fixed budget would have waved those through at counts that were already
+ * costing them frames.
+ *
+ * So the ramp measures the empty scene first and judges the crowd against that.
+ * Twenty per cent is loose enough to absorb vsync jitter and tight enough that a
+ * count which is genuinely costing frames does not pass.
+ */
+const BUDGET_TOLERANCE = 1.2;
+
+/** Fallback interval if the display measurement somehow comes back empty. */
+const ASSUMED_REFRESH_MS = 1000 / 60;
+
+/** How long the empty scene is watched to work out the display's interval. */
+const REFRESH_SAMPLE_MS = 1000;
 
 /** How long the ramp holds a count before deciding whether it held up. */
 const RAMP_HOLD_MS = 3000;
@@ -139,14 +193,21 @@ export default class BenchScene extends Phaser.Scene {
 
     this.live = [];
     this.free = [];
-    this.stepIndex = STEPS.indexOf(200);
+    // Named rather than an index, so re-cutting the list above cannot silently
+    // leave this pointing at nothing. It did exactly that when the range moved.
+    this.stepIndex = Math.max(STEPS.indexOf(DEFAULT_COUNT), 0);
     this.targetCount = STEPS[this.stepIndex];
 
     this.samples = [];
     this.settleUntil = 0;
     this.ramping = false;
+    this.phase = null;
     this.rampUntil = 0;
     this.rampResult = null;
+
+    // What this display runs at, measured rather than assumed, and only once a
+    // ramp has been asked for. Null until then.
+    this.refreshMs = null;
     this.readoutAt = 0;
 
     this.buildInterface();
@@ -239,10 +300,15 @@ export default class BenchScene extends Phaser.Scene {
   }
 
   /**
-   * The ramp. Holds a count for three seconds, and if the mean frame time over
-   * that window was inside the budget it steps up and holds again. The moment
-   * one is missed it stops and keeps the last count that held, which is the
-   * number this whole scene exists to produce.
+   * The ramp. Watches the empty scene for a second to find out what this display
+   * runs at, then holds each count for three seconds and steps up while the mean
+   * stays inside the budget. The moment one is missed it stops and keeps the
+   * last count that held, which is the number this whole scene exists to
+   * produce.
+   *
+   * It takes about forty seconds end to end on a device that gets all the way
+   * up, which is worth knowing before reading the line: while it is working the
+   * readout says so and says which counts have already held.
    */
   toggleRamp() {
     if (this.ramping) {
@@ -253,12 +319,24 @@ export default class BenchScene extends Phaser.Scene {
 
     this.ramping = true;
     this.rampResult = null;
-    this.setStep(0);
-    this.rampUntil = this.time.now + RAMP_HOLD_MS;
+    this.refreshMs = null;
+
+    // The display is measured with nothing on screen, so what comes back is the
+    // device's own interval rather than the device carrying fifty sprites.
+    this.phase = 'display';
+    this.targetCount = 0;
+    this.settle();
+    this.rampUntil = this.time.now + REFRESH_SAMPLE_MS + SETTLE_MS;
   }
 
   stopRamp() {
     this.ramping = false;
+    this.phase = null;
+  }
+
+  /** What the mean may reach before a count counts as missed. */
+  budgetMs() {
+    return (this.refreshMs ?? ASSUMED_REFRESH_MS) * BUDGET_TOLERANCE;
   }
 
   checkRamp(now) {
@@ -266,7 +344,16 @@ export default class BenchScene extends Phaser.Scene {
       return;
     }
 
-    const held = this.mean() <= BUDGET_MS;
+    if (this.phase === 'display') {
+      this.refreshMs = this.mean() || ASSUMED_REFRESH_MS;
+      this.phase = 'stepping';
+      this.setStep(0);
+      this.rampUntil = now + RAMP_HOLD_MS + SETTLE_MS;
+
+      return;
+    }
+
+    const held = this.mean() <= this.budgetMs();
 
     if (!held || this.stepIndex === STEPS.length - 1) {
       // Both halves are reported, because where it missed is as useful as where
@@ -314,9 +401,22 @@ export default class BenchScene extends Phaser.Scene {
   // ------------------------------------------------------------------- update
 
   update(time, delta) {
-    this.topUp();
+    const filling = this.topUp();
+
     this.advance(delta / 1000);
     this.reject(delta / 1000);
+
+    // Nothing is measured while the crowd is still arriving, and the ramp's own
+    // clock is held with it. A count has to be judged on the crowd it asked for
+    // rather than on the crowd it had halfway through building one, and at the
+    // top of the range building one takes several frames.
+    if (filling) {
+      this.settle();
+
+      if (this.ramping && this.phase === 'stepping') {
+        this.rampUntil = time + RAMP_HOLD_MS + SETTLE_MS;
+      }
+    }
 
     if (time >= this.settleUntil) {
       this.samples.push(delta);
@@ -332,14 +432,29 @@ export default class BenchScene extends Phaser.Scene {
     this.refreshReadout(time);
   }
 
+  /**
+   * Brings the crowd up or down to the target, and says whether it is still on
+   * its way.
+   *
+   * Arrivals are capped per frame. Building three thousand path followers in one
+   * frame is a stall long enough to look like a crash, and it is not a thing the
+   * game would ever ask for anyway: a wave arrives over time. Removals are not
+   * capped, since dropping back to the smallest count at the start of a ramp
+   * should be immediate.
+   */
   topUp() {
-    while (this.live.length < this.targetCount) {
+    let added = 0;
+
+    while (this.live.length < this.targetCount && added < MAX_ARRIVALS_PER_FRAME) {
       this.live.push(this.spawn());
+      added += 1;
     }
 
     while (this.live.length > this.targetCount) {
       this.retire(this.live.pop());
     }
+
+    return this.live.length < this.targetCount;
   }
 
   /**
@@ -360,10 +475,7 @@ export default class BenchScene extends Phaser.Scene {
         entity.x += entity.vx * dt;
         entity.y += entity.vy * dt;
 
-        if (
-          Phaser.Math.Distance.Between(entity.x, entity.y, CENTRE.x, CENTRE.y) <
-          ARRIVAL
-        ) {
+        if (hasArrived(RADIAL_BOARD, entity.x, entity.y)) {
           this.recycle(index);
 
           continue;
@@ -417,28 +529,24 @@ export default class BenchScene extends Phaser.Scene {
 
   spawn() {
     const tier = Phaser.Math.Between(0, TIERS.length - 1);
-    const angle = Math.random() * Math.PI * 2;
-    const x = CENTRE.x + Math.cos(angle) * SPAWN_RADIUS;
-    const y = CENTRE.y + Math.sin(angle) * SPAWN_RADIUS;
+    const { x, y, heading } = spawnPoint(RADIAL_BOARD);
 
-    const entity = this.free.pop() ?? this.build(tier, x, y);
+    const entity = this.free.pop() ?? this.build(tier, x, y, heading);
 
     this.dress(entity, tier, x, y);
 
     if (this.shape.tweened) {
-      this.follow(entity, x, y, TIERS[tier].speed);
+      this.follow(entity, x, y, heading, TIERS[tier].speed);
     } else {
-      const towards = Phaser.Math.Angle.Between(x, y, CENTRE.x, CENTRE.y);
-
-      entity.vx = Math.cos(towards) * TIERS[tier].speed;
-      entity.vy = Math.sin(towards) * TIERS[tier].speed;
-      entity.rotation = towards;
+      entity.vx = Math.cos(heading) * TIERS[tier].speed;
+      entity.vy = Math.sin(heading) * TIERS[tier].speed;
+      entity.rotation = heading;
     }
 
     return entity;
   }
 
-  build(tier, x, y) {
+  build(tier, x, y, heading) {
     const key = this.textureFor(tier);
 
     if (!this.shape.tweened) {
@@ -447,7 +555,7 @@ export default class BenchScene extends Phaser.Scene {
 
     const follower = new Phaser.GameObjects.PathFollower(
       this,
-      this.lineIn(x, y),
+      this.lineIn(x, y, heading),
       x,
       y,
       key
@@ -482,17 +590,27 @@ export default class BenchScene extends Phaser.Scene {
     return this.shape.oneTexture ? SPRITES[0] : SPRITES[tier];
   }
 
-  /** A straight line inwards, which is all the radial design ever needs. */
-  lineIn(x, y) {
+  /**
+   * A straight line inwards, which is all the radial design ever needs.
+   *
+   * It stops at the same edge of the desk `hasArrived` stops the integrated
+   * shape at, rather than at the middle. That is not tidiness: the two shapes
+   * are being compared against each other, and one of them walking the extra
+   * arrival radius would keep its applicants alive fractionally longer and put a
+   * few more of them on screen at the same target count. A confound in the one
+   * measurement this scene exists to take.
+   */
+  lineIn(x, y, heading) {
+    const end = arrivalPoint(RADIAL_BOARD, x, y, heading);
     const path = new Phaser.Curves.Path(x, y);
 
-    path.lineTo(CENTRE.x, CENTRE.y);
+    path.lineTo(end.x, end.y);
 
     return path;
   }
 
-  follow(entity, x, y, speed) {
-    const path = this.lineIn(x, y);
+  follow(entity, x, y, heading, speed) {
+    const path = this.lineIn(x, y, heading);
 
     // A fresh Path per spawn, which is what the two non-classic modes already
     // do, so the pooled tweened shape still pays for one.
@@ -501,7 +619,7 @@ export default class BenchScene extends Phaser.Scene {
     entity.startFollow({
       from: 0,
       to: 1,
-      duration: (path.getLength() / speed) * 1000,
+      duration: walkDurationMs(RADIAL_BOARD, speed),
       positionOnPath: true,
       rotateToPath: true,
       ease: 'Linear',
@@ -525,6 +643,56 @@ export default class BenchScene extends Phaser.Scene {
     return this.samples.reduce((total, ms) => total + ms, 0) / this.samples.length;
   }
 
+  /** What the display was measured at, and what the crowd is judged against. */
+  displayLine() {
+    if (this.refreshMs === null) {
+      return 'not measured yet';
+    }
+
+    return (
+      `${this.refreshMs.toFixed(1)} ms ` +
+      `(${Math.round(1000 / this.refreshMs)} Hz), ` +
+      `budget ${this.budgetMs().toFixed(1)} ms`
+    );
+  }
+
+  /**
+   * The bottom line, and the only one worth writing down.
+   *
+   * A ramp in progress says so in as many words and names the counts already
+   * behind it, because the first time this was read off a handset the
+   * in-progress line was mistaken for the answer on five readings out of six.
+   * A line that reports a number while it is still working will be read as a
+   * result however it is worded, so this one leads with the fact that it is not
+   * finished.
+   */
+  verdictLine() {
+    if (this.ramping && this.phase === 'display') {
+      return 'working: measuring the display, do not read yet';
+    }
+
+    if (this.ramping) {
+      const behind = this.stepIndex === 0 ? 'none yet' : `${STEPS[this.stepIndex - 1]}`;
+
+      return `working: trying ${this.targetCount}, held ${behind}, do not read yet`;
+    }
+
+    if (this.rampResult === null) {
+      return 'tap find the floor';
+    }
+
+    const { held, missedAt } = this.rampResult;
+
+    if (held === null) {
+      return `RESULT held nothing, missed at ${missedAt}`;
+    }
+
+    return (
+      `RESULT held ${held}` +
+      (missedAt === null ? ', top of range' : `, missed at ${missedAt}`)
+    );
+  }
+
   refreshReadout(now) {
     if (now < this.readoutAt) {
       return;
@@ -538,22 +706,10 @@ export default class BenchScene extends Phaser.Scene {
 
     const flag = (key, label) => `${this.shape[key] ? '[x]' : '[ ]'} ${label}`;
 
-    let verdict = '';
-
-    if (this.ramping) {
-      verdict = `\nramping at ${this.targetCount}`;
-    } else if (this.rampResult !== null) {
-      const { held, missedAt } = this.rampResult;
-
-      verdict = held === null
-        ? `\nheld 60fps at nothing, missed at ${missedAt}`
-        : `\nheld 60fps at ${held}` +
-          (missedAt === null ? ', top of range' : `, missed at ${missedAt}`);
-    }
-
     this.readout.setText(
       [
         `bench  ${renderer}  ${BENCH_SIZE.width}x${BENCH_SIZE.height}`,
+        `display   ${this.displayLine()}`,
         `standing  ${this.live.length}`,
         `frame     ${mean.toFixed(1)} ms mean`,
         `worst     ${worst.toFixed(1)} ms`,
@@ -562,7 +718,9 @@ export default class BenchScene extends Phaser.Scene {
         flag('depthSort', 'depth sort'),
         flag('tweened', 'tweened walk'),
         flag('pooled', 'pooled'),
-        flag('oneTexture', 'one texture') + verdict
+        flag('oneTexture', 'one texture'),
+        '',
+        this.verdictLine()
       ].join('\n')
     );
 
