@@ -1,5 +1,13 @@
 import Phaser from 'phaser';
 
+import { RADIAL_BOARD } from '../config/path.js';
+import {
+  arrivalPoint,
+  hasArrived,
+  spawnPoint,
+  walkDurationMs
+} from '../services/radial.js';
+
 /**
  * The measurement harness for issue #47.
  *
@@ -26,8 +34,13 @@ import Phaser from 'phaser';
  */
 
 /**
- * The portrait backing store, and the audit's suggested analogue of the
- * existing fixed 1024 by 768.
+ * The board, read from config rather than held here.
+ *
+ * The bench used to carry its own centre, ring and arrival distance, picked to
+ * look about right. They are now the real radial board's, so what this measures
+ * is the geometry the phone version will actually use rather than an
+ * approximation of it. The ring moved in from 420 to 320 as a result. No reading
+ * has been taken off a handset yet, so there is nothing to invalidate.
  *
  * The renderer is left on AUTO rather than forced to WebGL, which is the
  * opposite of what the audit recommends for the real build. That is on purpose
@@ -35,15 +48,7 @@ import Phaser from 'phaser';
  * finding out, and forcing WebGL would hide it. The readout says which one it
  * got.
  */
-export const BENCH_SIZE = { width: 720, height: 1280 };
-
-const CENTRE = { x: BENCH_SIZE.width / 2, y: BENCH_SIZE.height / 2 };
-
-/** Where they walk in from. Far enough out to leave the middle third clear. */
-const SPAWN_RADIUS = 420;
-
-/** How close to the middle counts as having arrived. */
-const ARRIVAL = 24;
+export const BENCH_SIZE = RADIAL_BOARD.board;
 
 /**
  * The six applicant sprites, loaded straight from the manifest's directory
@@ -360,10 +365,7 @@ export default class BenchScene extends Phaser.Scene {
         entity.x += entity.vx * dt;
         entity.y += entity.vy * dt;
 
-        if (
-          Phaser.Math.Distance.Between(entity.x, entity.y, CENTRE.x, CENTRE.y) <
-          ARRIVAL
-        ) {
+        if (hasArrived(RADIAL_BOARD, entity.x, entity.y)) {
           this.recycle(index);
 
           continue;
@@ -417,28 +419,24 @@ export default class BenchScene extends Phaser.Scene {
 
   spawn() {
     const tier = Phaser.Math.Between(0, TIERS.length - 1);
-    const angle = Math.random() * Math.PI * 2;
-    const x = CENTRE.x + Math.cos(angle) * SPAWN_RADIUS;
-    const y = CENTRE.y + Math.sin(angle) * SPAWN_RADIUS;
+    const { x, y, heading } = spawnPoint(RADIAL_BOARD);
 
-    const entity = this.free.pop() ?? this.build(tier, x, y);
+    const entity = this.free.pop() ?? this.build(tier, x, y, heading);
 
     this.dress(entity, tier, x, y);
 
     if (this.shape.tweened) {
-      this.follow(entity, x, y, TIERS[tier].speed);
+      this.follow(entity, x, y, heading, TIERS[tier].speed);
     } else {
-      const towards = Phaser.Math.Angle.Between(x, y, CENTRE.x, CENTRE.y);
-
-      entity.vx = Math.cos(towards) * TIERS[tier].speed;
-      entity.vy = Math.sin(towards) * TIERS[tier].speed;
-      entity.rotation = towards;
+      entity.vx = Math.cos(heading) * TIERS[tier].speed;
+      entity.vy = Math.sin(heading) * TIERS[tier].speed;
+      entity.rotation = heading;
     }
 
     return entity;
   }
 
-  build(tier, x, y) {
+  build(tier, x, y, heading) {
     const key = this.textureFor(tier);
 
     if (!this.shape.tweened) {
@@ -447,7 +445,7 @@ export default class BenchScene extends Phaser.Scene {
 
     const follower = new Phaser.GameObjects.PathFollower(
       this,
-      this.lineIn(x, y),
+      this.lineIn(x, y, heading),
       x,
       y,
       key
@@ -482,17 +480,27 @@ export default class BenchScene extends Phaser.Scene {
     return this.shape.oneTexture ? SPRITES[0] : SPRITES[tier];
   }
 
-  /** A straight line inwards, which is all the radial design ever needs. */
-  lineIn(x, y) {
+  /**
+   * A straight line inwards, which is all the radial design ever needs.
+   *
+   * It stops at the same edge of the desk `hasArrived` stops the integrated
+   * shape at, rather than at the middle. That is not tidiness: the two shapes
+   * are being compared against each other, and one of them walking the extra
+   * arrival radius would keep its applicants alive fractionally longer and put a
+   * few more of them on screen at the same target count. A confound in the one
+   * measurement this scene exists to take.
+   */
+  lineIn(x, y, heading) {
+    const end = arrivalPoint(RADIAL_BOARD, x, y, heading);
     const path = new Phaser.Curves.Path(x, y);
 
-    path.lineTo(CENTRE.x, CENTRE.y);
+    path.lineTo(end.x, end.y);
 
     return path;
   }
 
-  follow(entity, x, y, speed) {
-    const path = this.lineIn(x, y);
+  follow(entity, x, y, heading, speed) {
+    const path = this.lineIn(x, y, heading);
 
     // A fresh Path per spawn, which is what the two non-classic modes already
     // do, so the pooled tweened shape still pays for one.
@@ -501,7 +509,7 @@ export default class BenchScene extends Phaser.Scene {
     entity.startFollow({
       from: 0,
       to: 1,
-      duration: (path.getLength() / speed) * 1000,
+      duration: walkDurationMs(RADIAL_BOARD, speed),
       positionOnPath: true,
       rotateToPath: true,
       ease: 'Linear',

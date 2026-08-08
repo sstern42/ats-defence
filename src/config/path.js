@@ -1,9 +1,16 @@
 /**
- * Where applicants go, for the 1024x768 board.
+ * Where applicants go.
  *
- * Two of the three modes are waypoints walked in order, and they are the two
- * below. The first waypoint sits off the left edge so they walk on rather than
- * appearing, and the last one is the vacancy. A waypoint may carry a `spread`,
+ * Everything down to the back channel field is for the 1024x768 landscape board,
+ * which was the only board there was when this file was written. The radial
+ * board at the bottom is not, so it carries the size it is drawn against rather
+ * than inheriting one from a line at the top of a file. That is the whole reason
+ * this sentence changed.
+ *
+ * Two of the three shipped modes are waypoints walked in order, and they are the
+ * two below. The first waypoint sits off the left edge so they walk on rather
+ * than appearing, and the last one is the vacancy. A waypoint may carry a
+ * `spread`,
  * which is how far above and below that point the crowd fans out by the time it
  * gets there. The classic path has none, so everybody walks the line itself and
  * it is unchanged from the day it was written.
@@ -79,4 +86,50 @@ export const BACK_CHANNEL_FIELD = {
   bounds: { left: 0, top: 192, right: 1024, bottom: 704 },
   entry: { x: -70, top: 224, bottom: 672 },
   vacancy: { x: 960, y: 520 }
+};
+
+/**
+ * The radial board, for the phone version on issue #47. A fourth kind of board
+ * and the first one that is neither a route nor a floor: a desk in the middle,
+ * a ring they arrive on, and a straight line between the two.
+ *
+ * It is the cheapest board in the file, and that is the point of it. The second
+ * mode needed a spine to tune, the third needed a cost field and a Dijkstra to
+ * read it, and this one needs an angle. Nothing here is pathfinding and nothing
+ * here is a waypoint, so `services/routing.js` is not involved and neither is
+ * anything that walks a list.
+ *
+ * `board` is the size these coordinates are drawn against, written down rather
+ * than assumed, because it is the first thing in this file that is not
+ * 1024x768. It is the portrait analogue the audit suggested and the size the
+ * bench already measures at.
+ *
+ * `spawnRadius` is a circle rather than the screen rectangle, and it is the one
+ * decision here worth arguing. On a rectangle an applicant coming in at a corner
+ * walks half again as far as one coming in at an edge, which in a mode with a
+ * fixed central tower and no input at all means the player's one screening
+ * mechanism gets more time on some arrivals than others for no reason the player
+ * can see or affect. A circle gives every applicant the same walk, so the only
+ * thing that varies is how fast the type is, which is the thing that is supposed
+ * to vary. Equal distance is the whole of the level design on a board with no
+ * corridor to lay out.
+ *
+ * The radius is the widest circle that leaves the top and the bottom of the
+ * screen clear, and it is a quarter of the height clear at each end. That is
+ * wider than the middle third the design note asks for, deliberately: a ring
+ * inside a literal middle third has a radius of 213, which would leave two
+ * thirds of the board's width empty and squeeze a crowd meant to be hundreds
+ * into a disc a third of the screen across. Clear of the notch at the top and
+ * clear of the hand at the bottom is what the constraint is for, and this keeps
+ * both. It is one number if it turns out to be the wrong reading.
+ *
+ * `arrivalRadius` is how close to the desk counts as having got in. It is the
+ * vacancy's own size rather than a tolerance: an applicant that reaches the desk
+ * has reached it.
+ */
+export const RADIAL_BOARD = {
+  board: { width: 720, height: 1280 },
+  centre: { x: 360, y: 640 },
+  spawnRadius: 320,
+  arrivalRadius: 30
 };
