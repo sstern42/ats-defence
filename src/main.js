@@ -84,6 +84,25 @@ function showUnsupported() {
  * that question answers itself as long as the session is opened.
  */
 async function boot() {
+  // The measurement harness for issue #47, and the one thing that runs before
+  // anything else in this function.
+  //
+  // Before initAnalytics rather than after it, because a profiling run is not a
+  // session. Every reading taken off a handset would otherwise write a
+  // `session_started` that never played anything, on the one device type the
+  // bounce rate is currently being read for.
+  //
+  // Behind an explicit parameter nobody arrives at by accident, so the size gate
+  // below is untouched and a phone that turns up on its own still gets the
+  // honest refusal it has always had. There is no mobile game to route to yet.
+  if (new URLSearchParams(window.location.search).has('bench')) {
+    const { startBench } = await import('./bench/index.js');
+
+    startBench();
+
+    return;
+  }
+
   await initExperiments();
 
   initAnalytics();
