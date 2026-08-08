@@ -95,8 +95,32 @@ const SPRITE_SCALE = 1.25;
  */
 const KILL_PER_SECOND = 0.5;
 
-/** The counts the buttons and the ramp step through. */
-const STEPS = [50, 100, 150, 200, 300, 400, 500, 600, 800, 1000];
+/**
+ * The counts the buttons and the ramp step through.
+ *
+ * They used to stop at 1000, which was chosen against the audit's belief that
+ * the current entity shape would struggle to reach 300. The first handset to
+ * read them held 1000 in every one of the six shapes, including the shape the
+ * game ships today, so the list was not measuring a ceiling, it was measuring
+ * its own top step.
+ *
+ * There is a second reason the old range could not separate the six, and it is
+ * the more interesting one. The budget is the display's own interval, so
+ * anything comfortably inside vsync reads as the same number however cheap it
+ * is: a count costing five milliseconds and a count costing fifteen both come
+ * back as sixteen point seven. Six identical results is exactly what that looks
+ * like. The only way to tell the shapes apart is to push the count until vsync
+ * actually breaks, which is what this range now does.
+ */
+const STEPS = [
+  100, 300, 600, 1000, 1500, 2200, 3000, 4000, 5500, 7000, 9000, 12000
+];
+
+/** How many may arrive in a single frame while a count is being reached. */
+const MAX_ARRIVALS_PER_FRAME = 500;
+
+/** What is standing there before anybody asks for a count. Must be in STEPS. */
+const DEFAULT_COUNT = 600;
 
 /**
  * How much over the display's own frame interval the crowd may push the mean
@@ -169,7 +193,9 @@ export default class BenchScene extends Phaser.Scene {
 
     this.live = [];
     this.free = [];
-    this.stepIndex = STEPS.indexOf(200);
+    // Named rather than an index, so re-cutting the list above cannot silently
+    // leave this pointing at nothing. It did exactly that when the range moved.
+    this.stepIndex = Math.max(STEPS.indexOf(DEFAULT_COUNT), 0);
     this.targetCount = STEPS[this.stepIndex];
 
     this.samples = [];
@@ -375,9 +401,22 @@ export default class BenchScene extends Phaser.Scene {
   // ------------------------------------------------------------------- update
 
   update(time, delta) {
-    this.topUp();
+    const filling = this.topUp();
+
     this.advance(delta / 1000);
     this.reject(delta / 1000);
+
+    // Nothing is measured while the crowd is still arriving, and the ramp's own
+    // clock is held with it. A count has to be judged on the crowd it asked for
+    // rather than on the crowd it had halfway through building one, and at the
+    // top of the range building one takes several frames.
+    if (filling) {
+      this.settle();
+
+      if (this.ramping && this.phase === 'stepping') {
+        this.rampUntil = time + RAMP_HOLD_MS + SETTLE_MS;
+      }
+    }
 
     if (time >= this.settleUntil) {
       this.samples.push(delta);
@@ -393,14 +432,29 @@ export default class BenchScene extends Phaser.Scene {
     this.refreshReadout(time);
   }
 
+  /**
+   * Brings the crowd up or down to the target, and says whether it is still on
+   * its way.
+   *
+   * Arrivals are capped per frame. Building three thousand path followers in one
+   * frame is a stall long enough to look like a crash, and it is not a thing the
+   * game would ever ask for anyway: a wave arrives over time. Removals are not
+   * capped, since dropping back to the smallest count at the start of a ramp
+   * should be immediate.
+   */
   topUp() {
-    while (this.live.length < this.targetCount) {
+    let added = 0;
+
+    while (this.live.length < this.targetCount && added < MAX_ARRIVALS_PER_FRAME) {
       this.live.push(this.spawn());
+      added += 1;
     }
 
     while (this.live.length > this.targetCount) {
       this.retire(this.live.pop());
     }
+
+    return this.live.length < this.targetCount;
   }
 
   /**
