@@ -123,6 +123,11 @@
 -- they answer a different question from the five above, and at this traffic
 -- level slicing a survival curve three ways produces cells of two runs that
 -- look like findings.
+--
+-- `device_type` has since been given its own file, device-traffic.sql, and this
+-- is unchanged by it. That file asks how many people arrive on a device the
+-- game refuses, which is a question about the door rather than about the five
+-- above, and it counts sessions rather than slicing a curve.
 
 
 -- ---------------------------------------------------------------------------
