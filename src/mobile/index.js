@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { RADIAL_BOARD } from '../config/path.js';
 import MobileGameScene from '../scenes/mobile/GameScene.js';
+import MobileUpgradeScene from '../scenes/mobile/UpgradeScene.js';
 
 /**
  * The phone build's entry point, dynamically imported by main.js so none of it
@@ -26,6 +27,8 @@ export function startMobile() {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [MobileGameScene]
+    // The board first, then the modal that goes over it, which is the drawing
+    // order the desktop config uses for the same reason.
+    scene: [MobileGameScene, MobileUpgradeScene]
   });
 }
