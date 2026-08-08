@@ -82,6 +82,45 @@
 
       /* Shown instead of the game on a screen it will not work on. Styled here
          rather than in the game, because the game is never started. */
+      /*
+       * The landscape refusal for the phone board. Fixed to the viewport rather
+       * than drawn inside the canvas, because the canvas is the thing being
+       * letterboxed when a portrait board is turned on its side, so anything
+       * drawn in it ends up in the strip too.
+       */
+      .rotate-veil {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 32px;
+        text-align: center;
+        background: #14161a;
+        font-family: system-ui, sans-serif;
+      }
+
+      .rotate-veil.showing {
+        display: flex;
+      }
+
+      .rotate-veil h1 {
+        margin: 0;
+        font-size: 24px;
+        color: #e6ebf0;
+      }
+
+      .rotate-veil p {
+        margin: 0;
+        max-width: 30rem;
+        font-size: 15px;
+        line-height: 1.5;
+        color: #8b98a6;
+      }
+
       .unsupported {
         box-sizing: border-box;
         height: 100%;
