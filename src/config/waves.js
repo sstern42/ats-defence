@@ -364,11 +364,23 @@ export const BACK_CHANNEL_WAVES = [
  * untouchables: with the right cards you clear those and are then out-thrown by
  * volume, without them you are out-thrown by both.
  *
- * What this pass is aiming at is a carded run that is close, and it has not been
- * measured yet at the time of writing. Expect another pass. `CLAUDE.md` says the
- * difficulty of this design lives in the interaction between the card pool and
- * the wave curve, and an interaction is not something either half can be tuned
- * against alone, which is what the first pass tried to do.
+ * Measured after the change, and it lands just past the target rather than short
+ * of it. A run taking a card at random now loses in the last intake: 113
+ * rejections against 52 arrivals, the tower emptied with 33 still to come. So
+ * the previous list was won without contest and this one is lost with the finish
+ * in sight, and the right answer is between them.
+ *
+ * What the run also showed is that the swing is the draw rather than the curve.
+ * That run was never offered, or never took, Update the keyword list, so
+ * thirteen Keyword Stuffers walked in untouched for 65 of the tower's 260. Two
+ * cards out of six are the ones that answer something, each has a one in three
+ * chance of appearing in a given pair, and whether they turn up decides the run
+ * more than any number in this file does.
+ *
+ * That is a design question rather than a tuning one and it should be answered
+ * before these numbers move again, because tuning a curve against a draw this
+ * swingy is tuning against noise. The likely fix is weighting the pool rather
+ * than reshaping the waves.
  */
 export const MOBILE_WAVES = [
   // Graduates only, and few enough to watch one at a time. The board explains
