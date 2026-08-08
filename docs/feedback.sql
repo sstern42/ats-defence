@@ -19,6 +19,13 @@
 -- what is in the table rather than a finding, on the same terms as the coverage
 -- queries in the other files.
 --
+--
+-- Crawlers do not need excluding here, unlike the two session-level queries in
+-- leaderboard-and-players.sql. Everything below is gated on `game_over`,
+-- `game_started` or `feedback_given`, and no automated visitor has ever emitted
+-- one: it would have to play. See the note headed "The bots" in that file.
+--
+--
 -- Four things about this data are worth knowing before any of it is believed,
 -- and they are worse than the caveats on any other file here. This is opinion,
 -- volunteered, from a self selected few.

@@ -24,6 +24,8 @@
 -- 55 sessions and 54 runs after the cutoff, made of:
 --
 --   12 sessions that open the page and never start a run
+--   20 crawler sessions that do the same, excluded from every query but the
+--      census. They are not counted in the 55.
 --   10 runs  lost at wave 3, no submission, no replay
 --   14 runs  lost at wave 5, all submitted, 9 of them replayed
 --    9 runs  the replays, lost at wave 7
@@ -45,7 +47,8 @@
 --
 -- 1. coverage, post-cutoff event counts:
 --      wave_started 253, wave_completed 204, tower_placed 162,
---      leaderboard_viewed 106, session_started 55, game_started 54,
+--      leaderboard_viewed 126, session_started 75 of which 20 are bots,
+--      game_started 54,
 --      applicant_leaked 49, game_over 37, run_abandoned 15,
 --      score_submitted 14, restart_clicked 11, kofi_clicked 9
 --
@@ -111,8 +114,8 @@
 --      game over, did not submit 2 of 23 (8.7%)
 --
 --
--- The six traps
--- -------------
+-- The seven traps
+-- ---------------
 --
 -- Each is a row that looks like something it is not, and each is caught by a
 -- different line in the queries, so a figure that comes out right is evidence
@@ -159,8 +162,21 @@
 -- plausibility ceiling for wave 5, so the server accepted it and nothing but
 -- this cross-check can see it. Query 8 must report exactly one `disagrees`.
 --
--- Checked against Postgres 16 with all four migrations applied. All twelve
--- queries returned the figures above.
+-- **The crawlers.** Twenty sessions that open the page, render a board and
+-- stop, with a browser of `bot`. Every figure above is unchanged by them,
+-- which is the point: they belong to query 1 and to nothing else. Query 1
+-- counts 75 sessions on `session_started` and reports 20 of them as
+-- `bot_sessions`, and query 2 still opens on 55.
+--
+-- Strip the `-- bots` line from query 2 and the funnel opens on 75 instead of
+-- 55, so the first step falls from 78.2% to 57.3% and the whole curve below it
+-- is quoted against a denominator that is a third automated. Read straight,
+-- that says four in ten arrivals look at the game and decide against it. What
+-- actually happened is that a third of the arrivals were never people. The same
+-- line in query 12 moves the home tip jar rate from 5.5% to 4.0%.
+--
+-- Checked against Postgres 16 with all seven migrations applied. All twelve
+-- queries returned the figures above, and all seven traps reproduced.
 
 
 truncate public.analytics_events;
@@ -352,6 +368,20 @@ begin
         jsonb_build_object('from_screen', 'home', 'final_wave', null),
         at + interval '20 seconds', 'desktop', 'Chrome', 'GB', 'control');
     end if;
+  end loop;
+
+  -- Twenty crawlers that run the JavaScript. They open a session, the home
+  -- screen builds its board panel and announces itself, and that is the whole
+  -- of what they ever do, because starting a run means clicking.
+  --
+  -- Twenty against twelve real non-players is deliberate: it is roughly the
+  -- ratio the first real read of the table found, and it is enough that leaving
+  -- them in would change the shape of the funnel rather than nudge it. See the
+  -- crawler trap below.
+  for i in 1..20 loop
+    at := base + (i * interval '90 seconds');
+
+    perform seed_session('sbot' || i, at, 'desktop', 'bot', 'US', 'control');
   end loop;
 
   -- Ten runs lost at wave three. Two of them click the tip jar afterwards.

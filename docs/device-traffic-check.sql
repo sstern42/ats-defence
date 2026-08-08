@@ -15,7 +15,9 @@
 --    4  desktop, macos, safari, from LinkedIn, never played. This is the iPad
 --       passing as a Mac and then failing the size gate in portrait, which is
 --       the only shape that case leaves behind.
---    3  desktop, linux, bot, direct, never played. Not people.
+--    3  desktop, linux, bot, direct, never played. Not people. Queries 3, 4
+--       and 6 exclude them and queries 1, 2 and 7 do not, so they are the
+--       one group whose count differs between queries on purpose.
 --   18  mobile, ios, safari, from LinkedIn, never played. Phones, refused.
 --       Nine of them carry an `experiment_viewed` as well as their arrival,
 --       because being bucketed does not require the game to have loaded. See
@@ -51,17 +53,20 @@
 --                 asymmetry the note under this query describes.
 --   3. weekly:    week beginning 2026-08-03, 47 sessions, 18/17/12 across
 --                 desktop, mobile and tablet, 61.7% handheld. Week beginning
---                 2026-08-10, 23 sessions, 17/3/2, 21.7% handheld. The launch
+--                 2026-08-10, 20 sessions, 14/3/2, 25.0% handheld. The launch
 --                 week is the handheld high water mark and the next week falls
---                 back, which is the shape the query exists to show.
+--                 back, which is the shape the query exists to show. The three
+--                 crawlers are excluded here and all three were in week two,
+--                 which is why it reads 20 rather than the 23 in query 2.
 --   4. the holding page:
 --                 mobile 18 of 20 held, 90.0%, and the other two played. That
 --                 is the answer the file is for, and the two that got through
 --                 are the Android tablets in the mobile row rather than a
 --                 leaking gate.
---                 tablet 2 of 14 held, 14.3%. desktop 7 of 35, 20.0%, which is
---                 loud on purpose: four are the iPad-as-Mac case and three are
---                 bots, and a real desktop row should be nothing like this.
+--                 tablet 2 of 14 held, 14.3%. desktop 4 of 32, 12.5%, all four
+--                 the iPad-as-Mac case. The three crawlers are excluded, which
+--                 is why desktop is 32 here against 35 in query 2, and why the
+--                 row is not the 7 of 35 it would otherwise be.
 --                 `saw_the_home_screen` equals `played` in every row, since
 --                 nothing here loads the game and then leaves before the board
 --                 arrives. On real data it will sit slightly above `played`.
@@ -71,7 +76,10 @@
 --                 mobile 2 runs, median intake 5, 5.0 towers, 2 submitted.
 --                 The six open advert runs are absent from all of it.
 --   6. sources:   www.linkedin.com 46 sessions, 73.9% handheld, 47.8% played.
---                 (direct) 24 sessions, 0.0% handheld, 83.3% played.
+--                 (direct) 21 sessions, 0.0% handheld, 95.2% played. The
+--                 crawlers all arrived direct and are excluded, so this row is
+--                 21 rather than 24 and its play rate is not dragged down by
+--                 traffic that was never going to play.
 --                 The handheld share is a fact about where the link was posted
 --                 and this is the query that says so.
 --   7. classification:
@@ -84,7 +92,7 @@
 --                 desktop/linux/bot 3, all refused. mobile/android/chrome 2,
 --                 none refused. (unrecognised)/windows/firefox 1, refused.
 --
--- Three traps, and each one is a plausible way to write the query wrong.
+-- Four traps, and each one is a plausible way to write the query wrong.
 --
 --   8. exposure trap:
 --                 test query 4 for a session with a single event instead of a
@@ -94,8 +102,8 @@
 --                 never once let through. What actually happened is that nine
 --                 of them were bucketed by GrowthBook, and the exposure fires
 --                 while the arrival event is assembling its own properties, so
---                 it lands on a session that never loaded anything. Tablet is
---                 the same error in the other direction and goes to 0 held.
+--                 it lands on a session that never loaded anything. Desktop and
+--                 tablet are the same error and both go to 0 held.
 --
 --   9. mode trap: strip the `-- mode` line from query 5 and the tablet row goes
 --                 from 6 runs at a median intake of 5 to 12 runs at a median of
@@ -115,8 +123,21 @@
 --                 real, so they do not add noise to the report, they add it to
 --                 one row of it.
 --
+--  11. crawler trap:
+--                 strip the `-- bots` lines and the three automated sessions
+--                 come back into queries 3, 4 and 6. Query 4 desktop goes
+--                 from 4 held of 32 to 7 of 35, and 12.5% to 20.0%. Query 6
+--                 direct goes from 21 sessions at 95.2% played to 24 at
+--                 83.3%. Query 3 week two goes from 20 sessions to 23 and
+--                 handheld from 25.0% to 21.7%.
+--
+--                 Three of seventy is small and every one of those moves is
+--                 still visible, which is the argument for the filter rather
+--                 than against it: the real table was over half crawler when
+--                 this was written.
+--
 -- Checked against Postgres 16 with all seven migrations applied. All seven
--- queries returned the figures above, and all three traps were reproduced.
+-- queries returned the figures above, and all four traps were reproduced.
 
 truncate public.analytics_events;
 
