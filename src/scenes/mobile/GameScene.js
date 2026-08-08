@@ -44,6 +44,9 @@ import Tower from '../../entities/Tower.js';
  * at buildHud below.
  */
 
+/** Tall enough to survive the board being scaled down onto a phone screen. */
+const HEALTH_BAR_HEIGHT = 7;
+
 const FONT = 'system-ui, sans-serif';
 
 export default class MobileGameScene extends Phaser.Scene {
@@ -121,6 +124,7 @@ export default class MobileGameScene extends Phaser.Scene {
     this.tower.setDepth(10);
 
     this.tracers = this.add.graphics().setDepth(20);
+    this.healthBars = this.add.graphics().setDepth(15);
     this.bar = this.add.graphics().setDepth(30);
 
     this.drawRange();
@@ -137,6 +141,7 @@ export default class MobileGameScene extends Phaser.Scene {
     }
 
     this.drawTracers(time);
+    this.drawHealthBars();
     this.drawBar();
   }
 
@@ -605,6 +610,48 @@ export default class MobileGameScene extends Phaser.Scene {
       this.tracers.lineStyle(2, this.tower.definition.tracerColour, 0.8);
       this.tracers.lineBetween(this.tower.x, this.tower.y, shot.x, shot.y);
     }
+  }
+
+  /**
+   * A bar over anybody who has been hurt and is still walking.
+   *
+   * Only over the hurt, which is the rule the desktop board already uses and is
+   * what stops this being hundreds of flickering slivers. A Graduate dies in two
+   * hits and barely shows one. A Career Changer shows one for four seconds, which
+   * is the point: that applicant absorbs the entire output of the tower on its
+   * way in, and without a bar that is indistinguishable from the tower doing
+   * nothing at all. The most important dynamic on this board was invisible.
+   *
+   * It is state rather than movement, so it says what it says under a reduced
+   * motion preference without any special case. That is the argument for doing
+   * this instead of floating damage numbers rather than as well as them.
+   *
+   * One Graphics object rebuilt per frame rather than a bar object per applicant,
+   * which is the pattern the desktop uses and the part of that renderer the audit
+   * rated as scaling best.
+   */
+  drawHealthBars() {
+    this.healthBars.clear();
+
+    this.applicants.forEach((applicant) => {
+      if (!applicant.active || applicant.health >= applicant.maxHealth) {
+        return;
+      }
+
+      // Sized against the screen rather than against the sprite. A bar
+      // proportional to a radius of eleven is two pixels on a phone once the
+      // 720 wide board is scaled down, which is a bar nobody can read and
+      // therefore not a bar at all.
+      const width = Math.max(applicant.definition.radius * 2.6, 26);
+      const left = applicant.x - width / 2;
+      const top = applicant.y - applicant.definition.radius - 12;
+      const fraction = applicant.health / applicant.maxHealth;
+
+      this.healthBars.fillStyle(0x14161a, 0.85);
+      this.healthBars.fillRect(left - 1, top - 1, width + 2, HEALTH_BAR_HEIGHT + 2);
+      this.healthBars.fillStyle(applicant.definition.colour, 1);
+      this.healthBars.fillRect(left, top, width * fraction, HEALTH_BAR_HEIGHT);
+    });
   }
 
   /** Redrawn rather than drawn once, since a card can widen it mid run. */
