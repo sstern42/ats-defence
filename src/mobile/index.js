@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { RADIAL_BOARD } from '../config/path.js';
 import MobileGameScene from '../scenes/mobile/GameScene.js';
+import MobileGameOverScene from '../scenes/mobile/GameOverScene.js';
 import MobileUpgradeScene from '../scenes/mobile/UpgradeScene.js';
 
 /**
@@ -29,6 +30,6 @@ export function startMobile() {
     },
     // The board first, then the modal that goes over it, which is the drawing
     // order the desktop config uses for the same reason.
-    scene: [MobileGameScene, MobileUpgradeScene]
+    scene: [MobileGameScene, MobileUpgradeScene, MobileGameOverScene]
   });
 }
