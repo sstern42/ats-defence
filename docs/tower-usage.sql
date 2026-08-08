@@ -50,8 +50,12 @@
 -- player was holding at any other moment, so the most that can be said about
 -- affordability is what they were seen holding when they bought something
 -- else. Query 2 uses that and is honest about the direction of the error.
-
-
+--
+-- Crawlers do not need excluding here either. Every query below is built on the
+-- `game_started` CTE that defines a run, and no automated visitor has ever
+-- started one. See the note headed "The bots" in leaderboard-and-players.sql.
+--
+--
 -- ---------------------------------------------------------------------------
 -- 1. Reach and volume. The headline.
 --

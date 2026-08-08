@@ -74,6 +74,34 @@
 -- "arrived" rather than as "arrived and did not play".
 --
 --
+-- The bots
+-- --------
+--
+-- A crawler that runs the JavaScript opens a session and sends a
+-- `session_started` exactly like a person. The first read of device-traffic.sql
+-- found them at well over half of every session in the table, which is enough
+-- to move any number built on sessions rather than on runs. So the two
+-- session-level queries here exclude them:
+--
+--   >>> and browser is distinct from 'bot'  -- bots
+--
+-- marked `-- bots`, on the `session_started` CTEs in queries 2 and 12. It is
+-- `is distinct from` rather than `<>` so a request with no user agent header,
+-- which stores a null browser, is kept: an unknown visitor is not a known
+-- crawler, and dropping it would drop real people.
+--
+-- Nothing else in this file needs it. Every other query is built on the
+-- `game_started` CTE that defines a run, and no crawler has ever started a run:
+-- it would have to click. That is also why this matters so much in query 2
+-- specifically. Bots land at the top of the funnel and never appear in any step
+-- below it, so leaving them in does not scale the funnel down evenly, it
+-- invents a cliff at the first step that is entirely automated traffic.
+--
+-- Query 1 keeps them and reports them in `bot_sessions` instead, because a
+-- census should say what is in the table. That column is also the quickest way
+-- to see whether the rate has changed since this was written.
+--
+--
 -- Five things about the data are worth knowing before any of it is believed
 -- ------------------------------------------------------------------------
 --
@@ -157,6 +185,7 @@ select
   mode,
   count(*) as events,
   count(distinct session_id) as sessions,
+  count(distinct session_id) filter (where browser = 'bot') as bot_sessions,
   count(distinct run_id) as runs,
   min(received_at) as first_seen,
   max(received_at) as last_seen
@@ -191,6 +220,7 @@ with sessions as (
   from public.analytics_events
   where event = 'session_started'
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and browser is distinct from 'bot'  -- bots
 ),
 runs as (
   select
@@ -952,6 +982,7 @@ with sessions as (
   from public.analytics_events
   where event = 'session_started'
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and browser is distinct from 'bot'  -- bots
 ),
 runs as (
   select

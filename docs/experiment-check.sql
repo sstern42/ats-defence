@@ -20,7 +20,8 @@
 --   survival w10:  control   7.0, busy   0.0
 --   early abandon: control 20.0 (20 unload), busy 35.0 (35 idle)
 --   guardrail:     control 7 of 70 finished runs, busy 0 of 65
---   exposures:     busy 103 sessions, control 97, with 3 disagreements
+--   exposures:     busy 103 sessions, control 97, with 3 disagreements,
+--                  and the 40 crawler sessions excluded from both
 --
 -- The seeding statement at the end reports 230 runs and 130 events sitting
 -- before the cutoff, being ten test runs of thirteen events each. None of them
@@ -41,7 +42,14 @@
 -- player and is not, and each is caught by a different line in the queries, so
 -- a figure that comes out right is evidence that line is still there.
 --
--- Checked against Postgres 16 with all four migrations applied. All seven
+-- **The crawlers.** Forty sessions with a browser of `bot`, bucketed evenly,
+-- that never started a run. Strip the `-- bots` line from query seven and the
+-- split becomes busy 123 and control 117. It still looks healthy, which is
+-- exactly the problem: the check is now mostly automated traffic sitting at the
+-- ratio it is testing for, and it would go on looking healthy whatever the
+-- players did.
+--
+-- Checked against Postgres 16 with all seven migrations applied. All seven
 -- queries returned the figures above.
 
 truncate public.analytics_events;
@@ -213,6 +221,44 @@ from (
   where event = 'game_started'
     and variant_assignments ->> 'starting-difficulty' in ('control', 'busy')
 ) s;
+
+-- Forty crawlers that ran the JavaScript. GrowthBook buckets whatever loads the
+-- page, so each one is assigned an arm and reports an exposure, and none of
+-- them ever starts a run because that would mean clicking.
+--
+-- They are split exactly evenly on purpose. That is what a hash does to
+-- automated traffic, and it is what makes them dangerous here rather than
+-- merely noisy: they do not skew the ratio, they hold it at 50/50 and stop a
+-- real skew among players from showing. With them left in, the 103/97 split
+-- below becomes 123/117, which is 51.3/48.8 rather than 51.5/48.5, and a
+-- sample ratio check made mostly of crawlers cannot fail.
+--
+-- Every other query in the file is built on assigned runs, so they reach none
+-- of it.
+insert into public.analytics_events
+  (event, session_id, run_id, wave_number, variant_assignments, device_type,
+   referrer, mode, properties, ip_hash, browser, os)
+select
+  'experiment_viewed',
+  'bot' || i,
+  null,
+  0,
+  jsonb_build_object('starting-difficulty', arm),
+  'desktop',
+  'https://www.linkedin.com/',
+  'classic',
+  jsonb_build_object(
+    'session_id', 'bot' || i,
+    'experiment_key', 'starting-difficulty',
+    'variation_id', case when arm = 'busy' then '1' else '0' end,
+    'arm', arm
+  ),
+  'hash',
+  'bot',
+  'linux'
+from generate_series(1, 40) as i,
+  lateral (select case when i % 2 = 0 then 'busy' else 'control' end as arm) a;
+
 
 -- The test runs go back in time last, once their exposures exist, so that a
 -- whole session moves together. Backdating the runs alone would leave each one

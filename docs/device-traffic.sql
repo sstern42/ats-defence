@@ -39,6 +39,33 @@
 -- Query 5 reads classic unless it is told otherwise, marked `-- mode`.
 --
 --
+-- The bots
+-- --------
+--
+-- A crawler that runs the JavaScript opens a session and sends an arrival like
+-- anything else, and the first real read of this file found them at well over
+-- half of all sessions. That is not a background rate to shrug at, it is the
+-- majority of the table, and it sits entirely in the desktop row because
+-- nothing automated carries a phone. So queries 3, 4 and 6 exclude them:
+--
+--   >>> and browser is distinct from 'bot'  -- bots
+--
+-- marked `-- bots`. `is distinct from` rather than `<>` because a request with
+-- no user agent header at all stores a null browser, and a null is an unknown
+-- visitor rather than a known crawler. Excluding it would quietly drop real
+-- people.
+--
+-- Three queries deliberately keep them, and all three are censuses rather than
+-- findings. Queries 1 and 2 count what arrived, which includes the crawlers,
+-- and query 1 reports them in their own column so the subtraction is there to
+-- be done. Query 7 keeps them because naming what the automated traffic claims
+-- to be is one of the three things it exists to do.
+--
+-- The classifier is a single regular expression over the user agent, in
+-- netlify/functions/lib/agent.js, so this catches what announces itself and
+-- nothing else. Anything automated that wants to look like a browser will.
+--
+--
 -- Five things about this data are worth knowing before any of it is believed
 -- -------------------------------------------------------------------------
 --
@@ -201,6 +228,7 @@ with sessions as (
     min(received_at) as first_seen
   from public.analytics_events
   where received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and browser is distinct from 'bot'  -- bots
   group by session_id
 )
 select
@@ -288,6 +316,7 @@ with sessions as (
     count(*) filter (where event = 'game_over') as runs_finished
   from public.analytics_events
   where received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and browser is distinct from 'bot'  -- bots
   group by session_id
 )
 select
@@ -395,6 +424,7 @@ with sessions as (
     count(*) filter (where event = 'game_started') as runs_started
   from public.analytics_events
   where received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and browser is distinct from 'bot'  -- bots
   group by session_id
 )
 select

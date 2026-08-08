@@ -450,6 +450,28 @@ order by metric;
 -- The cost is that `runs` counts every run in the session, in either mode, so
 -- it is a little higher than the runs the other queries measure. It is a
 -- coverage column rather than a metric and nothing downstream divides by it.
+--
+-- It is also the one query in this file that has to exclude crawlers, marked
+-- `-- bots`, and it is the only place in the file where they can reach:
+--
+--   >>> and browser is distinct from 'bot'  -- bots
+--
+-- GrowthBook buckets whatever loads the page, and bucketing happens before the
+-- gate and before any decision a player makes, so a crawler that runs the
+-- JavaScript is assigned an arm and reports an exposure like anybody else.
+-- device-traffic.sql found them at well over half of all sessions, which would
+-- make most of the sample below automated.
+--
+-- The damage is subtle rather than obvious, and it is worth being clear about,
+-- because it points the wrong way from the usual worry. Crawlers are bucketed
+-- by the same hash as everybody else, so they split close to evenly and pull
+-- the ratio towards 50/50 rather than away from it. They do not create a false
+-- alarm here, they suppress a real one: a genuine ratio problem among players
+-- gets diluted by automated traffic sitting at exactly the split the query is
+-- checking for. A sample ratio check made mostly of bots cannot fail.
+--
+-- Nothing else in this file is affected, since every other query is built on
+-- assigned runs and no crawler has ever started one.
 -- ---------------------------------------------------------------------------
 
 with exposures as (
@@ -460,6 +482,7 @@ with exposures as (
   from public.analytics_events
   where event = 'experiment_viewed'
     and received_at >= timestamptz '2026-08-04 07:16:00+00'  -- cutoff
+    and browser is distinct from 'bot'  -- bots
   group by session_id
 ),
 played as (
