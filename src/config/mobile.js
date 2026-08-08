@@ -91,9 +91,10 @@ export const MOBILE_RUN = {
   prepMs: 2200
 };
 
-/**
- * Something the first run of this board threw up, written down here because it
- * is the sort of thing that gets rediscovered expensively later.
+/*
+ * A NOTE, NOT A DEFINITION. Something the first run of this board threw up,
+ * kept here because it is the sort of thing that gets rediscovered expensively
+ * later and because it is the reason the card pool is shaped as it is.
  *
  * `Tower.findTarget` picks whoever has the least walking left, which is the
  * right answer on every board built so far and has an odd consequence on this
@@ -114,3 +115,33 @@ export const MOBILE_RUN = {
  * changes what the tower shoots at is worth more than a card that makes it shoot
  * harder.
  */
+
+/**
+ * Turning a run into one number.
+ *
+ * The same three terms `GAME.scoring` has, because a run here is the same three
+ * things: how deep it got, how much it screened, and how much of the vacancy's
+ * patience was left at the end. What differs is the weights, and they differ for
+ * a reason worth writing down rather than by taste.
+ *
+ * A classic run rejects something like seventy applicants. A run here rejects a
+ * hundred and thirty and would reject far more once the wave list grows. At
+ * classic's ten a rejection the rejection term would swamp the other two and the
+ * score would become a count of how long the run lasted. Four keeps it a term
+ * rather than the whole formula.
+ *
+ * That also matters for the leaderboard, which is why this is in config rather
+ * than in the scene. `netlify/functions/lib/plausibility.js` recomputes the
+ * ceiling from the same numbers the game plays with, and a ceiling built from
+ * hundreds of rejections at classic's weight would be so large it stopped
+ * excluding anything. When this mode is registered, that function reads these.
+ *
+ * `perTolerancePoint` is scored against what is left rather than against a
+ * fraction of the maximum, because Extend the deadline raises the maximum. A
+ * fraction would quietly punish the card that makes the tower more durable.
+ */
+export const MOBILE_SCORING = {
+  perIntakeCleared: 150,
+  perRejection: 4,
+  perTolerancePoint: 2
+};

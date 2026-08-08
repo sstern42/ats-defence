@@ -6,6 +6,7 @@ import {
   MOBILE_RUN,
   MOBILE_TOWER,
   MOBILE_TOWER_KEY,
+  MOBILE_SCORING,
   MOBILE_TOWER_KEY_UPDATED
 } from '../../config/mobile.js';
 import { RADIAL_BOARD } from '../../config/path.js';
@@ -505,6 +506,38 @@ export default class MobileGameScene extends Phaser.Scene {
     if (outcome === 'filled') {
       this.tower.base.setAlpha(0.3);
     }
+
+    // Paused rather than left running, so the board freezes on the moment it
+    // ended instead of carrying on behind the summary. It also stops the
+    // stragglers the guard above exists to absorb.
+    this.scene.launch('MobileGameOverScene', {
+      outcome,
+      intake: this.waveIndex,
+      intakeCount: MOBILE_WAVES.length,
+      rejected: this.rejected,
+      score: this.score()
+    });
+
+    this.scene.pause();
+  }
+
+  /**
+   * A run as one number. Three terms, the same three `GAME.scoring` uses, with
+   * this board's own weights in config/mobile.js and the reasoning beside them.
+   *
+   * `waveIndex` is the count of intakes cleared rather than the one being
+   * played, which it already is: completeWave increments it before deciding
+   * whether that was the last, so a run that ends part way through the eighth is
+   * holding seven.
+   */
+  score() {
+    const { perIntakeCleared, perRejection, perTolerancePoint } = MOBILE_SCORING;
+
+    return (
+      this.waveIndex * perIntakeCleared +
+      this.rejected * perRejection +
+      this.health * perTolerancePoint
+    );
   }
 
   // ------------------------------------------------------------------ drawing

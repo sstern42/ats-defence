@@ -255,30 +255,68 @@ export const COPY = {
   upgrades: {
     title: 'Process improvement',
     note: 'Two proposals. One budget.',
+
+    /**
+     * Each card says three things, in this order and in decreasing size on the
+     * card: what it is called, what it does, and why the system thinks it is a
+     * good idea.
+     *
+     * The middle one is not optional. This choice is the whole of what a player
+     * of this design does, and a pair of cards described only in character is a
+     * pair of cards chosen at random. The joke goes underneath the mechanics
+     * rather than instead of them.
+     *
+     * `{amount}` is filled from config/upgrades.js when the card is drawn, so
+     * the number a player reads and the number the game applies cannot drift.
+     * Same arrangement as the version in the footer and the year in the
+     * copyright line.
+     */
     keywordListUpdate: {
       name: 'Update the keyword list',
+      effect: 'The Keyword Stuffer stops being immune to your filter.',
       detail: 'Last year\u2019s terms retired. The tricks that used to match stop matching.'
     },
     panelReview: {
       name: 'Convene a panel',
-      detail: 'Rejections now carry to whoever was stood nearby. Consensus is efficient.'
+      effect: 'Every rejection splashes onto nearby applicants. Radius +{amount}.',
+      detail: 'Useful when one applicant is absorbing everything you have.'
     },
     widerCriteria: {
       name: 'Broaden the criteria',
+      effect: 'Range +{amount}. You start screening them further out.',
       detail: 'Adjacent experience now in scope, which means more of it to reject.'
     },
     higherBar: {
       name: 'Raise the bar',
+      effect: 'Damage +{amount} per rejection.',
       detail: 'A higher score to clear. Nobody is told what the score was.'
     },
     parallelScreening: {
       name: 'Screen in parallel',
-      detail: 'Two applications reviewed at once, neither of them twice as carefully.'
+      effect: 'Reload {amount}ms faster, so you get through more of them.',
+      detail: 'Two applications reviewed at once, neither twice as carefully.'
     },
     extendedDeadline: {
       name: 'Extend the deadline',
-      detail: 'The vacancy stays open a little longer before anybody has to be hired.'
+      effect: 'Tolerance +{amount}, and you get it back now.',
+      detail: 'The vacancy stays open a little longer before anybody is hired.'
     }
+  },
+
+  /**
+   * The end of a phone run. Two outcomes and no consolation for either: the
+   * system does not congratulate the player for holding a vacancy shut, and it
+   * does not apologise for letting somebody through. It files the result.
+   */
+  mobileGameOver: {
+    held: 'Vacancy held',
+    heldNote: 'Every applicant screened. The role remains open.',
+    filled: 'Position filled',
+    filledNote: 'Somebody got through. A start date has been agreed.',
+    intake: 'Intake reached',
+    rejected: 'Applications rejected',
+    score: 'Rating',
+    again: 'Open it again'
   },
 
   credit: {
