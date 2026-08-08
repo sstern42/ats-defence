@@ -341,3 +341,107 @@ export const BACK_CHANNEL_WAVES = [
     ]
   }
 ];
+
+/**
+ * The phone board's intake, for issue #47. Same shape as the three above and
+ * read by the mobile scene, which is not a registered mode yet, so this list
+ * lives here on the strength of the convention rather than of `modes.js`.
+ *
+ * No `reward` on any of them. Currency was decided out of this mode on #47:
+ * there are no towers to buy, so the cards are free choices and a wave has
+ * nothing to pay.
+ *
+ * **A skeleton, not a balanced list, and it is too easy rather than too hard.**
+ * That is worth writing down because it was guessed the other way round: these
+ * waves were written expecting the last two to be unwinnable without upgrades,
+ * and a full run holds the vacancy with a quarter of the tower left, 97
+ * rejections against 30 arrivals. The guess was wrong in the direction that
+ * matters, since the upgrade cards can only make it easier still.
+ *
+ * `CLAUDE.md` says the difficulty of this design lives in the interaction
+ * between the card pool and the wave curve, and half of that does not exist
+ * yet. This is the curve to tune against once it does, and the tuning it needs
+ * is upward.
+ *
+ * Two things shape it that do not shape the other three lists.
+ *
+ * The single tower can be monopolised. `Tower.findTarget` goes for whoever has
+ * least walking left, so a type the tower cannot kill absorbs every shot while
+ * it is closest, and on this board there is no second tower to cover. That
+ * makes a Career Changer worth several of anything else and it is why they
+ * arrive one at a time here for a long while.
+ *
+ * The Keyword Stuffer cannot be touched at all, because the one tower on the
+ * board is the one it is immune to. On the desktop that is an inconvenience.
+ * Here it is a guaranteed arrival, so a group of them is a straight subtraction
+ * from the tower's health and is priced that way.
+ */
+export const MOBILE_WAVES = [
+  // Graduates only, and few enough to watch one at a time. The board explains
+  // itself: they come from everywhere, the tower turns, they stop arriving.
+  {
+    groups: [{ applicant: 'graduate', count: 6, intervalMs: 1500, delayMs: 0 }]
+  },
+  {
+    groups: [{ applicant: 'graduate', count: 11, intervalMs: 1100, delayMs: 0 }]
+  },
+
+  // The Boomerang, met on its own before it turns up in company, which is the
+  // rule the classic list introduced types by.
+  {
+    groups: [
+      { applicant: 'boomerang', count: 1, intervalMs: 1000, delayMs: 0 },
+      { applicant: 'graduate', count: 10, intervalMs: 1000, delayMs: 4000 }
+    ]
+  },
+  {
+    groups: [
+      { applicant: 'graduate', count: 12, intervalMs: 900, delayMs: 0 },
+      { applicant: 'overqualified', count: 2, intervalMs: 2000, delayMs: 5000 }
+    ]
+  },
+
+  // One Career Changer, alone, with nothing else on the board. On this design
+  // that is not a courtesy, it is the only way to see what it does to the
+  // tower: everything the turret has goes into it for four seconds.
+  {
+    groups: [
+      { applicant: 'careerChanger', count: 1, intervalMs: 1000, delayMs: 0 },
+      { applicant: 'graduate', count: 10, intervalMs: 900, delayMs: 6000 }
+    ]
+  },
+  // From here the two types the tower has no answer to do most of the work.
+  // Graduates are what the turret is for and adding more of them mostly adds
+  // rejections, so the pressure comes from the ones it cannot touch and the ones
+  // it cannot kill before they reach the desk.
+  {
+    groups: [
+      { applicant: 'keywordStuffer', count: 4, intervalMs: 1800, delayMs: 0 },
+      { applicant: 'graduate', count: 14, intervalMs: 700, delayMs: 3000 },
+      { applicant: 'boomerang', count: 3, intervalMs: 1500, delayMs: 9000 }
+    ]
+  },
+  {
+    groups: [
+      { applicant: 'referral', count: 4, intervalMs: 1300, delayMs: 0 },
+      { applicant: 'graduate', count: 16, intervalMs: 650, delayMs: 2500 },
+      { applicant: 'careerChanger', count: 2, intervalMs: 2600, delayMs: 6000 },
+      { applicant: 'overqualified', count: 5, intervalMs: 1100, delayMs: 8000 }
+    ]
+  },
+
+  // Everything at once, and past what one unimproved turret can hold. The two
+  // Career Changers opening it are the point of the wave rather than padding:
+  // while the turret is emptying itself into them, the stuffers behind them walk
+  // in untouched and everything else gets a free run at the desk.
+  {
+    groups: [
+      { applicant: 'careerChanger', count: 2, intervalMs: 2000, delayMs: 0 },
+      { applicant: 'graduate', count: 22, intervalMs: 600, delayMs: 2000 },
+      { applicant: 'keywordStuffer', count: 6, intervalMs: 1400, delayMs: 4000 },
+      { applicant: 'boomerang', count: 5, intervalMs: 1200, delayMs: 7000 },
+      { applicant: 'overqualified', count: 6, intervalMs: 1000, delayMs: 10000 },
+      { applicant: 'careerChanger', count: 2, intervalMs: 2200, delayMs: 14000 }
+    ]
+  }
+];

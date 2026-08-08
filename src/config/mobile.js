@@ -58,14 +58,20 @@ export const MOBILE_TOWER = {
  * tower because the tower is the thing the player is defending and the thing
  * they are shown. `arrivalCost` is what one applicant getting in takes off it.
  *
- * `spawnIntervalMs` is a placeholder for the wave list this mode does not have
- * yet. Waves are their own step and they are where the difficulty actually
- * lives, so this is a trickle to look at rather than a curve to play.
+ * The arrivals themselves are not here. They are a wave list, in waves.js with
+ * the other three, on the strength of the convention that wave definitions live
+ * there.
  */
 export const MOBILE_RUN = {
   towerHealth: 200,
   arrivalCost: 5,
-  spawnIntervalMs: 900
+
+  // The pause between intakes, and a longer one before the first. It is
+  // currently dead time, because there is nothing in it: it exists because it
+  // is where the upgrade cards go, and having the phase before having the thing
+  // that fills it means the modal arrives as content rather than as structure.
+  firstPrepMs: 3000,
+  prepMs: 2200
 };
 
 /**
