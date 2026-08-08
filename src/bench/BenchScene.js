@@ -98,8 +98,33 @@ const KILL_PER_SECOND = 0.5;
 /** The counts the buttons and the ramp step through. */
 const STEPS = [50, 100, 150, 200, 300, 400, 500, 600, 800, 1000];
 
-/** 60 frames a second, which is what the ramp is looking for. */
-const BUDGET_MS = 1000 / 60;
+/**
+ * How much over the display's own frame interval the crowd may push the mean
+ * before the ramp calls it missed.
+ *
+ * This used to be a flat 1000/60, tested as `mean <= 16.667`, and that is a test
+ * no real device can pass. A screen locked to its refresh cannot average below
+ * its own interval, and jitter only ever pushes the mean above it, so a phone
+ * running perfectly at 60 reports about 16.7 and was told it had failed at the
+ * smallest count on the list. The first handset it was tried on said it held
+ * nothing.
+ *
+ * Measuring the display instead fixes the other half of the same mistake, which
+ * nobody had hit yet: 60 is not what a 90 or 120 hertz phone runs at, and a
+ * fixed budget would have waved those through at counts that were already
+ * costing them frames.
+ *
+ * So the ramp measures the empty scene first and judges the crowd against that.
+ * Twenty per cent is loose enough to absorb vsync jitter and tight enough that a
+ * count which is genuinely costing frames does not pass.
+ */
+const BUDGET_TOLERANCE = 1.2;
+
+/** Fallback interval if the display measurement somehow comes back empty. */
+const ASSUMED_REFRESH_MS = 1000 / 60;
+
+/** How long the empty scene is watched to work out the display's interval. */
+const REFRESH_SAMPLE_MS = 1000;
 
 /** How long the ramp holds a count before deciding whether it held up. */
 const RAMP_HOLD_MS = 3000;
@@ -150,8 +175,13 @@ export default class BenchScene extends Phaser.Scene {
     this.samples = [];
     this.settleUntil = 0;
     this.ramping = false;
+    this.phase = null;
     this.rampUntil = 0;
     this.rampResult = null;
+
+    // What this display runs at, measured rather than assumed, and only once a
+    // ramp has been asked for. Null until then.
+    this.refreshMs = null;
     this.readoutAt = 0;
 
     this.buildInterface();
@@ -244,10 +274,15 @@ export default class BenchScene extends Phaser.Scene {
   }
 
   /**
-   * The ramp. Holds a count for three seconds, and if the mean frame time over
-   * that window was inside the budget it steps up and holds again. The moment
-   * one is missed it stops and keeps the last count that held, which is the
-   * number this whole scene exists to produce.
+   * The ramp. Watches the empty scene for a second to find out what this display
+   * runs at, then holds each count for three seconds and steps up while the mean
+   * stays inside the budget. The moment one is missed it stops and keeps the
+   * last count that held, which is the number this whole scene exists to
+   * produce.
+   *
+   * It takes about forty seconds end to end on a device that gets all the way
+   * up, which is worth knowing before reading the line: while it is working the
+   * readout says so and says which counts have already held.
    */
   toggleRamp() {
     if (this.ramping) {
@@ -258,12 +293,24 @@ export default class BenchScene extends Phaser.Scene {
 
     this.ramping = true;
     this.rampResult = null;
-    this.setStep(0);
-    this.rampUntil = this.time.now + RAMP_HOLD_MS;
+    this.refreshMs = null;
+
+    // The display is measured with nothing on screen, so what comes back is the
+    // device's own interval rather than the device carrying fifty sprites.
+    this.phase = 'display';
+    this.targetCount = 0;
+    this.settle();
+    this.rampUntil = this.time.now + REFRESH_SAMPLE_MS + SETTLE_MS;
   }
 
   stopRamp() {
     this.ramping = false;
+    this.phase = null;
+  }
+
+  /** What the mean may reach before a count counts as missed. */
+  budgetMs() {
+    return (this.refreshMs ?? ASSUMED_REFRESH_MS) * BUDGET_TOLERANCE;
   }
 
   checkRamp(now) {
@@ -271,7 +318,16 @@ export default class BenchScene extends Phaser.Scene {
       return;
     }
 
-    const held = this.mean() <= BUDGET_MS;
+    if (this.phase === 'display') {
+      this.refreshMs = this.mean() || ASSUMED_REFRESH_MS;
+      this.phase = 'stepping';
+      this.setStep(0);
+      this.rampUntil = now + RAMP_HOLD_MS + SETTLE_MS;
+
+      return;
+    }
+
+    const held = this.mean() <= this.budgetMs();
 
     if (!held || this.stepIndex === STEPS.length - 1) {
       // Both halves are reported, because where it missed is as useful as where
@@ -533,6 +589,56 @@ export default class BenchScene extends Phaser.Scene {
     return this.samples.reduce((total, ms) => total + ms, 0) / this.samples.length;
   }
 
+  /** What the display was measured at, and what the crowd is judged against. */
+  displayLine() {
+    if (this.refreshMs === null) {
+      return 'not measured yet';
+    }
+
+    return (
+      `${this.refreshMs.toFixed(1)} ms ` +
+      `(${Math.round(1000 / this.refreshMs)} Hz), ` +
+      `budget ${this.budgetMs().toFixed(1)} ms`
+    );
+  }
+
+  /**
+   * The bottom line, and the only one worth writing down.
+   *
+   * A ramp in progress says so in as many words and names the counts already
+   * behind it, because the first time this was read off a handset the
+   * in-progress line was mistaken for the answer on five readings out of six.
+   * A line that reports a number while it is still working will be read as a
+   * result however it is worded, so this one leads with the fact that it is not
+   * finished.
+   */
+  verdictLine() {
+    if (this.ramping && this.phase === 'display') {
+      return 'working: measuring the display, do not read yet';
+    }
+
+    if (this.ramping) {
+      const behind = this.stepIndex === 0 ? 'none yet' : `${STEPS[this.stepIndex - 1]}`;
+
+      return `working: trying ${this.targetCount}, held ${behind}, do not read yet`;
+    }
+
+    if (this.rampResult === null) {
+      return 'tap find the floor';
+    }
+
+    const { held, missedAt } = this.rampResult;
+
+    if (held === null) {
+      return `RESULT held nothing, missed at ${missedAt}`;
+    }
+
+    return (
+      `RESULT held ${held}` +
+      (missedAt === null ? ', top of range' : `, missed at ${missedAt}`)
+    );
+  }
+
   refreshReadout(now) {
     if (now < this.readoutAt) {
       return;
@@ -546,22 +652,10 @@ export default class BenchScene extends Phaser.Scene {
 
     const flag = (key, label) => `${this.shape[key] ? '[x]' : '[ ]'} ${label}`;
 
-    let verdict = '';
-
-    if (this.ramping) {
-      verdict = `\nramping at ${this.targetCount}`;
-    } else if (this.rampResult !== null) {
-      const { held, missedAt } = this.rampResult;
-
-      verdict = held === null
-        ? `\nheld 60fps at nothing, missed at ${missedAt}`
-        : `\nheld 60fps at ${held}` +
-          (missedAt === null ? ', top of range' : `, missed at ${missedAt}`);
-    }
-
     this.readout.setText(
       [
         `bench  ${renderer}  ${BENCH_SIZE.width}x${BENCH_SIZE.height}`,
+        `display   ${this.displayLine()}`,
         `standing  ${this.live.length}`,
         `frame     ${mean.toFixed(1)} ms mean`,
         `worst     ${worst.toFixed(1)} ms`,
@@ -570,7 +664,9 @@ export default class BenchScene extends Phaser.Scene {
         flag('depthSort', 'depth sort'),
         flag('tweened', 'tweened walk'),
         flag('pooled', 'pooled'),
-        flag('oneTexture', 'one texture') + verdict
+        flag('oneTexture', 'one texture'),
+        '',
+        this.verdictLine()
       ].join('\n')
     );
 
