@@ -85,7 +85,14 @@ function resolveShape() {
   return { name: hasRoomForTheBoard() ? 'desktop' : 'phone', forced: false };
 }
 
-function showUnsupported() {
+/**
+ * The refusal page, whatever is being refused.
+ *
+ * It used to be one screen with one message written into it. There are three
+ * things to turn away now, and only one of them is about the size of the screen,
+ * so what is said is passed in rather than looked up here.
+ */
+function showRefusal(titleText, bodyText, noteText) {
   const parent = document.getElementById('game');
 
   parent.className = 'unsupported';
@@ -102,9 +109,9 @@ function showUnsupported() {
     ...parent.querySelectorAll('p')
   ];
 
-  title.textContent = COPY.unsupported.title;
-  body.textContent = COPY.unsupported.body;
-  note.textContent = COPY.unsupported.note;
+  title.textContent = titleText;
+  body.textContent = bodyText;
+  note.textContent = noteText;
 }
 
 /**
@@ -174,14 +181,34 @@ async function boot() {
   // entry, and it is not this one.
   if (shape.name === 'phone') {
     if (shape.forced) {
-      const { startMobile } = await import('./mobile/index.js');
+      const { hasWebgl, startMobile, watchOrientation } = await import(
+        './mobile/index.js'
+      );
+
+      // Asked before the game is built, because the board is forced onto a
+      // WebGL context now and forcing one that cannot be had is a blank screen
+      // with nothing to read on it.
+      if (!hasWebgl()) {
+        showRefusal(
+          COPY.phoneRefusal.rendererTitle,
+          COPY.phoneRefusal.rendererBody,
+          COPY.phoneRefusal.rendererNote
+        );
+
+        return;
+      }
 
       startMobile();
+      watchOrientation();
 
       return;
     }
 
-    showUnsupported();
+    showRefusal(
+      COPY.unsupported.title,
+      COPY.unsupported.body,
+      COPY.unsupported.note
+    );
 
     return;
   }
