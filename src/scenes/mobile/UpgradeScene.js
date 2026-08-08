@@ -24,14 +24,15 @@ const VEIL_COLOUR = 0x14161a;
 const VEIL_ALPHA = 0.92;
 
 const TITLE_COLOUR = '#e6ebf0';
-const NOTE_COLOUR = '#8b98a6';
+const NOTE_COLOUR = '#7a8794';
+const EFFECT_COLOUR = '#b8c6d4';
 const CARD_COLOUR = 0x242a33;
 const CARD_EDGE = 0x39566b;
 
 const TITLE_Y = 300;
 const NOTE_Y = 350;
-const FIRST_CARD_Y = 430;
-const CARD_HEIGHT = 190;
+const FIRST_CARD_Y = 420;
+const CARD_HEIGHT = 240;
 const CARD_GAP = 34;
 const CARD_INSET = 40;
 
@@ -98,11 +99,11 @@ export default class MobileUpgradeScene extends Phaser.Scene {
       })
       .setOrigin(0, 0);
 
-    this.add
-      .text(CARD_INSET + 28, top + 92, label.detail, {
+    const effect = this.add
+      .text(CARD_INSET + 28, top + 84, this.effectLine(card, label), {
         fontFamily: FONT,
-        fontSize: '21px',
-        color: NOTE_COLOUR,
+        fontSize: '22px',
+        color: EFFECT_COLOUR,
         // Wrapped rather than trusted to fit, since the copy is edited far more
         // often than this layout is and a line that runs off the card would be
         // found by a reader rather than by a build.
@@ -110,7 +111,29 @@ export default class MobileUpgradeScene extends Phaser.Scene {
       })
       .setOrigin(0, 0);
 
+    this.add
+      .text(CARD_INSET + 28, effect.y + effect.height + 12, label.detail, {
+        fontFamily: FONT,
+        fontSize: '19px',
+        color: NOTE_COLOUR,
+        fontStyle: 'italic',
+        wordWrap: { width: cardWidth - 56 }
+      })
+      .setOrigin(0, 0);
+
     panel.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => this.take(card));
+  }
+
+  /**
+   * What the card does, with its own number written into it.
+   *
+   * Read off the card rather than typed into the copy, so the figure a player is
+   * shown and the figure the run applies are the same one. `add` is negative on
+   * the card that shortens the reload, and the copy says "faster", so the sign
+   * is dropped here rather than being something the writer has to remember.
+   */
+  effectLine(card, label) {
+    return label.effect.replace('{amount}', `${Math.abs(card.add ?? 0)}`);
   }
 
   take(card) {
