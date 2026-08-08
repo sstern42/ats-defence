@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { COPY } from '../../content/copy.js';
 import { ART_DIRECTORY, ART_KEYS } from '../../config/art.js';
 import { APPLICANTS } from '../../config/applicants.js';
 import {
@@ -38,9 +39,13 @@ import Tower from '../../entities/Tower.js';
  * So the strongest form of "classic does not move" is available and taken: the
  * file three tuned modes depend on is not touched at all.
  *
- * What this is not, yet: no HUD beyond a diagnostic readout, no scoring, no game
- * over screen and no analytics. Each of those is its own step.
+ * What this is not, yet: no analytics, no leaderboard, and no floating damage
+ * numbers. The last of those is unsettled rather than unbuilt, and the reason is
+ * at buildHud below.
  */
+
+/** Tall enough to survive the board being scaled down onto a phone screen. */
+const HEALTH_BAR_HEIGHT = 7;
 
 const FONT = 'system-ui, sans-serif';
 
@@ -119,24 +124,14 @@ export default class MobileGameScene extends Phaser.Scene {
     this.tower.setDepth(10);
 
     this.tracers = this.add.graphics().setDepth(20);
+    this.healthBars = this.add.graphics().setDepth(15);
     this.bar = this.add.graphics().setDepth(30);
 
     this.drawRange();
 
     this.beginPreparation(MOBILE_RUN.firstPrepMs);
 
-    // Diagnostic, not the HUD. The HUD is a wave counter and one bar and it is
-    // its own step, with its own copy. This is here so the preview can be read.
-    this.readout = this.add
-      .text(20, 20, '', {
-        fontFamily: FONT,
-        fontSize: '22px',
-        color: '#e8ecf2',
-        backgroundColor: '#000000a0',
-        padding: { x: 12, y: 10 },
-        lineSpacing: 4
-      })
-      .setDepth(100);
+    this.buildHud();
   }
 
   update(time) {
@@ -146,8 +141,54 @@ export default class MobileGameScene extends Phaser.Scene {
     }
 
     this.drawTracers(time);
+    this.drawHealthBars();
     this.drawBar();
-    this.refreshReadout();
+  }
+
+  // ---------------------------------------------------------------------- HUD
+
+  /**
+   * The whole HUD: which intake this is, and the bar under the tower drawn by
+   * drawBar. The design asks for a wave counter, one health bar and floating
+   * damage numbers, and nothing else. Two of the three are here.
+   *
+   * Floating damage numbers are deliberately absent rather than forgotten. They
+   * are unsettled on #47: information carried by an animation runs into "nothing
+   * is said by movement alone", and the question of whether they say anything at
+   * all is worth answering before they are built. If the bar and the deaths
+   * carry the state they are decoration and reduced motion can drop them.
+   *
+   * The diagnostic readout this replaces is gone. It was debug output, it ran off
+   * the right edge once a few cards were listed, and it showed through the game
+   * over veil.
+   *
+   * Drawn on this scene rather than on a UIScene of its own. The desktop splits
+   * them because its HUD is a six button palette with state to keep in step; this
+   * is one line of text that is told what to say when the intake changes.
+   */
+  buildHud() {
+    this.intakeLabel = this.add
+      .text(RADIAL_BOARD.board.width / 2, 78, '', {
+        fontFamily: FONT,
+        fontSize: '30px',
+        color: '#8b98a6'
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(100);
+
+    this.showIntake();
+  }
+
+  /**
+   * Pushed when it changes rather than rebuilt every frame, because a Phaser Text
+   * is a canvas render and a texture upload, and this one says the same thing for
+   * twenty seconds at a time.
+   */
+  showIntake() {
+    this.intakeLabel.setText(
+      `${COPY.hud.wave} ${Math.min(this.waveIndex + 1, MOBILE_WAVES.length)}` +
+        ` ${COPY.hud.waveOf} ${MOBILE_WAVES.length}`
+    );
   }
 
   // -------------------------------------------------------------------- waves
@@ -174,6 +215,7 @@ export default class MobileGameScene extends Phaser.Scene {
     const wave = MOBILE_WAVES[this.waveIndex];
 
     this.phase = 'running';
+    this.showIntake();
     this.spawnsRemaining = wave.groups.reduce(
       (total, group) => total + group.count,
       0
@@ -570,6 +612,48 @@ export default class MobileGameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * A bar over anybody who has been hurt and is still walking.
+   *
+   * Only over the hurt, which is the rule the desktop board already uses and is
+   * what stops this being hundreds of flickering slivers. A Graduate dies in two
+   * hits and barely shows one. A Career Changer shows one for four seconds, which
+   * is the point: that applicant absorbs the entire output of the tower on its
+   * way in, and without a bar that is indistinguishable from the tower doing
+   * nothing at all. The most important dynamic on this board was invisible.
+   *
+   * It is state rather than movement, so it says what it says under a reduced
+   * motion preference without any special case. That is the argument for doing
+   * this instead of floating damage numbers rather than as well as them.
+   *
+   * One Graphics object rebuilt per frame rather than a bar object per applicant,
+   * which is the pattern the desktop uses and the part of that renderer the audit
+   * rated as scaling best.
+   */
+  drawHealthBars() {
+    this.healthBars.clear();
+
+    this.applicants.forEach((applicant) => {
+      if (!applicant.active || applicant.health >= applicant.maxHealth) {
+        return;
+      }
+
+      // Sized against the screen rather than against the sprite. A bar
+      // proportional to a radius of eleven is two pixels on a phone once the
+      // 720 wide board is scaled down, which is a bar nobody can read and
+      // therefore not a bar at all.
+      const width = Math.max(applicant.definition.radius * 2.6, 26);
+      const left = applicant.x - width / 2;
+      const top = applicant.y - applicant.definition.radius - 12;
+      const fraction = applicant.health / applicant.maxHealth;
+
+      this.healthBars.fillStyle(0x14161a, 0.85);
+      this.healthBars.fillRect(left - 1, top - 1, width + 2, HEALTH_BAR_HEIGHT + 2);
+      this.healthBars.fillStyle(applicant.definition.colour, 1);
+      this.healthBars.fillRect(left, top, width * fraction, HEALTH_BAR_HEIGHT);
+    });
+  }
+
   /** Redrawn rather than drawn once, since a card can widen it mid run. */
   drawRange() {
     const { centre } = RADIAL_BOARD;
@@ -600,23 +684,4 @@ export default class MobileGameScene extends Phaser.Scene {
     this.bar.fillRect(left, top, width * fraction, height);
   }
 
-  refreshReadout() {
-    this.readout.setText(
-      [
-        `intake    ${Math.min(this.waveIndex + 1, MOBILE_WAVES.length)}` +
-          ` / ${MOBILE_WAVES.length}  (${this.phase})`,
-        `tower     ${this.health} / ${this.maxHealth}`,
-        `standing  ${this.applicants.length}`,
-        `to come   ${Math.max(this.spawnsRemaining, 0)}`,
-        `rejected  ${this.rejected}`,
-        `got in    ${this.arrived}`,
-        `cards     ${this.taken.length ? this.taken.join(', ') : 'none'}`,
-        this.over
-          ? this.outcome === 'held'
-            ? 'vacancy held'
-            : 'position filled'
-          : ''
-      ].join('\n')
-    );
-  }
 }
