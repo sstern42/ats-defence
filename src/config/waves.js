@@ -351,35 +351,24 @@ export const BACK_CHANNEL_WAVES = [
  * there are no towers to buy, so the cards are free choices and a wave has
  * nothing to pay.
  *
- * **A skeleton, and what it is tuned to is a baseline rather than a game.** With
- * no upgrade cards a full run loses in the last intake: 89 rejections against 50
- * arrivals, the tower emptied with nine still to come. That is deliberate. The
- * cards are the whole of what a player of this design does, and a list beatable
- * without them makes them decoration, so the no-card run has to be a loss and
- * the cards have to be what turns it into a win.
+ * **Tuned twice, and this is the second pass.** The first tuned the list so a run
+ * with no upgrade cards loses, which it does. Then the cards arrived and two
+ * measured runs taking a card at random both won comfortably: 22 arrivals with
+ * 135 of 245 tower left, and 8 arrivals with 160 of 200. A game whose only
+ * decision is which card to take, where any card wins, has no decision in it.
  *
- * The first version of this list was written the other way round, expecting the
- * last two intakes to be unwinnable, and it held the vacancy with a quarter of
- * the tower left. Both readings came from running it rather than reasoning about
- * it, which on this board has now been the only reliable method twice.
+ * So the volume goes up hard in the back half and the card magnitudes come down
+ * a little. Scheduled arrivals go from 144 to 204. The untouchable pair account
+ * for 115 of the tower's 200 before anything is overwhelmed, up from 85, and the
+ * graduate counts behind them are what beats a tower that has answered the
+ * untouchables: with the right cards you clear those and are then out-thrown by
+ * volume, without them you are out-thrown by both.
  *
- * `CLAUDE.md` says the difficulty of this design lives in the interaction
- * between the card pool and the wave curve, and half of that still does not
- * exist. Expect these numbers to move again once it does, and expect them to
- * move up rather than down.
- *
- * Two things shape it that do not shape the other three lists.
- *
- * The single tower can be monopolised. `Tower.findTarget` goes for whoever has
- * least walking left, so a type the tower cannot kill absorbs every shot while
- * it is closest, and on this board there is no second tower to cover. That
- * makes a Career Changer worth several of anything else and it is why they
- * arrive one at a time here for a long while.
- *
- * The Keyword Stuffer cannot be touched at all, because the one tower on the
- * board is the one it is immune to. On the desktop that is an inconvenience.
- * Here it is a guaranteed arrival, so a group of them is a straight subtraction
- * from the tower's health and is priced that way.
+ * What this pass is aiming at is a carded run that is close, and it has not been
+ * measured yet at the time of writing. Expect another pass. `CLAUDE.md` says the
+ * difficulty of this design lives in the interaction between the card pool and
+ * the wave curve, and an interaction is not something either half can be tuned
+ * against alone, which is what the first pass tried to do.
  */
 export const MOBILE_WAVES = [
   // Graduates only, and few enough to watch one at a time. The board explains
@@ -388,7 +377,7 @@ export const MOBILE_WAVES = [
     groups: [{ applicant: 'graduate', count: 6, intervalMs: 1500, delayMs: 0 }]
   },
   {
-    groups: [{ applicant: 'graduate', count: 11, intervalMs: 1100, delayMs: 0 }]
+    groups: [{ applicant: 'graduate', count: 12, intervalMs: 1000, delayMs: 0 }]
   },
 
   // The Boomerang, met on its own before it turns up in company, which is the
@@ -396,13 +385,13 @@ export const MOBILE_WAVES = [
   {
     groups: [
       { applicant: 'boomerang', count: 1, intervalMs: 1000, delayMs: 0 },
-      { applicant: 'graduate', count: 10, intervalMs: 1000, delayMs: 4000 }
+      { applicant: 'graduate', count: 13, intervalMs: 850, delayMs: 4000 }
     ]
   },
   {
     groups: [
-      { applicant: 'graduate', count: 12, intervalMs: 900, delayMs: 0 },
-      { applicant: 'overqualified', count: 2, intervalMs: 2000, delayMs: 5000 }
+      { applicant: 'graduate', count: 18, intervalMs: 750, delayMs: 0 },
+      { applicant: 'overqualified', count: 4, intervalMs: 1600, delayMs: 5000 }
     ]
   },
 
@@ -412,41 +401,41 @@ export const MOBILE_WAVES = [
   {
     groups: [
       { applicant: 'careerChanger', count: 1, intervalMs: 1000, delayMs: 0 },
-      { applicant: 'graduate', count: 10, intervalMs: 900, delayMs: 6000 }
-    ]
-  },
-  // From here the two types the tower has no answer to do most of the work.
-  // Graduates are what the turret is for and adding more of them mostly adds
-  // rejections, so the pressure comes from the ones it cannot touch and the ones
-  // it cannot kill before they reach the desk.
-  {
-    groups: [
-      { applicant: 'keywordStuffer', count: 4, intervalMs: 1800, delayMs: 0 },
-      { applicant: 'graduate', count: 14, intervalMs: 700, delayMs: 3000 },
-      { applicant: 'boomerang', count: 3, intervalMs: 1500, delayMs: 9000 }
-    ]
-  },
-  {
-    groups: [
-      { applicant: 'referral', count: 4, intervalMs: 1300, delayMs: 0 },
-      { applicant: 'graduate', count: 16, intervalMs: 650, delayMs: 2500 },
-      { applicant: 'careerChanger', count: 2, intervalMs: 2600, delayMs: 6000 },
-      { applicant: 'overqualified', count: 5, intervalMs: 1100, delayMs: 8000 }
+      { applicant: 'graduate', count: 16, intervalMs: 700, delayMs: 6000 }
     ]
   },
 
-  // Everything at once, and past what one unimproved turret can hold. The two
-  // Career Changers opening it are the point of the wave rather than padding:
-  // while the turret is emptying itself into them, the stuffers behind them walk
-  // in untouched and everything else gets a free run at the desk.
+  // From here the two types the tower has no answer to do most of the work, and
+  // the volume behind them is what beats a tower that has answered them. A
+  // player with the right cards clears the untouchables and is then out-thrown
+  // by graduates; a player without them is out-thrown by both.
   {
     groups: [
-      { applicant: 'careerChanger', count: 2, intervalMs: 2000, delayMs: 0 },
-      { applicant: 'graduate', count: 22, intervalMs: 600, delayMs: 2000 },
-      { applicant: 'keywordStuffer', count: 6, intervalMs: 1400, delayMs: 4000 },
-      { applicant: 'boomerang', count: 5, intervalMs: 1200, delayMs: 7000 },
-      { applicant: 'overqualified', count: 6, intervalMs: 1000, delayMs: 10000 },
-      { applicant: 'careerChanger', count: 2, intervalMs: 2200, delayMs: 14000 }
+      { applicant: 'keywordStuffer', count: 5, intervalMs: 1500, delayMs: 0 },
+      { applicant: 'graduate', count: 22, intervalMs: 520, delayMs: 3000 },
+      { applicant: 'boomerang', count: 4, intervalMs: 1200, delayMs: 9000 }
+    ]
+  },
+  {
+    groups: [
+      { applicant: 'referral', count: 5, intervalMs: 1100, delayMs: 0 },
+      { applicant: 'graduate', count: 26, intervalMs: 480, delayMs: 2500 },
+      { applicant: 'careerChanger', count: 3, intervalMs: 2200, delayMs: 6000 },
+      { applicant: 'overqualified', count: 6, intervalMs: 900, delayMs: 8000 }
+    ]
+  },
+
+  // Everything at once and more of it than one tower resolves, however it has
+  // been improved. The Career Changers bracket the wave rather than opening it,
+  // so the turret is being monopolised at both ends of the worst of the volume.
+  {
+    groups: [
+      { applicant: 'careerChanger', count: 3, intervalMs: 1800, delayMs: 0 },
+      { applicant: 'graduate', count: 34, intervalMs: 430, delayMs: 2000 },
+      { applicant: 'keywordStuffer', count: 8, intervalMs: 1100, delayMs: 4000 },
+      { applicant: 'boomerang', count: 6, intervalMs: 1000, delayMs: 7000 },
+      { applicant: 'overqualified', count: 8, intervalMs: 800, delayMs: 10000 },
+      { applicant: 'careerChanger', count: 3, intervalMs: 1900, delayMs: 15000 }
     ]
   }
 ];

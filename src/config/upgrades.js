@@ -60,29 +60,29 @@ export const UPGRADES = [
   {
     id: 'panelReview',
     stat: 'splashRadius',
-    add: 34
+    add: 28
   },
 
   // The four that change how well it does it.
   {
     id: 'widerCriteria',
     stat: 'range',
-    add: 45
+    add: 32
   },
   {
     id: 'higherBar',
     stat: 'damage',
-    add: 8
+    add: 6
   },
   {
     id: 'parallelScreening',
     stat: 'fireIntervalMs',
-    add: -45
+    add: -32
   },
   {
     id: 'extendedDeadline',
     stat: 'tolerance',
-    add: 45
+    add: 30
   }
 ];
 
