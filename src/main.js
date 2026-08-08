@@ -159,11 +159,28 @@ async function boot() {
     initAnalytics();
   }
 
-  // The phone shape has nothing behind it yet, so it ends where it always has.
-  // When the mobile scene set lands this is the line it lands on, and the
-  // refusal goes back to covering only what it cannot serve at all: a device
-  // with no WebGL, and a phone held the wrong way round.
+  // The phone shape now has something behind it, but only for somebody who
+  // asked for it by name.
+  //
+  // A phone that turned up on its own still gets the refusal, because what is
+  // behind that shape is a board with no waves, no HUD and no way to lose
+  // gracefully, and putting that in front of a player who came to the address on
+  // a launch post is worse than turning them away honestly. This is the split
+  // the override was built for: the shape is reviewable long before it is
+  // playable.
+  //
+  // The line to change is the `forced` test, and changing it is the release.
+  // That is the pull request that bumps the version and writes the changelog
+  // entry, and it is not this one.
   if (shape.name === 'phone') {
+    if (shape.forced) {
+      const { startMobile } = await import('./mobile/index.js');
+
+      startMobile();
+
+      return;
+    }
+
     showUnsupported();
 
     return;
