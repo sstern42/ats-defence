@@ -9,6 +9,25 @@ Everything below was read from the repository at commit time on branch
 load-bearing. Where a claim could not be checked from the code alone it is
 marked as an assumption.
 
+> **Corrected after measurement. Read this before section 4.** The largest
+> assumption in this document was the one it flagged hardest: that no phone had
+> ever run this game, so the whole of section 4 is reasoning about algorithmic
+> shape rather than measurement. A handset has now run the bench built for the
+> purpose, and section 4 is out by a factor of about fifty. The shipped entity
+> shape holds 3000 to 4000 applicants, not the 60 to 70 estimated, against a
+> design asking for hundreds.
+>
+> Nothing has been deleted. Six notes have been added, at section 4, its
+> verdict, section 6.5, the effort table, the "harder than it looks" list and
+> open question 5, each saying what survives and what does not. The rest of the
+> audit is unaffected: the architectural findings, the shared mutable config
+> bug in section 3, and the mobile readiness work in section 5 were never
+> performance claims and none of them moves.
+>
+> The lesson is cheaper than the document. The reasoning here was sound and the
+> conclusion was wrong, because one unmeasured number sat underneath all of it,
+> and it took about two minutes on a phone to check.
+
 ## Summary: rebuild, not a port
 
 The phone version is a **rebuild of the game loop and every scene, sitting on
@@ -282,6 +301,22 @@ run survives it.
 
 ## 4. Rendering and performance ceiling
 
+> **Measured since, and this section is wrong.** Everything below was written
+> before a phone had ever run this game, and it says so. A handset has now run
+> the bench added in #48, and the shape the game ships today holds **3000 to
+> 4000** applicants rather than the 60 to 70 estimated here. The estimate is out
+> by a factor of about fifty.
+>
+> The recommendations in this section are not merely overstated, they are aimed
+> at a problem that does not exist. Applying the four fixes below does help, and
+> is worth at least 4x, but it buys headroom above a ceiling roughly six to ten
+> times what the design asks for.
+>
+> The original text is kept in full. It is the record of what was believed and
+> why, and the reasoning is sound given the one thing it did not have. See
+> "Verdict on the ceiling" at the end of this section for what to do with it,
+> and #47 for the numbers and their caveats.
+
 ### What the game is currently asked to do
 
 The heaviest moment in the shipped game is classic wave ten
@@ -403,6 +438,18 @@ pooling, and per-entity tween-driven paths) are all things the mobile design
 either does not need or would replace anyway. There is no physics engine to
 fight, no DOM per entity, and no per-entity draw call for the effects layer.
 **The rendering approach is a good foundation. The entity lifecycle is not.**
+
+> **Measured verdict.** The first sentence is the wrong way round. The current
+> architecture reaches 300 with an order of magnitude to spare, and the three
+> blockers are worth 4x on top of a ceiling nothing is going to approach.
+>
+> The last line survives, with the second half struck: the rendering approach is
+> a good foundation, and so, on this evidence, is the entity lifecycle. It is
+> not what anybody would write for this design, but "not what I would write" and
+> "too slow" are different claims and only the second one was made here.
+>
+> What this does not touch is anything in §3 about shared mutable config, which
+> is a correctness bug and was never a throughput question.
 
 ---
 
@@ -680,6 +727,22 @@ backing store.
 **Files:** new `entities/mobile/Applicant.js`; new pooling in the mobile
 `GameScene`; `services/feel.js` (pooled effects).
 
+> **Measured since.** "The one item where the current design actively fights the
+> target" is not supported. The tweened, unpooled, depth-sorted shape holds 3000
+> on a real handset, which is not a design fighting a target of hundreds.
+>
+> The paragraph that survives intact is the second one, and it is the better
+> argument anyway: `Applicant` is shared with three tuned modes and `CLAUDE.md`
+> singles it out as the thing to watch. A separate entity in a separate scene set
+> is still the right call. It is the right call because of what it protects,
+> not because of what it costs.
+>
+> Of the three "also required" items, only dropping the depth sort clearly
+> survives, and as code not worth writing rather than as an optimisation: this
+> design has nothing to walk behind, so there is no sort to do. Pooling and the
+> cheaper death are speculative until the worst-frame figure shows stutter with
+> real effects on the board, since churn shows up there rather than in the mean.
+
 ### 6.6 Colour-coded by tier
 
 **Already supported.**
@@ -696,6 +759,19 @@ entries in a config file in exactly the existing style. This one is free.
 Effort is expressed in relative sizes, not calendar time: **S** is a sitting,
 **M** is a focused day or so, **L** is several days, **XL** is a week or more.
 These are relative estimates from reading the code, not commitments.
+
+> **Measured since.** Row 4 is the one to read differently. It is rated **L** and
+> called "the single biggest performance item", and the performance half of that
+> is withdrawn: see §6.5 above. It may still be worth doing to keep a fourth
+> movement model out of a file three tuned modes depend on, which is an
+> architectural reason rather than a throughput one, and that is a decision
+> rather than a finding.
+>
+> Row 11, pooled impact effects, is speculative for the same reason. Row 15,
+> forcing WebGL, survives but for predictability rather than throughput.
+>
+> Rows 1, 2, 3 and 5 have landed, in #48, #49 and #50. Nothing else in the table
+> moves.
 
 | # | Change | Effort | Files |
 | --- | --- | --- | --- |
@@ -721,6 +797,12 @@ These are relative estimates from reading the code, not commitments.
 
 Six things that are not obvious from the brief and are not obvious from a
 skim of the code.
+
+> **Measured since.** Item 1 holds, on the half of it that was about coupling
+> rather than cost: three shipped modes depend on that tween and you cannot
+> quietly simplify it in place. What has gone is any implication that the tween
+> is too expensive for a radial design. It holds 3000. Items 2 through 6 are
+> untouched, and item 2 is still the one to worry about.
 
 1. **`Applicant` is a `PathFollower`, and everything reads the tween.** Speed,
    progress, targeting order and slows are all expressed as operations on a
@@ -794,12 +876,25 @@ skim of the code.
    event is repurposed, or a fifteenth event is argued for on the terms
    `CLAUDE.md` sets out. I have not made this call.
 
-5. **What is the actual device floor?** Every performance statement in section
-   4 is reasoning about algorithmic shape. Nobody has profiled this game on a
-   phone, because no phone has ever been allowed to run it. The first thing
-   worth doing after the portrait gate opens is putting 300 untinted sprites
-   on a deploy preview and reading the frame time on a real mid-range handset.
-   That single measurement would firm up half of this audit.
+5. ~~**What is the actual device floor?**~~ **Answered.** Every performance
+   statement in section 4 is reasoning about algorithmic shape. Nobody has
+   profiled this game on a phone, because no phone has ever been allowed to run
+   it. The first thing worth doing after the portrait gate opens is putting 300
+   untinted sprites on a deploy preview and reading the frame time on a real
+   mid-range handset. That single measurement would firm up half of this audit.
+
+   It did, and it firmed it up in the opposite direction to the one expected.
+   The bench landed in #48 and a handset ran it: the shipped shape holds 3000 to
+   4000 and the fully rewritten shape holds above 12,000, against a design that
+   asks for hundreds. Section 4 is wrong by roughly fifty times and carries a
+   note saying so.
+
+   Two caveats travel with the number and should travel with any quotation of
+   it. One device, one reading of each shape, no repeat to check thermal drift.
+   And the bench carries no towers, shots, health bars, impacts or HUD, so the
+   real in-game ceiling is below 3000 by an unknown margin. It is enough to
+   decide with and not enough to stop thinking about. The numbers and the
+   reasoning are in #47.
 
 6. **How many towers, really?** The brief says one tower dead-centre. If it is
    permanently one, `refreshAdjacency` (`:2009`), `drawLinks` (`:2072`) and
