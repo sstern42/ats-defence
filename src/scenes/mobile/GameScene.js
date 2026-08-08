@@ -5,10 +5,16 @@ import { APPLICANTS } from '../../config/applicants.js';
 import {
   MOBILE_RUN,
   MOBILE_TOWER,
-  MOBILE_TOWER_KEY
+  MOBILE_TOWER_KEY,
+  MOBILE_TOWER_KEY_UPDATED
 } from '../../config/mobile.js';
 import { RADIAL_BOARD } from '../../config/path.js';
 import { MOBILE_WAVES } from '../../config/waves.js';
+import {
+  MIN_FIRE_INTERVAL_MS,
+  UPGRADES,
+  UPGRADES_OFFERED
+} from '../../config/upgrades.js';
 // `hasArrived` is not wanted here. The walk is a tween and it ends at the
 // arrival point, so the applicant says when it got there rather than the scene
 // testing a distance every frame to find out.
@@ -31,10 +37,8 @@ import Tower from '../../entities/Tower.js';
  * So the strongest form of "classic does not move" is available and taken: the
  * file three tuned modes depend on is not touched at all.
  *
- * What this is not, yet: no HUD, no upgrade cards, no scoring, no game over
- * screen and no analytics. There is a preparation phase between intakes and
- * nothing happens in it, because it is where the cards will go. Each of those is
- * its own step.
+ * What this is not, yet: no HUD beyond a diagnostic readout, no scoring, no game
+ * over screen and no analytics. Each of those is its own step.
  */
 
 const FONT = 'system-ui, sans-serif';
@@ -65,6 +69,7 @@ export default class MobileGameScene extends Phaser.Scene {
     // in it. Two meanings on one field would be one of them waiting to be
     // broken by a change to the other.
     this.health = MOBILE_RUN.towerHealth;
+    this.taken = [];
     this.rejected = 0;
     this.arrived = 0;
     this.over = false;
@@ -81,11 +86,26 @@ export default class MobileGameScene extends Phaser.Scene {
     this.phase = 'preparing';
 
     const { centre } = RADIAL_BOARD;
-    const definition = MOBILE_TOWER;
+
+    // The run's own copy of the tower's stats, and the whole of the defence
+    // against the trap the audit expected to ship.
+    //
+    // `Tower` holds a live reference to whatever definition it is handed and
+    // reads it on every shot, and MOBILE_TOWER is a module singleton that
+    // outlives a run exactly as TOWERS does. An upgrade written straight onto it
+    // would carry into every later run in the same tab, silently, with nothing
+    // to catch it. Cloning here costs one spread and means the config stays the
+    // config.
+    //
+    // `splashRadius` starts at nothing and is the Convene a panel card. It is
+    // read by this scene rather than by Tower, which has never known what splash
+    // is: on the desktop board the scene resolves it too.
+    this.stats = { ...MOBILE_TOWER, splashRadius: 0 };
+    this.maxHealth = MOBILE_RUN.towerHealth;
+
+    const definition = this.stats;
 
     this.range = this.add.graphics().setDepth(0);
-    this.range.lineStyle(1, definition.tracerColour, 0.18);
-    this.range.strokeCircle(centre.x, centre.y, definition.range);
 
     this.tower = new Tower(
       this,
@@ -99,6 +119,8 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.tracers = this.add.graphics().setDepth(20);
     this.bar = this.add.graphics().setDepth(30);
+
+    this.drawRange();
 
     this.beginPreparation(MOBILE_RUN.firstPrepMs);
 
@@ -228,7 +250,84 @@ export default class MobileGameScene extends Phaser.Scene {
       return;
     }
 
+    this.offerUpgrades();
+  }
+
+  // ----------------------------------------------------------------- upgrades
+
+  /**
+   * Two cards, drawn by the modal, chosen by the player.
+   *
+   * The board is paused under it rather than left running, so nothing arrives
+   * while somebody is reading. That is the same arrangement PauseScene and
+   * GameOverScene already use, and here it is also the reason a card can change
+   * the tower's range without anything having to be recalculated mid flight.
+   */
+  offerUpgrades() {
+    this.phase = 'choosing';
+
+    const offer = Phaser.Utils.Array.Shuffle([...UPGRADES]).slice(
+      0,
+      UPGRADES_OFFERED
+    );
+
+    this.scene.launch('MobileUpgradeScene', { offer });
+    this.scene.pause();
+  }
+
+  /**
+   * Called back by the modal with the card that was taken. Resuming comes first,
+   * because the preparation timer below runs on this scene's clock and a clock
+   * that is still paused never fires it.
+   */
+  takeUpgrade(card) {
+    this.scene.resume();
+    this.applyUpgrade(card);
     this.beginPreparation(MOBILE_RUN.prepMs);
+  }
+
+  /**
+   * What a card does. The cards are data and this is the one place that knows
+   * what any of their stats mean, which is the seam that keeps config/upgrades.js
+   * free of logic.
+   *
+   * Everything lands on `this.stats`, the run's own copy, rather than on the
+   * config object it was cloned from. That is the whole point of the clone.
+   */
+  applyUpgrade(card) {
+    this.taken.push(card.id);
+
+    // Not a stat on the tower at all: the applicant's immunity names a tower
+    // key, so beating it means being a different key. See config/mobile.js.
+    if (card.stat === 'beatsImmunity') {
+      this.tower.typeKey = MOBILE_TOWER_KEY_UPDATED;
+
+      return;
+    }
+
+    // A fact about the run rather than about the tower, and the only card that
+    // gives back something already spent.
+    if (card.stat === 'tolerance') {
+      this.maxHealth += card.add;
+      this.health += card.add;
+
+      return;
+    }
+
+    if (card.set !== undefined) {
+      this.stats[card.stat] = card.set;
+    } else {
+      this.stats[card.stat] += card.add;
+    }
+
+    // Stacking Screen in parallel would otherwise reach a reload of nothing and
+    // turn one tower into every tower.
+    this.stats.fireIntervalMs = Math.max(
+      this.stats.fireIntervalMs,
+      MIN_FIRE_INTERVAL_MS
+    );
+
+    this.drawRange();
   }
 
   clearWaveTimers() {
@@ -323,8 +422,39 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.recordShot(target, time);
 
-    if (target.takeDamage(this.tower.rollDamage())) {
-      this.reject(target);
+    const damage = this.tower.rollDamage();
+    const { splashRadius } = this.stats;
+
+    // Snapshotted before anybody is hit, because resolving a hit can take the
+    // person hit off this list and iterating it while it shrinks would skip
+    // whoever moved up into the gap.
+    const bystanders =
+      splashRadius > 0
+        ? this.applicants.filter(
+            (who) =>
+              who !== target &&
+              Phaser.Math.Distance.Between(who.x, who.y, target.x, target.y) <=
+                splashRadius
+          )
+        : [];
+
+    this.hit(target, damage);
+    bystanders.forEach((who) => this.hit(who, damage));
+  }
+
+  /**
+   * One applicant taking one lot of damage. Splash is the same damage rather
+   * than a fraction of it, which is what makes Convene a panel the answer to a
+   * tower being monopolised: the thing it cannot kill is still soaking every
+   * shot, but the shots now land on everybody stood behind it as well.
+   */
+  hit(applicant, damage) {
+    if (!applicant.active) {
+      return;
+    }
+
+    if (applicant.takeDamage(damage)) {
+      this.reject(applicant);
     }
   }
 
@@ -407,6 +537,20 @@ export default class MobileGameScene extends Phaser.Scene {
     }
   }
 
+  /** Redrawn rather than drawn once, since a card can widen it mid run. */
+  drawRange() {
+    const { centre } = RADIAL_BOARD;
+
+    this.range.clear();
+    this.range.lineStyle(1, this.stats.tracerColour, 0.18);
+    this.range.strokeCircle(centre.x, centre.y, this.stats.range);
+
+    if (this.stats.splashRadius > 0) {
+      this.range.lineStyle(1, this.stats.tracerColour, 0.1);
+      this.range.strokeCircle(centre.x, centre.y, this.stats.splashRadius);
+    }
+  }
+
   /** The one bar the design asks for, under the thing it belongs to. */
   drawBar() {
     const width = 120;
@@ -417,7 +561,7 @@ export default class MobileGameScene extends Phaser.Scene {
     this.bar.clear();
     this.bar.fillStyle(0x000000, 0.5);
     this.bar.fillRect(left, top, width, height);
-    const fraction = this.health / MOBILE_RUN.towerHealth;
+    const fraction = this.health / this.maxHealth;
 
     this.bar.fillStyle(fraction > 0.3 ? 0x6ad98f : 0xd96a6a);
     this.bar.fillRect(left, top, width * fraction, height);
@@ -428,11 +572,12 @@ export default class MobileGameScene extends Phaser.Scene {
       [
         `intake    ${Math.min(this.waveIndex + 1, MOBILE_WAVES.length)}` +
           ` / ${MOBILE_WAVES.length}  (${this.phase})`,
-        `tower     ${this.health} / ${MOBILE_RUN.towerHealth}`,
+        `tower     ${this.health} / ${this.maxHealth}`,
         `standing  ${this.applicants.length}`,
         `to come   ${Math.max(this.spawnsRemaining, 0)}`,
         `rejected  ${this.rejected}`,
         `got in    ${this.arrived}`,
+        `cards     ${this.taken.length ? this.taken.join(', ') : 'none'}`,
         this.over
           ? this.outcome === 'held'
             ? 'vacancy held'
