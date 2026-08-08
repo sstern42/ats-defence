@@ -141,6 +141,18 @@ export const COPY = {
         'Salary Expectations is the one thing they do not walk round.',
         'Each intake opens on its own once the countdown runs out.'
       ]
+    },
+    /**
+     * The phone board. It has no tabs on the home screen and no how-to list,
+     * because the screen that would draw them is one this mode never appears on.
+     * What it needs is a name for the leaderboard to head its board with and for
+     * anything reading the analytics to recognise.
+     */
+    oneClickApply: {
+      name: 'One-click apply',
+      blurb: 'Somebody pointed a button at every vacancy at once. They arrive from every direction and there is one of you.',
+      banner: 'Applications inbound',
+      board: 'Best screeners, one-click apply'
     }
   },
   hints: {

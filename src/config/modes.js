@@ -42,14 +42,21 @@
 import {
   BACK_CHANNEL_FIELD,
   OPEN_FIELD_SPINE,
-  PATH_WAYPOINTS
+  PATH_WAYPOINTS,
+  RADIAL_BOARD
 } from './path.js';
+import { MOBILE_SCORING } from './mobile.js';
 import {
   BACK_CHANNEL_SCENERY,
   CLASSIC_SCENERY,
   OPEN_FIELD_SCENERY
 } from './scenery.js';
-import { BACK_CHANNEL_WAVES, OPEN_FIELD_WAVES, WAVES } from './waves.js';
+import {
+  BACK_CHANNEL_WAVES,
+  MOBILE_WAVES,
+  OPEN_FIELD_WAVES,
+  WAVES
+} from './waves.js';
 
 export const MODES = {
   classic: {
@@ -142,6 +149,40 @@ export const MODES = {
     entryJitter: 70,
     pressure: null,
     scenery: BACK_CHANNEL_SCENERY
+  },
+
+  /**
+   * One-click apply. A button that fires a CV at everything, so hundreds arrive
+   * at once from every direction with no route at all, and the one screening
+   * process in the middle deals with what it can.
+   *
+   * **It is a mode in the sense that the leaderboard and the collector need, and
+   * not in the sense GameScene does.** The other three are data that the desktop
+   * loop reads; this one is played by a different scene set entirely, on a board
+   * that is a circle rather than a route or a field. What it is doing in this
+   * file is being a name that the rest of the project can agree on: the mode
+   * property on every analytics event, the column on the leaderboard, and the
+   * check constraint that decides whether a score is allowed to exist.
+   *
+   * `shape` is what keeps it out of the desktop's way. The home screen builds
+   * its tabs from DESKTOP_MODE_KEYS rather than MODE_KEYS, so a laptop is never
+   * offered a board it cannot draw, while every list that has to know what modes
+   * exist still sees all four. Without that field this entry would put a tab on
+   * the home screen that starts a run GameScene has no waypoints for.
+   *
+   * `scoring` is here because this board's rating cannot use classic's weights.
+   * A run rejects two hundred rather than seventy, so at ten a rejection the
+   * term would swamp the other two, and the leaderboard's ceiling would be so
+   * large it stopped excluding anything. The reasoning is in config/mobile.js
+   * beside the numbers.
+   */
+  oneClickApply: {
+    shape: 'phone',
+    board: RADIAL_BOARD,
+    waves: MOBILE_WAVES,
+    experimentalFirstWave: false,
+    scoring: MOBILE_SCORING,
+    pressure: null
   }
 };
 
@@ -157,3 +198,16 @@ export const DEFAULT_MODE = 'classic';
  * cannot drift apart.
  */
 export const MODE_KEYS = Object.keys(MODES);
+
+/**
+ * The modes the desktop home screen offers, which is every mode that is not a
+ * phone board.
+ *
+ * MODE_KEYS is still the whole list and still what the leaderboard functions,
+ * the collector and tools/check-mode-list.mjs read, because those all have to
+ * know a mode exists whether or not this device can play it. This is the shorter
+ * list, and the only thing that reads it is the thing that draws tabs.
+ */
+export const DESKTOP_MODE_KEYS = MODE_KEYS.filter(
+  (key) => MODES[key].shape !== 'phone'
+);

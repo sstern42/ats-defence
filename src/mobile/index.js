@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { RADIAL_BOARD } from '../config/path.js';
+import { setMode } from '../services/mode.js';
 import MobileGameScene from '../scenes/mobile/GameScene.js';
 import MobileGameOverScene from '../scenes/mobile/GameOverScene.js';
 import MobileUpgradeScene from '../scenes/mobile/UpgradeScene.js';
@@ -18,6 +19,12 @@ import MobileUpgradeScene from '../scenes/mobile/UpgradeScene.js';
  * which is a thing to build rather than a flag to flip.
  */
 export function startMobile() {
+  // Set before the game is built, because `mode` is a global property on every
+  // analytics event and the first one this route can send is already in flight
+  // by the time a scene has created anything. It is also what the leaderboard
+  // will read when a score is submitted from here.
+  setMode('oneClickApply');
+
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
