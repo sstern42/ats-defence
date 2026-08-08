@@ -351,17 +351,22 @@ export const BACK_CHANNEL_WAVES = [
  * there are no towers to buy, so the cards are free choices and a wave has
  * nothing to pay.
  *
- * **A skeleton, not a balanced list, and it is too easy rather than too hard.**
- * That is worth writing down because it was guessed the other way round: these
- * waves were written expecting the last two to be unwinnable without upgrades,
- * and a full run holds the vacancy with a quarter of the tower left, 97
- * rejections against 30 arrivals. The guess was wrong in the direction that
- * matters, since the upgrade cards can only make it easier still.
+ * **A skeleton, and what it is tuned to is a baseline rather than a game.** With
+ * no upgrade cards a full run loses in the last intake: 89 rejections against 50
+ * arrivals, the tower emptied with nine still to come. That is deliberate. The
+ * cards are the whole of what a player of this design does, and a list beatable
+ * without them makes them decoration, so the no-card run has to be a loss and
+ * the cards have to be what turns it into a win.
+ *
+ * The first version of this list was written the other way round, expecting the
+ * last two intakes to be unwinnable, and it held the vacancy with a quarter of
+ * the tower left. Both readings came from running it rather than reasoning about
+ * it, which on this board has now been the only reliable method twice.
  *
  * `CLAUDE.md` says the difficulty of this design lives in the interaction
- * between the card pool and the wave curve, and half of that does not exist
- * yet. This is the curve to tune against once it does, and the tuning it needs
- * is upward.
+ * between the card pool and the wave curve, and half of that still does not
+ * exist. Expect these numbers to move again once it does, and expect them to
+ * move up rather than down.
  *
  * Two things shape it that do not shape the other three lists.
  *
