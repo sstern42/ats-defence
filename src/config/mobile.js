@@ -140,6 +140,16 @@ export const MOBILE_RUN = {
  * fraction of the maximum, because Extend the deadline raises the maximum. A
  * fraction would quietly punish the card that makes the tower more durable.
  */
+/**
+ * The shake when somebody gets in, matching the desktop board's leak exactly.
+ *
+ * Numbers rather than a call site literal, because they are feel rather than
+ * logic and this file is where this board's feel lives. `services/feel.js` is
+ * still what performs it, which is what keeps the reduced motion decision in the
+ * one place that makes it.
+ */
+export const MOBILE_LEAK_SHAKE = { durationMs: 180, intensity: 0.005 };
+
 export const MOBILE_SCORING = {
   perIntakeCleared: 150,
   perRejection: 4,
