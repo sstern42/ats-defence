@@ -34,6 +34,23 @@
  */
 export const MOBILE_TOWER_KEY = 'keywordFilter';
 
+/**
+ * What the tower calls itself once the Update the keyword list card is taken.
+ *
+ * This is the whole of that card's mechanism and it is worth explaining, because
+ * it looks like a trick and is actually the model. Immunity is not a property of
+ * a tower, it is a property of an applicant: The Keyword Stuffer carries
+ * `immuneTo: ['keywordFilter']`, and `Tower.canTarget` asks whether its own key
+ * is in that list. A filter running a list of terms nobody is gaming any more is
+ * not the filter that was being gamed, so it stops being the thing the immunity
+ * names and the stuffing stops working.
+ *
+ * The value has to be a key no applicant lists, which is every string that is
+ * not one of the six tower keys. It reads as one here so that a later type
+ * cannot be given immunity to it by accident.
+ */
+export const MOBILE_TOWER_KEY_UPDATED = 'keywordFilterRevised';
+
 export const MOBILE_TOWER = {
   behaviour: 'shoot',
 

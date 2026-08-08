@@ -246,6 +246,41 @@ export const COPY = {
     thanks:
       'Thank you. Your feedback has been logged and will be reviewed in due course.'
   },
+  /**
+   * The upgrade cards on the phone board, keyed by the ids in
+   * config/upgrades.js. The system is the butt of every one of them: each card
+   * is a screening process being made more thorough, and the joke is that
+   * thorough is not the same as good.
+   */
+  upgrades: {
+    title: 'Process improvement',
+    note: 'Two proposals. One budget.',
+    keywordListUpdate: {
+      name: 'Update the keyword list',
+      detail: 'Last year\u2019s terms retired. The tricks that used to match stop matching.'
+    },
+    panelReview: {
+      name: 'Convene a panel',
+      detail: 'Rejections now carry to whoever was stood nearby. Consensus is efficient.'
+    },
+    widerCriteria: {
+      name: 'Broaden the criteria',
+      detail: 'Adjacent experience now in scope, which means more of it to reject.'
+    },
+    higherBar: {
+      name: 'Raise the bar',
+      detail: 'A higher score to clear. Nobody is told what the score was.'
+    },
+    parallelScreening: {
+      name: 'Screen in parallel',
+      detail: 'Two applications reviewed at once, neither of them twice as carefully.'
+    },
+    extendedDeadline: {
+      name: 'Extend the deadline',
+      detail: 'The vacancy stays open a little longer before anybody has to be hired.'
+    }
+  },
+
   credit: {
     link: 'A project by spencerstern.com',
     // {year} is filled in from the clock when the footer is drawn, so nobody
