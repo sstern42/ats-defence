@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 import { KOFI_URL, SITE_URL } from '../config/links.js';
-import { MODE_KEYS } from '../config/modes.js';
+import { DESKTOP_MODE_KEYS } from '../config/modes.js';
 import { VERSION } from '../config/version.js';
 import { COPY } from '../content/copy.js';
 import { trackKofiClicked } from '../services/analytics.js';
@@ -172,7 +172,7 @@ export default class HomeScene extends Phaser.Scene {
 
     let x = LEFT_X;
 
-    MODE_KEYS.forEach((key) => {
+    DESKTOP_MODE_KEYS.forEach((key) => {
       const tab = this.add
         .text(x, TABS_Y, COPY.modes[key].name, {
           fontFamily: FONT,
@@ -296,7 +296,7 @@ export default class HomeScene extends Phaser.Scene {
 
     // As many lines as the longest list needs, so a mode that explains itself
     // in one more step than the other still gets its last line drawn.
-    const lines = MODE_KEYS.reduce(
+    const lines = DESKTOP_MODE_KEYS.reduce(
       (most, key) => Math.max(most, COPY.modes[key].howTo.length),
       0
     );
