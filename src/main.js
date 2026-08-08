@@ -30,7 +30,7 @@ const config = {
 };
 
 /**
- * Whether this screen can have the game at all.
+ * Whether this screen has room for the landscape board.
  *
  * Room is the whole test. There used to be a second one, for a fine pointer,
  * because placing a tower meant hovering a tile to read its range before
@@ -46,9 +46,43 @@ const config = {
  * What it does not test is the HUD, which is still drawn at a size that suits a
  * mouse. That is the thing to watch on a tablet, and the reason phones stay out
  * even once they are big enough.
+ *
+ * It used to be called isSupported, and the rename is the whole of what changed
+ * about it. The test answers which shape of the game a screen gets rather than
+ * whether it gets one at all, and a function that reports a verdict it no longer
+ * reaches is a function that will be read wrongly.
  */
-function isSupported() {
+function hasRoomForTheBoard() {
   return window.innerWidth >= 900 && window.innerHeight >= 600;
+}
+
+/**
+ * Which shape of the game this screen gets, and whether it was asked for by
+ * name.
+ *
+ * The decision has always been made here, by the test above, and this is the
+ * same decision with somewhere for a second answer to go. Today there is only
+ * one shape built, so `phone` still ends at the honest refusal it always did.
+ * What the seam buys before then is the override.
+ *
+ * `?shape=phone` is the reviewing mechanism for everything that follows it.
+ * There is no dev server anybody can look at, so a deploy preview is the only
+ * way the game gets seen, and without a way to ask for the phone shape from a
+ * laptop every later mobile change is reviewable only on a handset. That is the
+ * same argument the bench's own parameter is on, and it is why this landed
+ * before the thing it routes to rather than with it.
+ *
+ * It overrides in both directions, so a phone can be handed the landscape board
+ * to see what it is being spared.
+ */
+function resolveShape() {
+  const asked = new URLSearchParams(window.location.search).get('shape');
+
+  if (asked === 'phone' || asked === 'desktop') {
+    return { name: asked, forced: true };
+  }
+
+  return { name: hasRoomForTheBoard() ? 'desktop' : 'phone', forced: false };
 }
 
 function showUnsupported() {
@@ -79,9 +113,11 @@ function showUnsupported() {
  * short timeout and cannot fail in a way that stops the game, so this waits on
  * it rather than racing it.
  *
- * Analytics start on an unsupported screen too. How many people arrive on a
- * phone and bounce is worth knowing, and `device_type` is on every event, so
- * that question answers itself as long as the session is opened.
+ * Analytics start on a refused screen too. How many people arrive on a phone and
+ * bounce is worth knowing, and `device_type` is on every event, so that question
+ * answers itself as long as the session is opened. The two things that open no
+ * session at all are the bench and a shape that was asked for by name, and both
+ * are below with their reasons.
  */
 async function boot() {
   // The measurement harness for issue #47, and the one thing that runs before
@@ -103,11 +139,31 @@ async function boot() {
     return;
   }
 
-  await initExperiments();
+  const shape = resolveShape();
 
-  initAnalytics();
+  // A shape that was asked for by name is somebody reviewing a build, not
+  // somebody playing, and it opens no session.
+  //
+  // The reasoning is the bench's, and the contamination here is worse than the
+  // bench's would have been. A laptop asking for the phone shape sends
+  // `device_type: desktop` on every event it writes, so a review session does
+  // not merely add a run that was never played, it adds one that is indexed
+  // under the device it was not on. Nothing downstream could tell it apart.
+  //
+  // What it costs is that the events log kept on `window` is not there either,
+  // so checking that the mobile build emits anything has to happen on a real
+  // handset. That is a real gap and it is the cheaper of the two.
+  if (!shape.forced) {
+    await initExperiments();
 
-  if (!isSupported()) {
+    initAnalytics();
+  }
+
+  // The phone shape has nothing behind it yet, so it ends where it always has.
+  // When the mobile scene set lands this is the line it lands on, and the
+  // refusal goes back to covering only what it cannot serve at all: a device
+  // with no WebGL, and a phone held the wrong way round.
+  if (shape.name === 'phone') {
     showUnsupported();
 
     return;
