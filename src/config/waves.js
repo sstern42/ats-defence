@@ -410,30 +410,38 @@ export const MOBILE_WAVES = [
       { applicant: 'graduate', count: 10, intervalMs: 900, delayMs: 6000 }
     ]
   },
+  // From here the two types the tower has no answer to do most of the work.
+  // Graduates are what the turret is for and adding more of them mostly adds
+  // rejections, so the pressure comes from the ones it cannot touch and the ones
+  // it cannot kill before they reach the desk.
   {
     groups: [
-      { applicant: 'keywordStuffer', count: 2, intervalMs: 2200, delayMs: 0 },
-      { applicant: 'graduate', count: 12, intervalMs: 850, delayMs: 3000 },
-      { applicant: 'boomerang', count: 2, intervalMs: 1800, delayMs: 9000 }
+      { applicant: 'keywordStuffer', count: 4, intervalMs: 1800, delayMs: 0 },
+      { applicant: 'graduate', count: 14, intervalMs: 700, delayMs: 3000 },
+      { applicant: 'boomerang', count: 3, intervalMs: 1500, delayMs: 9000 }
     ]
   },
   {
     groups: [
-      { applicant: 'referral', count: 3, intervalMs: 1600, delayMs: 0 },
-      { applicant: 'graduate', count: 14, intervalMs: 800, delayMs: 2500 },
-      { applicant: 'overqualified', count: 3, intervalMs: 1500, delayMs: 8000 }
+      { applicant: 'referral', count: 4, intervalMs: 1300, delayMs: 0 },
+      { applicant: 'graduate', count: 16, intervalMs: 650, delayMs: 2500 },
+      { applicant: 'careerChanger', count: 2, intervalMs: 2600, delayMs: 6000 },
+      { applicant: 'overqualified', count: 5, intervalMs: 1100, delayMs: 8000 }
     ]
   },
 
-  // Everything at once, and comfortably past what one unimproved turret can
-  // hold. It is the shape of a last wave rather than a tuned one.
+  // Everything at once, and past what one unimproved turret can hold. The two
+  // Career Changers opening it are the point of the wave rather than padding:
+  // while the turret is emptying itself into them, the stuffers behind them walk
+  // in untouched and everything else gets a free run at the desk.
   {
     groups: [
-      { applicant: 'graduate', count: 18, intervalMs: 700, delayMs: 0 },
-      { applicant: 'careerChanger', count: 2, intervalMs: 2400, delayMs: 3000 },
-      { applicant: 'boomerang', count: 4, intervalMs: 1400, delayMs: 6000 },
-      { applicant: 'keywordStuffer', count: 3, intervalMs: 1600, delayMs: 9000 },
-      { applicant: 'overqualified', count: 4, intervalMs: 1200, delayMs: 12000 }
+      { applicant: 'careerChanger', count: 2, intervalMs: 2000, delayMs: 0 },
+      { applicant: 'graduate', count: 22, intervalMs: 600, delayMs: 2000 },
+      { applicant: 'keywordStuffer', count: 6, intervalMs: 1400, delayMs: 4000 },
+      { applicant: 'boomerang', count: 5, intervalMs: 1200, delayMs: 7000 },
+      { applicant: 'overqualified', count: 6, intervalMs: 1000, delayMs: 10000 },
+      { applicant: 'careerChanger', count: 2, intervalMs: 2200, delayMs: 14000 }
     ]
   }
 ];
