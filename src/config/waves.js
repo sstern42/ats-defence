@@ -381,26 +381,34 @@ export const BACK_CHANNEL_WAVES = [
  * from 23 to 17, which is 85 of the tower's 200 rather than 115, and the
  * graduate counts come down with them so the overflow falls too.
  *
- * Measured twice, and both runs lost in the last intake: 98 rejections and 117
- * rejections, same outcome, same point of failure. Cutting a tenth off did not
- * flip it.
+ * Measured properly at last, by tools/simulate-mobile.mjs rather than by a
+ * browser script clicking whichever card came out on top.
  *
- * **The measurements are the thing to distrust here, not the numbers.** All
- * three passes were measured by a script that takes whichever card is drawn on
- * top, which is a player who declines the answer to their problem about half the
- * times it is offered. Two runs of the identical list came out nineteen
- * rejections apart, so the noise in that proxy is a fair fraction of the effect
- * being tuned for.
+ *   sensible play   holds the vacancy 53% of runs, ~20 of 200 tower left
+ *   random play     holds it 13%
  *
- * Tuning this list until a bot choosing at random can win it would make it
- * trivial for somebody choosing well, and choosing well is the entire game. So
- * these numbers stop here until there is a better read: either a script that
- * takes the structural card when it is offered, or a person.
+ * That is the shape this design wants. Somebody who reads the cards and takes
+ * the one answering their problem wins about half the time and wins narrowly.
+ * Somebody clicking without reading mostly loses. The one decision in the game
+ * is worth roughly four times the run, which is the whole point of it.
+ *
+ * The same tool says these numbers were necessary rather than merely a guess.
+ * The list before this cut holds the vacancy 0.0% of the time under sensible
+ * play: not hard, unwinnable. It had been called "lost with the finish in sight"
+ * on the strength of two browser runs.
+ *
+ * **The lesson is about the instrument, not the numbers.** Three passes were
+ * decided by one or two runs of a script that declines the answer to its own
+ * problem half the times it is offered, and two of the three diagnosed the wrong
+ * cause. Two runs of an identical list came out nineteen rejections apart, so
+ * the noise was a fair fraction of the effect. Anybody moving these numbers
+ * should run the simulator first and should not trust a single playthrough,
+ * their own included.
  *
  * `CLAUDE.md` says the difficulty of this design lives in the interaction
  * between the card pool and the wave curve. It is right, and the corollary
- * nobody wrote down is that measuring the interaction needs something that
- * plays the cards.
+ * nobody wrote down is that measuring an interaction needs something that plays
+ * the cards.
  */
 export const MOBILE_WAVES = [
   // Graduates only, and few enough to watch one at a time. The board explains

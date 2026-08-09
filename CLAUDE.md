@@ -139,6 +139,7 @@ src/
 netlify/functions/     collect, health, leaderboard, submit-score, and their lib
 supabase/migrations/   Tables, RLS policies and later columns
 tools/check-mode-list.mjs  Checks the modes the game plays against the ones the leaderboard will take
+tools/simulate-mobile.mjs  Plays the phone board thousands of times without a browser, for balance
 tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-textures.mjs  Draws the ground and the furniture, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
