@@ -478,16 +478,54 @@ export default class MobileGameScene extends Phaser.Scene {
   offerUpgrades() {
     this.phase = 'choosing';
 
-    const offer = Phaser.Utils.Array.Shuffle([...UPGRADES]).slice(
-      0,
-      UPGRADES_OFFERED
-    );
+    const offer = this.drawCards();
 
     // Held so the one that was not taken can be reported with the one that was.
     this.offered = offer;
 
     this.scene.launch('MobileUpgradeScene', { offer });
     this.scene.pause();
+  }
+
+  /**
+   * Two cards, drawn by weight and without replacement.
+   *
+   * Weighted because a flat draw let the shuffle decide the run: a measured
+   * game was never offered the one card that answers the type nothing else on
+   * the board can touch, and lost to thirteen of them walking in untouched. The
+   * weights are in config/upgrades.js with the arithmetic.
+   *
+   * Spent cards come out of the pool first. Update the keyword list is `set`
+   * rather than `add`, so a second one changes no number, and offering it again
+   * would put a card that does nothing against a card that does. That is not a
+   * choice, it is a wasted intake.
+   */
+  drawCards() {
+    const pool = UPGRADES.filter(
+      (card) => !(card.once && this.taken.includes(card.id))
+    );
+
+    const drawn = [];
+
+    while (drawn.length < UPGRADES_OFFERED && drawn.length < pool.length) {
+      const left = pool.filter((card) => !drawn.includes(card));
+      const total = left.reduce((sum, card) => sum + card.weight, 0);
+
+      let roll = Math.random() * total;
+
+      // Walks the remaining cards taking each one's weight off the roll, so the
+      // first to take it below zero is the one drawn. Every card has a chance
+      // in proportion to its weight and none can be drawn twice.
+      drawn.push(
+        left.find((card) => {
+          roll -= card.weight;
+
+          return roll < 0;
+        }) ?? left[left.length - 1]
+      );
+    }
+
+    return drawn;
   }
 
   /**

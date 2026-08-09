@@ -37,6 +37,23 @@
  * change how well it does it. The first two are decisions. The other four are a
  * slider, and they are here to be the thing a decision is measured against.
  *
+ * ## Why they are weighted
+ *
+ * They were drawn flat, two from six, and a measured run showed that the draw
+ * decided the run more than the wave list did. That run was never offered, or
+ * never took, Update the keyword list, so thirteen Keyword Stuffers walked in
+ * untouched for 65 of the tower's 260 and there was nothing to be done about it.
+ *
+ * Flat, a pair contains at least one of the two structural cards about six times
+ * in ten. Weighted as below it is about nine, so the structural answer is nearly
+ * always *available* and taking it is a decision rather than a gift from the
+ * shuffle. That is the point: this design has one decision in it and it should
+ * belong to the player rather than to the deck.
+ *
+ * The weights are deliberately not so high that a slider never appears. A card
+ * pool where the good card is always obvious is the same non-decision as one
+ * where it never turns up.
+ *
  * A card that changes the targeting order itself would be the strongest of the
  * lot and is deliberately not here. `findTarget` lives in `Tower.js`, which
  * three tuned modes depend on and which this mode has so far not needed to touch
@@ -55,34 +72,45 @@ export const UPGRADES = [
   {
     id: 'keywordListUpdate',
     stat: 'beatsImmunity',
-    set: true
+    set: true,
+    weight: 4,
+
+    // Taking it twice does nothing. `set` is not `add`, so a second one would be
+    // a card that changes no number, offered against a card that does, which is
+    // not a choice. Spent cards leave the pool.
+    once: true
   },
   {
     id: 'panelReview',
     stat: 'splashRadius',
-    add: 28
+    add: 28,
+    weight: 3
   },
 
   // The four that change how well it does it.
   {
     id: 'widerCriteria',
     stat: 'range',
-    add: 32
+    add: 32,
+    weight: 1
   },
   {
     id: 'higherBar',
     stat: 'damage',
-    add: 6
+    add: 6,
+    weight: 1
   },
   {
     id: 'parallelScreening',
     stat: 'fireIntervalMs',
-    add: -32
+    add: -32,
+    weight: 1
   },
   {
     id: 'extendedDeadline',
     stat: 'tolerance',
-    add: 30
+    add: 30,
+    weight: 1
   }
 ];
 
