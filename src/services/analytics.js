@@ -115,6 +115,10 @@ const state = {
   runInProgress: false,
   abandoned: false,
   idleTimer: null,
+
+  // Set by a mode that takes no input during play, so the idle clock never
+  // starts. See stopWatchingForIdle below.
+  idleDisabled: false,
   hiddenTimer: null,
   started: false
 };
@@ -312,6 +316,24 @@ export function trackKofiClicked({ fromScreen, finalWave }) {
  * rather than a box to type in. Everything it wants is either a global that is
  * already a column or a field the property bag already keeps.
  */
+/**
+ * The fifteenth event, and the phone board's only player decision.
+ *
+ * It is here rather than folded into `tower_placed` because the two are not the
+ * same fact. `tower_placed` records what was taken and has no slot for what was
+ * declined, because on the desktop board everything is always on offer. A two of
+ * N draw makes question 4, which cards are dead weight, answerable only as take
+ * rate against offer rate: a card rarely taken may simply be rarely offered, and
+ * nothing in the fourteen can express a card being offered and refused.
+ *
+ * That is the `experiment_viewed` shape of argument rather than the
+ * `feedback_given` one. It records something that cannot be recovered any other
+ * way rather than something a player said.
+ */
+export function trackUpgradeOffered({ taken, refused }) {
+  send('upgrade_offered', { taken, refused });
+}
+
 export function trackFeedbackGiven({ question, answer, finalWave }) {
   track('feedback_given', {
     question,
@@ -403,10 +425,33 @@ function clearHiddenTimer() {
   state.hiddenTimer = null;
 }
 
+/**
+ * Turns the idle clock off for a mode that has no input to be idle from.
+ *
+ * The phone board takes nothing from the player during an intake. That is the
+ * design rather than an oversight, and it breaks the assumption underneath
+ * `idle`: sixty seconds without a pointer event means somebody has wandered off
+ * only on a board where staying means doing something. Here an attentive player
+ * watching a long intake is indistinguishable from an empty chair, and since the
+ * event fires once per run, recording it means their real exit is never
+ * recorded at all.
+ *
+ * That is exactly the failure the `reason` property was added to fix, arriving
+ * again through a different door.
+ *
+ * The other four reasons are untouched and cover it. On a phone, leaving means
+ * backgrounding the app, which `hidden` catches, and `unload`, `restart` and
+ * `quit` are all still there.
+ */
+export function stopWatchingForIdle() {
+  state.idleDisabled = true;
+  clearIdleTimer();
+}
+
 function resetIdleTimer() {
   clearIdleTimer();
 
-  if (!state.runInProgress || state.abandoned) {
+  if (!state.runInProgress || state.abandoned || state.idleDisabled) {
     return;
   }
 
@@ -482,6 +527,19 @@ function record(event) {
  */
 function send(event) {
   if (!ENDPOINT) {
+    return;
+  }
+
+  // Nothing goes anywhere until a session has been opened.
+  //
+  // This used to be true by accident rather than by rule: every caller was a
+  // scene that only ran after initAnalytics had, so the question never came up.
+  // The phone board broke that. It is reachable on `?shape=phone`, which
+  // deliberately opens no session, and it emits events from its own loop, so it
+  // was posting bodies with no session id on them. The collector refuses those,
+  // so nothing was stored, but "refused at the far end" is not the same promise
+  // as "not sent", and the one written down everywhere is the second.
+  if (!state.started) {
     return;
   }
 
