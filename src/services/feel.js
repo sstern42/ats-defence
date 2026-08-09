@@ -162,3 +162,31 @@ export function shake(scene, durationMs, intensity) {
 
   scene.cameras.main.shake(durationMs, intensity);
 }
+
+/**
+ * Something leaving the board: out to nothing, then gone.
+ *
+ * The odd one out in this file, because the others decorate a change that has
+ * already happened and this one is how the change happens. So it takes what to
+ * do afterwards and promises to do it either way: with the movement it runs
+ * when the fade finishes, and without it, it runs now. A caller that has to
+ * remember which is a caller that will forget.
+ *
+ * That is also why the fade going is not a loss. What the fade says is that
+ * this thing is on its way out, and the thing being gone says the same and says
+ * it sooner.
+ */
+export function fadeOut(target, durationMs, onDone) {
+  if (REDUCED_MOTION) {
+    onDone?.();
+
+    return;
+  }
+
+  target.scene.tweens.add({
+    targets: target,
+    alpha: 0,
+    duration: durationMs,
+    onComplete: () => onDone?.()
+  });
+}

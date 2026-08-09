@@ -14,7 +14,9 @@ export const COPY = {
     },
     overqualified: {
       name: 'The Overqualified',
-      trait: 'Quick. Knockout Questions go for it first.'
+      trait: 'Quick. Knockout Questions go for it first.',
+      // See traitRadial on the referral below for why these exist.
+      traitRadial: 'Quick, and more than qualified. There is no field for that.'
     },
     keywordStuffer: {
       name: 'The Keyword Stuffer',
@@ -22,7 +24,26 @@ export const COPY = {
     },
     referral: {
       name: 'The Referral',
-      trait: 'Knows somebody. Starts halfway down the path.'
+      trait: 'Knows somebody. Starts halfway down the path.',
+      /**
+       * What the introduction card says on the radial board instead.
+       *
+       * Two of these six traits describe something that board has not got. This
+       * one names the path, and there is no path: everybody starts on the ring
+       * and this type gets no head start there, so the line would be flatly
+       * untrue. The Overqualified's names the Knockout Question, and the only
+       * screening process on that board is a Keyword Filter.
+       *
+       * The other four hold on both boards and have no variant, which is the
+       * same arrangement `howToTouch` has above: a second line only where the
+       * first one stops being true. Falling back to `trait` is what makes that
+       * work, so a type that never needs one never gets one.
+       *
+       * Neither line is a mechanic this board is missing. Fixing them by giving
+       * the radial board a head start and a second tower would be retuning a
+       * board to suit its own captions.
+       */
+      traitRadial: 'Knows somebody. Comes in as though expected.'
     },
     boomerang: {
       name: 'The Boomerang',
