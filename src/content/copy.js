@@ -256,7 +256,15 @@ export const COPY = {
      */
     bulkReject: 'Bulk reject',
     bulkRejectSpent: 'No bulk rejects left',
-    bulkRejectNote: 'Everyone currently applying gets the same email.'
+    bulkRejectNote: 'Everyone currently applying gets the same email.',
+    /**
+     * The running rating on the phone board, with the number added on after, as
+     * the two above it are. It is deliberately the same word the summary and the
+     * leaderboard use rather than a livelier one for the HUD: it is the same
+     * figure, and a board calling it one thing while the screen after it calls
+     * it another would read as two measurements.
+     */
+    rating: 'Rating'
   },
   pause: {
     title: 'Screening on hold',

@@ -243,6 +243,7 @@ export default class MobileGameScene extends Phaser.Scene {
     this.drawHealthBars();
     this.drawBar();
     this.watchBulkReject();
+    this.showRating();
   }
 
   /**
@@ -306,7 +307,7 @@ export default class MobileGameScene extends Phaser.Scene {
    *
    * Drawn on this scene rather than on a UIScene of its own. The desktop splits
    * them because its HUD is a six button palette with state to keep in step; this
-   * is one line of text that is told what to say when the intake changes.
+   * is two lines of text that are told what to say when their number moves.
    */
   buildHud() {
     this.intakeLabel = this.add
@@ -318,9 +319,65 @@ export default class MobileGameScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(100);
 
+    this.buildRating();
+
     this.showIntake();
     this.buildBulkReject();
     this.buildSwitches();
+  }
+
+  /**
+   * The rating as it stands, which is the score the run would submit if it ended
+   * on this frame.
+   *
+   * The real number rather than a version that only goes up. Two of its three
+   * terms are things earned and the third is the tolerance left, so an applicant
+   * getting in takes some off, and that is the point: the readout that quietly
+   * kept climbing while the vacancy was being filled would be telling a player
+   * the opposite of what the board is. It also has to be the number the summary
+   * and the leaderboard will say, and a banked-only version would part company
+   * with both the moment anybody got in.
+   *
+   * Beside the intake counter rather than under it. The band from y 122 is where
+   * a type gets introduced on a card, and the band under the ring is where
+   * somebody can spawn, so the counter's own line is the only piece of this
+   * board that is reliably free. Quieter than the counter it sits next to, since
+   * which intake this is decides what the player is watching for and this does
+   * not decide anything at all.
+   */
+  buildRating() {
+    this.ratingLabel = this.add
+      .text(RADIAL_BOARD.board.width - 30, 78, '', {
+        fontFamily: FONT,
+        fontSize: '24px',
+        color: '#6f7d8c'
+      })
+      .setOrigin(1, 0.5)
+      .setDepth(100);
+
+    this.ratingShown = null;
+    this.showRating();
+  }
+
+  /**
+   * Redraws the rating when, and only when, it has moved.
+   *
+   * Polled from `update` rather than pushed from the four places that change it,
+   * on the same grounds `watchBulkReject` is: two of them are a rejection and an
+   * arrival, which are the busiest moments on this board, and a scene emitting
+   * events to itself to keep a Text in step is more machinery than a comparison.
+   * The guard is the whole of why it is cheap, since re-rendering a Text every
+   * frame to say what it already said is the expensive way round.
+   */
+  showRating() {
+    const rating = this.score();
+
+    if (rating === this.ratingShown) {
+      return;
+    }
+
+    this.ratingShown = rating;
+    this.ratingLabel.setText(`${COPY.hud.rating} ${rating}`);
   }
 
   /**
@@ -1167,6 +1224,13 @@ export default class MobileGameScene extends Phaser.Scene {
     if (outcome === 'filled') {
       this.tower.base.setAlpha(0.3);
     }
+
+    // The last arrival moved the rating and the board is about to stop being
+    // updated, so it is refreshed here rather than left a frame behind. The
+    // summary over the top says the same number, and the board underneath it
+    // disagreeing by the cost of the applicant who ended the run is the sort of
+    // thing somebody notices and nobody can explain.
+    this.showRating();
 
     // Paused rather than left running, so the board freezes on the moment it
     // ended instead of carrying on behind the summary. It also stops the
