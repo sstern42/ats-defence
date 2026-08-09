@@ -364,23 +364,28 @@ export const BACK_CHANNEL_WAVES = [
  * untouchables: with the right cards you clear those and are then out-thrown by
  * volume, without them you are out-thrown by both.
  *
- * Measured after the change, and it lands just past the target rather than short
- * of it. A run taking a card at random now loses in the last intake: 113
- * rejections against 52 arrivals, the tower emptied with 33 still to come. So
- * the previous list was won without contest and this one is lost with the finish
- * in sight, and the right answer is between them.
+ * Tuned three times, and the third pass is the one that knew what it was doing.
  *
- * What the run also showed is that the swing is the draw rather than the curve.
- * That run was never offered, or never took, Update the keyword list, so
- * thirteen Keyword Stuffers walked in untouched for 65 of the tower's 260. Two
- * cards out of six are the ones that answer something, each has a one in three
- * chance of appearing in a given pair, and whether they turn up decides the run
- * more than any number in this file does.
+ * The first tuned against a board with no cards, and was won without contest
+ * once they existed. The second raised the volume and was lost in the last
+ * intake, and its note blamed the draw: that run was never offered the card that
+ * answers the type nothing else on the board can touch. Weighting the draw so a
+ * structural card turns up in nine pairs out of ten moved the result by two
+ * rejections, 115 against 113, and lost at exactly the same point.
  *
- * That is a design question rather than a tuning one and it should be answered
- * before these numbers move again, because tuning a curve against a draw this
- * swingy is tuning against noise. The likely fix is weighting the pool rather
- * than reshaping the waves.
+ * So it was never the draw. It was this list being too heavy, and two passes
+ * running diagnosed it from a single run each. These numbers are the correction.
+ *
+ * The cut is about a tenth off the back half, taken from the two types the tower
+ * cannot answer as much as from the volume behind them. Untouchable arrivals go
+ * from 23 to 17, which is 85 of the tower's 200 rather than 115, and the
+ * graduate counts come down with them so the overflow falls too.
+ *
+ * `CLAUDE.md` says the difficulty of this design lives in the interaction
+ * between the card pool and the wave curve. Both halves now exist and the draw
+ * is no longer noise, so this is the first pass that could be measured against
+ * the thing it is meant to balance, and it is measured twice rather than once
+ * for the reason the two passes above exist.
  */
 export const MOBILE_WAVES = [
   // Graduates only, and few enough to watch one at a time. The board explains
@@ -423,17 +428,17 @@ export const MOBILE_WAVES = [
   // by graduates; a player without them is out-thrown by both.
   {
     groups: [
-      { applicant: 'keywordStuffer', count: 5, intervalMs: 1500, delayMs: 0 },
-      { applicant: 'graduate', count: 22, intervalMs: 520, delayMs: 3000 },
-      { applicant: 'boomerang', count: 4, intervalMs: 1200, delayMs: 9000 }
+      { applicant: 'keywordStuffer', count: 4, intervalMs: 1600, delayMs: 0 },
+      { applicant: 'graduate', count: 19, intervalMs: 560, delayMs: 3000 },
+      { applicant: 'boomerang', count: 3, intervalMs: 1300, delayMs: 9000 }
     ]
   },
   {
     groups: [
-      { applicant: 'referral', count: 5, intervalMs: 1100, delayMs: 0 },
-      { applicant: 'graduate', count: 26, intervalMs: 480, delayMs: 2500 },
-      { applicant: 'careerChanger', count: 3, intervalMs: 2200, delayMs: 6000 },
-      { applicant: 'overqualified', count: 6, intervalMs: 900, delayMs: 8000 }
+      { applicant: 'referral', count: 4, intervalMs: 1200, delayMs: 0 },
+      { applicant: 'graduate', count: 22, intervalMs: 520, delayMs: 2500 },
+      { applicant: 'careerChanger', count: 2, intervalMs: 2200, delayMs: 6000 },
+      { applicant: 'overqualified', count: 5, intervalMs: 1000, delayMs: 8000 }
     ]
   },
 
@@ -442,12 +447,12 @@ export const MOBILE_WAVES = [
   // so the turret is being monopolised at both ends of the worst of the volume.
   {
     groups: [
-      { applicant: 'careerChanger', count: 3, intervalMs: 1800, delayMs: 0 },
-      { applicant: 'graduate', count: 34, intervalMs: 430, delayMs: 2000 },
-      { applicant: 'keywordStuffer', count: 8, intervalMs: 1100, delayMs: 4000 },
-      { applicant: 'boomerang', count: 6, intervalMs: 1000, delayMs: 7000 },
-      { applicant: 'overqualified', count: 8, intervalMs: 800, delayMs: 10000 },
-      { applicant: 'careerChanger', count: 3, intervalMs: 1900, delayMs: 15000 }
+      { applicant: 'careerChanger', count: 2, intervalMs: 1800, delayMs: 0 },
+      { applicant: 'graduate', count: 28, intervalMs: 470, delayMs: 2000 },
+      { applicant: 'keywordStuffer', count: 6, intervalMs: 1200, delayMs: 4000 },
+      { applicant: 'boomerang', count: 5, intervalMs: 1100, delayMs: 7000 },
+      { applicant: 'overqualified', count: 6, intervalMs: 900, delayMs: 10000 },
+      { applicant: 'careerChanger', count: 2, intervalMs: 1900, delayMs: 15000 }
     ]
   }
 ];
