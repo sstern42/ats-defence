@@ -2,11 +2,14 @@
  * Game modes. Plain data, no logic, so a mode can be retuned without going
  * anywhere near the game loop.
  *
- * There are three. Classic is the game as it shipped, and every number in it is
- * the number it already had, so nothing about it moves for this. Open advert is
- * the same six towers and the same six applicant types walking a board that
- * behaves differently. Back channel is the same six again on a board with no
- * route on it, where where they walk is worked out from where the screening is.
+ * There are four, and only the first three are played by GameScene. Classic is
+ * the game as it shipped, and every number in it is the number it already had,
+ * so nothing about it moves for this. Open advert is the same six towers and the
+ * same six applicant types walking a board that behaves differently. Back
+ * channel is the same six again on a board with no route on it, where where they
+ * walk is worked out from where the screening is. One-click apply is the phone
+ * board, and its entry at the bottom of this file explains what it is doing here
+ * when no desktop scene will ever read it.
  *
  * The fields are the whole of what a mode changes. GameScene reads them and has
  * no idea which mode it is running, which is the point: there is one game loop

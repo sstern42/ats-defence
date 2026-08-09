@@ -76,6 +76,17 @@ const INPUT_EVENTS = [
 ];
 
 /**
+ * How often input is allowed to reset the idle clock.
+ *
+ * `pointermove` is on the list above, and on a tower defence the pointer is
+ * moving more or less constantly, so every frame was tearing down a timer and
+ * building another one to say the same thing. A second of granularity against a
+ * minute of idle is a fortieth of a percent of the threshold and cannot change
+ * the answer.
+ */
+const INPUT_GAP_MS = 1000;
+
+/**
  * Held per tab rather than per page, so a reload carries on the same session
  * and the attempt count survives it.
  */
@@ -104,6 +115,9 @@ const VERBOSE =
   new URLSearchParams(window.location.search).has('analytics');
 
 const events = [];
+
+/** When input last reset the idle clock, for the throttle above. */
+let lastInputAt = 0;
 
 const state = {
   sessionId: null,
@@ -281,10 +295,11 @@ export function trackRestartClicked({ fromWave, previousScore }) {
 }
 
 /**
- * The three below belong to steps that have not happened yet: the leaderboard
- * at step 10 and the Ko-fi link that goes with it. They are here because the
- * spec is one list and splitting it across files would make it harder to check
- * against. Nothing calls them yet.
+ * The three below are the leaderboard's and the Ko-fi link's, from steps 10 and
+ * after. They were written before either existed, because the spec is one list
+ * and splitting it across files would make it harder to check against, and the
+ * comment here said so. All three have call sites now, in both game over screens
+ * and in the shared leaderboard panel.
  */
 export function trackScoreSubmitted({ score, finalWave }) {
   track('score_submitted', { score, final_wave: finalWave });
@@ -409,8 +424,25 @@ function watchForDeparture() {
   window.addEventListener('beforeunload', () => abandonRun('unload'));
 
   INPUT_EVENTS.forEach((name) =>
-    window.addEventListener(name, resetIdleTimer, { passive: true })
+    window.addEventListener(name, noteInput, { passive: true })
   );
+}
+
+/**
+ * Input arriving, throttled. The throttle is here rather than inside
+ * resetIdleTimer because the other two callers, a run starting and a tab coming
+ * back, have to take effect the moment they happen.
+ */
+function noteInput() {
+  const now = Date.now();
+
+  if (now - lastInputAt < INPUT_GAP_MS) {
+    return;
+  }
+
+  lastInputAt = now;
+
+  resetIdleTimer();
 }
 
 function startHiddenTimer() {
@@ -606,11 +638,24 @@ function campaign() {
 /**
  * Coarse enough to answer the only question anybody will ask of it, which is
  * whether the desktop-first decision was the right one.
+ *
+ * The `Macintosh` clause is the one part of this that is not a guess about a
+ * string. Since iPadOS 13 an iPad in Safari says it is a Mac by default, and it
+ * matches nothing below, so every one of them was being filed as a desktop. That
+ * is the reading this function exists to get right: tablets are the class that
+ * was refused at launch and let in afterwards, and the property was quietly
+ * under-counting the traffic that decision has to be judged on. A desktop
+ * browser has no touch points, so the pair of them separates the two without
+ * asking the agent string anything it will lie about.
  */
 function deviceType() {
   const agent = navigator.userAgent;
 
   if (/iPad|Tablet|PlayBook|Silk/i.test(agent)) {
+    return 'tablet';
+  }
+
+  if (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1) {
     return 'tablet';
   }
 

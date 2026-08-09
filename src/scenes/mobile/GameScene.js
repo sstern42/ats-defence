@@ -921,7 +921,7 @@ export default class MobileGameScene extends Phaser.Scene {
 
     stopMusic();
 
-    trackGameOver({ finalWave: this.waveIndex, score: this.score() });
+    trackGameOver({ finalWave: this.waveNumber(), score: this.score() });
 
     if (outcome === 'filled') {
       this.tower.base.setAlpha(0.3);
@@ -930,15 +930,31 @@ export default class MobileGameScene extends Phaser.Scene {
     // Paused rather than left running, so the board freezes on the moment it
     // ended instead of carrying on behind the summary. It also stops the
     // stragglers the guard above exists to absorb.
+    //
+    // `intake` is the intake reached rather than the count cleared, which is
+    // what the other three boards have always sent and what the label on the
+    // summary already claims to be showing. It used to be `waveIndex`, and that
+    // was wrong in three places at once: the screen said "Intake reached: 4 / 8"
+    // to somebody who died in the fifth, every event carrying `final_wave` read
+    // one lower here than on any other board, and a run lost in the first
+    // intake would have submitted a nought that the plausibility check refuses
+    // outright. The last of those was unreachable, since 240 of tolerance at
+    // four a head cannot be spent on six arrivals, but it is the same mistake
+    // with the numbers hiding it.
     this.scene.launch('MobileGameOverScene', {
       outcome,
-      intake: this.waveIndex,
+      intake: this.waveNumber(),
       intakeCount: MOBILE_WAVES.length,
       rejected: this.rejected,
       score: this.score()
     });
 
     this.scene.pause();
+  }
+
+  /** Which intake is being played, one based, for anything that counts them. */
+  waveNumber() {
+    return Math.min(this.waveIndex + 1, MOBILE_WAVES.length);
   }
 
   /**
@@ -948,13 +964,11 @@ export default class MobileGameScene extends Phaser.Scene {
    * `waveIndex` is the count of intakes cleared rather than the one being
    * played, which it already is: completeWave increments it before deciding
    * whether that was the last, so a run that ends part way through the eighth is
-   * holding seven.
+   * holding seven. That is the right term for a score, which pays for what was
+   * finished, and the wrong one for `final_wave`, which says how far somebody
+   * got. The two part company on every run that ends in a loss, which is why
+   * `end` sends `waveNumber` and this sends `waveIndex`.
    */
-  /** Which intake is being played, one based, for anything that counts them. */
-  waveNumber() {
-    return Math.min(this.waveIndex + 1, MOBILE_WAVES.length);
-  }
-
   score() {
     const { perWaveCleared, perRejection, perLifeRemaining } = MOBILE_SCORING;
 

@@ -7,7 +7,7 @@
  * than inheriting one from a line at the top of a file. That is the whole reason
  * this sentence changed.
  *
- * Two of the three shipped modes are waypoints walked in order, and they are the
+ * Two of the four shipped modes are waypoints walked in order, and they are the
  * two below. The first waypoint sits off the left edge so they walk on rather
  * than appearing, and the last one is the vacancy. A waypoint may carry a
  * `spread`,
