@@ -1,84 +1,45 @@
 /**
- * The music, as data. There is no file: the notes below are scheduled on the
- * Web Audio clock at run time by services/music.js, so this manifest is the
- * whole of the track.
+ * The music, as data. There is a file now, and there did not used to be.
  *
- * It is written this way for the same reason the sound effects are synthesised
- * rather than licensed. Nothing in this environment can reach an asset host, an
- * uncompressed loop long enough to be worth having would be twenty times the
- * size of every other asset in the game put together, and there is no encoder
- * on the machine to make it smaller. Scheduling it instead costs no bytes at
- * all, never reaches the end of itself, and puts the difference between
- * pleasant and irritating in this file rather than in a binary nobody can edit.
+ * What was here before was four chords scheduled note by note on the audio
+ * clock, written that way because the machine this is built on cannot reach an
+ * asset host and has no encoder on it to make a loop small enough to ship. Both
+ * of those are still true. The file below arrived by being handed to the build
+ * rather than fetched by it, and was encoded by a static ffmpeg pulled from npm
+ * into a scratch directory, so neither the repo nor the build gained a
+ * dependency for it.
  *
- * What it is meant to be is hold music. Requisita is a piece of enterprise
- * software and this is the sound of being on the phone to one, so the
- * progression is the four chords that every waiting room in the world has
- * settled on, played slowly on sine waves and mixed low enough to be furniture.
- *
- * Semitones are counted from `rootHz`, so 0 is A2, 12 is A3 and so on. Voicings
- * move as little as possible from one chord to the next, which is what keeps a
- * bar change from sounding like an event. Nothing here is read by the game
- * loop, and nothing here can change what a wave costs.
+ * What it cost is written down in the README next to the file. The short
+ * version is 300kB against a directory that was 68kB, and a loop that comes
+ * round every twenty four seconds rather than a progression that never quite
+ * repeated. What it bought is a real recording, and the deletion of the two
+ * hundred and eighty line scheduler that used to live in services/music.js.
  */
-export const MUSIC = {
-  /** A2. Everything below is a number of semitones away from it. */
-  rootHz: 110,
 
-  /**
-   * One chord per bar. Slow enough that a bar change is not a beat, which is
-   * the point: this is not music to play along to.
-   */
-  barSeconds: 4.2,
-
-  /**
-   * Dm7, G7, Cmaj7, Fmaj7. The `pad` notes are held for most of the bar, the
-   * `bass` note is the root an octave or so under them, and `bell` is the pool
-   * the occasional single note over the top is drawn from.
-   */
-  progression: [
-    { pad: [5, 8, 12, 15], bass: -7, bell: [17, 20, 24] },
-    { pad: [5, 8, 10, 14], bass: -2, bell: [17, 20, 22] },
-    { pad: [3, 7, 10, 14], bass: -9, bell: [19, 22, 26] },
-    { pad: [3, 7, 8, 12], bass: -4, bell: [19, 20, 24] }
-  ],
-
-  /**
-   * The held chord. A long attack and a longer release, so one bar is still
-   * fading while the next is arriving and there is never a seam to hear.
-   *
-   * `detuneCents` is how far each note is allowed to sit off true, picked fresh
-   * every bar. It is a couple of cents, which is not enough to hear as being
-   * out of tune and is enough to stop four sine waves sounding like one.
-   */
-  pad: { gain: 0.15, attack: 1.2, hold: 2.2, release: 1.8, detuneCents: 5 },
-
-  /** The root under it. Shorter than the pad, so the bar has a floor and a top. */
-  bass: { gain: 0.2, attack: 0.4, hold: 1.5, release: 1.4 },
-
-  /**
-   * A single note over the chord, at one of `slots` evenly spaced moments in
-   * the bar, each of which fires with probability `chance`.
-   *
-   * This is the only part that is not the same every time round, and it is the
-   * reason the loop can run for a whole game without becoming a loop anybody
-   * notices. It is also the quietest thing here, deliberately: it is meant to
-   * be caught rather than listened to.
-   */
-  bell: {
-    gain: 0.05,
-    attack: 0.01,
-    hold: 0.04,
-    release: 1.1,
-    slots: 4,
-    chance: 0.3
-  }
-};
+/** The key the track is loaded and played under. */
+export const MUSIC_KEY = 'music';
 
 /**
- * Everything above is scaled by this. Set well under the sound effects, because
- * music that competes with the rejection noise has misunderstood which of the
- * two the player is listening for.
+ * Two encodings of the same twenty four seconds, most preferred first. Phaser
+ * asks the browser what it can play and fetches exactly one of them.
+ *
+ * OGG leads, and the order is not a preference. Vorbis loops without a gap and
+ * MP3 does not: the format pads both ends of the file, so a track meant to run
+ * for a whole intake would tick audibly every time round. The MP3 is there for
+ * Safari before 18.4, which could not play Vorbis at all, and a small gap on an
+ * old handset beats a music toggle that does nothing.
+ */
+export const MUSIC_FILES = ['music.ogg', 'music.mp3'];
+
+/**
+ * Scaled by the master volume in config/audio.js on the way out, because the
+ * track goes through the same mixer as the sound effects now rather than
+ * straight to the destination. Set well under them, because music that competes
+ * with the rejection noise has misunderstood which of the two the player is
+ * listening for.
+ *
+ * This is the number to move if the mix is wrong on the preview. It is the only
+ * one left.
  */
 export const MUSIC_VOLUME = 0.18;
 

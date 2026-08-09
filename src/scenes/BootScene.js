@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { ART_DIRECTORY, ART_KEYS } from '../config/art.js';
 import { AUDIO_DIRECTORY, SOUNDS } from '../config/audio.js';
+import { MUSIC_FILES, MUSIC_KEY } from '../config/music.js';
 import {
   INTRO_DIRECTORY,
   INTRO_FRAME_COUNT,
@@ -61,6 +62,11 @@ export default class BootScene extends Phaser.Scene {
     this.load.setPath(AUDIO_DIRECTORY);
 
     Object.keys(SOUNDS).forEach((key) => this.load.audio(key, `${key}.wav`));
+
+    // The music does have a fallback list, for the reason in config/music.js:
+    // one of the two encodings loops without a gap and the other does not, so
+    // the order matters and the browser takes the first it can play.
+    this.load.audio(MUSIC_KEY, MUSIC_FILES);
   }
 
   create() {
@@ -68,8 +74,9 @@ export default class BootScene extends Phaser.Scene {
 
     initSound(this);
 
-    // Nothing to load for the music, since there is no clip: this only takes
-    // the audio context, and nothing is scheduled on it until a run starts.
+    // Both take the same manager. Neither plays anything here: a page that
+    // opens on a noise is a page nobody opens twice, and the board asks for
+    // music when a run starts.
     initMusic(this);
 
     this.scene.start('HomeScene');

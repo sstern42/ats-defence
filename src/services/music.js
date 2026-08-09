@@ -1,19 +1,20 @@
 import {
-  MUSIC,
+  MUSIC_KEY,
   MUSIC_ON_BY_DEFAULT,
   MUSIC_PREFERENCE_KEY,
   MUSIC_VOLUME
 } from '../config/music.js';
-import { soundEnabled } from './audio.js';
 
 /**
- * The background music, played rather than loaded.
+ * The background music: one looping clip, played through the same sound manager
+ * as everything else.
  *
- * There is no clip to fetch. This builds oscillators on the audio context
- * Phaser already owns and schedules the chords in config/music.js onto them a
- * bar or two ahead of the clock, which is the standard way to keep time in Web
- * Audio: setInterval is nowhere near accurate enough to fire a note on, but it
- * is quite accurate enough to book one for later.
+ * This file used to be a scheduler. It built oscillators on the audio context
+ * and booked chords onto the clock a bar ahead, because there was no clip to
+ * play. There is one now, so all of that has gone: the lookahead, the catch-up
+ * guard for a throttled background tab, the fade node and the hand rolled
+ * envelopes. Phaser owns the decoding, the looping and the autoplay unlock, and
+ * it already did for the six sound effects.
  *
  * Two switches decide whether anything is heard. `wanted` is the game saying a
  * run is on, and `enabled` is the player saying they would like music during
@@ -21,41 +22,32 @@ import { soundEnabled } from './audio.js';
  * a wave and lets the music stop at the end of the run without forgetting the
  * setting.
  *
+ * There is deliberately no third switch for the sound toggle. The track goes
+ * through the game's mixer rather than straight to the destination, and
+ * services/audio.js mutes that mixer when sound is turned off, so "sound off
+ * means silence, music included" now falls out of where this is connected
+ * rather than being checked on a timer. The music keeps its position while
+ * muted, which is the same thing a muted clip does.
+ *
  * Nothing here can stop the game. On a browser with no Web Audio at all, or
- * where the context never starts, every function below is a no-op and the run
+ * where the track failed to decode, every function below is a no-op and the run
  * carries on without music.
  */
 
-/** How often the scheduler wakes up, and how far ahead it books, in seconds. */
-const TICK_SECONDS = 0.25;
-const LOOKAHEAD_SECONDS = 1.5;
-
-/**
- * How long the mix takes to arrive or get out of the way when the sound toggle
- * is flipped. Short enough to read as immediate, long enough not to click.
- */
-const FADE_SECONDS = 0.12;
-
-let context = null;
-let master = null;
-let timer = null;
+let manager = null;
+let track = null;
 
 let enabled = readPreference();
 let wanted = false;
 
-/** Where the next bar starts on the audio clock, and which bar it is. */
-let nextBarAt = 0;
-let barIndex = 0;
-
 /**
- * Takes the audio context off the boot scene.
+ * Takes the sound manager off the boot scene.
  *
- * Only the Web Audio sound manager has one. On the fallback managers, and where
- * the browser has no audio at all, there is nothing to take and the service
- * stays switched off for the rest of the page.
+ * The manager is the game's rather than the scene's, so it outlives this scene
+ * stopping and the preference survives a restart of the board.
  */
 export function initMusic(scene) {
-  context = scene.sound?.context ?? null;
+  manager = scene.sound ?? null;
 }
 
 /** A run has started and would like music, if the player has asked for any. */
@@ -76,8 +68,9 @@ export function musicEnabled() {
 
 /**
  * Turns music on or off and remembers the choice. It takes effect where it is
- * pressed: mid-wave the chords start on the next bar, and stopping takes the
- * mix down over a moment rather than cutting a held chord in half.
+ * pressed, and turning it back on inside the same run starts the loop again
+ * from the top, which on twenty four seconds of hold music is not a thing
+ * anybody can hear.
  */
 export function toggleMusic() {
   enabled = !enabled;
@@ -89,174 +82,41 @@ export function toggleMusic() {
 }
 
 function sync() {
-  if (context && enabled && wanted) {
+  if (enabled && wanted) {
     begin();
   } else {
     end();
   }
 }
 
-/**
- * Everything runs through one gain node, so the sound toggle has a single place
- * to close and stopping the music takes the notes already booked with it.
- *
- * It goes straight to the destination rather than through Phaser's mixer.
- * Phaser's master volume and mute are for the clips it owns, and reaching into
- * its node graph to sit under them would be relying on the shape of somebody
- * else's internals for no gain: the toggle below is read on every tick anyway.
- */
 function begin() {
-  if (timer) {
+  if (track || !manager) {
     return;
   }
 
-  // The context is started by Phaser on the first click, and the game opens on
-  // a page that has to be clicked through, so this is belt and braces for a
-  // browser that suspends it again while the tab is away.
-  if (context.state === 'suspended') {
-    context.resume().catch(() => {});
+  // A track that failed to load would otherwise throw here rather than leaving
+  // the run in silence, which is the wrong way round for something optional.
+  if (!manager.game?.cache?.audio?.exists(MUSIC_KEY)) {
+    return;
   }
 
-  master = context.createGain();
-  master.gain.value = 0;
-  master.connect(context.destination);
-
-  nextBarAt = context.currentTime + 0.15;
-  barIndex = 0;
-
-  tick();
-
-  timer = window.setInterval(tick, TICK_SECONDS * 1000);
+  track = manager.add(MUSIC_KEY, { loop: true, volume: MUSIC_VOLUME });
+  track.play();
 }
 
 function end() {
-  if (timer) {
-    window.clearInterval(timer);
-    timer = null;
-  }
-
-  if (!master) {
+  if (!track) {
     return;
   }
 
-  const finished = master;
-  const now = context.currentTime;
+  // Stopped rather than faded. The old service faded because cutting a held
+  // sine chord in half is a click; a decoded clip stopped on a player's own
+  // button press is not, and a fade here would be the only piece of state left
+  // in this file.
+  track.stop();
+  track.destroy();
 
-  // Whatever is holding at the moment is faded rather than cut, and the node is
-  // let go once it is silent. The oscillators hanging off it stop themselves at
-  // the times they were given.
-  finished.gain.cancelScheduledValues(now);
-  finished.gain.setValueAtTime(finished.gain.value, now);
-  finished.gain.linearRampToValueAtTime(0, now + FADE_SECONDS);
-
-  window.setTimeout(() => finished.disconnect(), FADE_SECONDS * 1000 + 100);
-
-  master = null;
-}
-
-/**
- * Books every bar that starts inside the next second and a half.
- *
- * The catch-up guard matters more than it looks. A background tab has its
- * timers throttled and can be left alone for minutes at a time, and without it
- * the loop below would come back to find a dozen bars overdue and play them all
- * at once.
- */
-function tick() {
-  if (!master) {
-    return;
-  }
-
-  const now = context.currentTime;
-  const level = soundEnabled() ? MUSIC_VOLUME : 0;
-
-  master.gain.cancelScheduledValues(now);
-  master.gain.setValueAtTime(master.gain.value, now);
-  master.gain.linearRampToValueAtTime(level, now + FADE_SECONDS);
-
-  if (nextBarAt < now) {
-    nextBarAt = now;
-  }
-
-  while (nextBarAt < now + LOOKAHEAD_SECONDS) {
-    // Nothing is booked while the sound is off, so a muted run is a timer and
-    // no oscillators. It picks up again on the next bar when it comes back.
-    if (level > 0) {
-      scheduleBar(nextBarAt, barIndex);
-    }
-
-    nextBarAt += MUSIC.barSeconds;
-    barIndex += 1;
-  }
-}
-
-/**
- * One bar: the chord, the root under it, and whatever the dice say about the
- * single notes over the top.
- */
-function scheduleBar(at, index) {
-  const chord = MUSIC.progression[index % MUSIC.progression.length];
-  const { pad, bass, bell } = MUSIC;
-
-  chord.pad.forEach((semitone) => {
-    voice({
-      at,
-      semitone,
-      detune: (Math.random() * 2 - 1) * pad.detuneCents,
-      ...pad
-    });
-  });
-
-  voice({ at, semitone: chord.bass, ...bass });
-
-  const slot = MUSIC.barSeconds / bell.slots;
-
-  for (let position = 0; position < bell.slots; position += 1) {
-    if (Math.random() > bell.chance) {
-      continue;
-    }
-
-    voice({
-      at: at + position * slot,
-      semitone: chord.bell[Math.floor(Math.random() * chord.bell.length)],
-      ...bell
-    });
-  }
-}
-
-/**
- * One note. A sine with a linear attack, a hold and a release, which is the
- * same shape the sound effects are drawn with and for the same reason: anything
- * with corners on it at this volume is a click rather than a note.
- */
-function voice({
-  at,
-  semitone,
-  gain,
-  attack,
-  hold,
-  release,
-  detune = 0
-}) {
-  const oscillator = context.createOscillator();
-  const level = context.createGain();
-  const until = at + attack + hold + release;
-
-  oscillator.type = 'sine';
-  oscillator.frequency.value = MUSIC.rootHz * Math.pow(2, semitone / 12);
-  oscillator.detune.value = detune;
-
-  level.gain.setValueAtTime(0, at);
-  level.gain.linearRampToValueAtTime(gain, at + attack);
-  level.gain.setValueAtTime(gain, at + attack + hold);
-  level.gain.linearRampToValueAtTime(0, until);
-
-  oscillator.connect(level).connect(master);
-
-  oscillator.start(at);
-  oscillator.stop(until + 0.02);
-
-  oscillator.onended = () => level.disconnect();
+  track = null;
 }
 
 function readPreference() {

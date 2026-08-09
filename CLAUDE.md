@@ -30,7 +30,7 @@ Read these before writing anything.
 | Tab icon | Drawn by `tools/make-favicon.mjs`, committed as SVG and PNG |
 | Install | Hand written manifest and service worker in `public/`, no plugin |
 | Sound | Synthesised by `tools/make-sounds.mjs`, committed as WAV |
-| Music | Scheduled on the audio clock from `config/music.js`, no file |
+| Music | One CC0 loop, played through Phaser's mixer like the effects |
 | Backend | Supabase (leaderboard and analytics, both behind Netlify functions) |
 | Experiments | GrowthBook |
 | Domain | ats.spencerstern.com |
@@ -138,7 +138,7 @@ src/
     art.js             Sprite manifest
     scenery.js         Ground and furniture manifest, and where it stands
     audio.js           Sound manifest, levels and repeat gaps
-    music.js           The chords the background music is played from
+    music.js           The track the background music is, and how loud
     intros.js          Applicant introduction manifest, frames and rate
     leaderboard.js     Name rules and read limits
     feedback.js        The one question, and the answers it will take
@@ -146,7 +146,7 @@ src/
   services/
     analytics.js       Event emission
     audio.js           Playback, throttling and the on or off state
-    music.js           Books the next bar or two onto the audio clock
+    music.js           Starts and stops the one loop, and remembers the toggle
     feel.js            The small movements, and the one place that knows to sit still
     experiments.js     GrowthBook wrapper
     device.js          What the player is holding, to the extent the browser will say
@@ -431,15 +431,36 @@ remembered. It is the worked example of how something leaves the list: asked
 for, kept small, and self-contained enough that nothing already working had to
 move to fit it.
 
-Music followed it, on the same request and on the same terms, and the
-interesting part is that it has no asset. Nothing here can reach an asset host,
-an uncompressed loop worth listening to is twenty times the size of every other
-asset in the game put together, and there is no encoder on the machine to make
-it any smaller. So the track is four chords of hold music in `config/music.js`,
-booked onto the audio clock a bar ahead by `services/music.js`, with one note
-per bar picked at random so a long run never quite hears the same loop twice.
-It costs no bytes, and the difference between pleasant and irritating is a
-number in a config file rather than a hunt for a replacement track.
+Music followed it, on the same request and on the same terms, and for six
+versions the interesting part was that it had no asset. Nothing here can reach
+an asset host and there is no encoder on the machine, so the track was four
+chords of hold music in `config/music.js`, booked onto the audio clock a bar
+ahead by `services/music.js`, with one note per bar picked at random so a long
+run never quite heard the same loop twice.
+
+**In 1.9.0 it became a file, and both of those constraints are still true.** The
+way round them is the only part worth writing down: the track was handed to the
+build rather than fetched by it, and encoded by a static ffmpeg pulled from npm
+into a scratch directory. So the rule that survives is narrower than the one it
+replaces. It was never "the game may not have assets", it was "the build may not
+go and get them", and that still holds. Anything added later that needs a binary
+this environment cannot produce comes in the same way or not at all.
+
+What it cost is in the README next to the file, in more detail than belongs
+here, and the three lines of it are these. The audio directory went from 68kB to
+708kB, which makes the track most of the download and most of the installed app.
+The loop comes round every 24 seconds where the progression never repeated,
+which on hold music is arguably the joke and is still the first thing to listen
+for. And `services/music.js` lost 180 lines, because Phaser does the decoding,
+the looping and the autoplay unlock and already did for the six effects.
+
+The one thing that got simpler is worth noting, because it was previously an
+argument in the other direction. The old service went straight to the audio
+destination on the grounds that Phaser's mixer was for the clips it owned, and
+had to check the sound toggle on every tick to keep "sound off means silence,
+music included" true. The track is a clip Phaser owns now, so it goes through
+that mixer and the rule falls out of the wiring instead of being enforced on a
+timer.
 
 It has its own toggle rather than riding the sound one, because wanting the game
 to make a noise when it rejects somebody and wanting it to play at you for
@@ -548,9 +569,8 @@ Installing it came off this list last, and it is the smallest thing on it by
 some distance. A manifest, a service worker and one call from `main.js`, and
 the interesting part is how little of the game had to be true for it to work:
 nothing in a run has ever needed the network. The art, the sounds, the waves,
-the card pool and the music, which has no file at all, are already in the
-build, so a worker that holds the page and its assets is the whole of offline
-play. Nothing was written to make the game work without a signal, and that is
+the card pool and the music are already in the build, so a worker that holds
+the page and its assets is the whole of offline play. Nothing was written to make the game work without a signal, and that is
 the point.
 
 It qualified on the terms sound and the touch controls did. No dependency: a

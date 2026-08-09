@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { ART_DIRECTORY, ART_KEYS } from '../../config/art.js';
 import { AUDIO_DIRECTORY, SOUNDS } from '../../config/audio.js';
+import { MUSIC_FILES, MUSIC_KEY } from '../../config/music.js';
 import {
   INTRO_DIRECTORY,
   INTRO_FRAME_COUNT,
@@ -66,6 +67,15 @@ export default class MobileBootScene extends Phaser.Scene {
 
     this.load.setPath(AUDIO_DIRECTORY);
     Object.keys(SOUNDS).forEach((key) => this.load.audio(key, `${key}.wav`));
+
+    // The one asset on this build fetched for something that is off until it is
+    // asked for, and the exception to the paragraph above about not handing a
+    // phone assets on the off chance. It is here because the board has a music
+    // toggle, and a toggle that has to download three hundred kilobytes before
+    // it does anything is worse than a slightly longer boot. The worker caches
+    // it after the first run, so this is once per version rather than once per
+    // game.
+    this.load.audio(MUSIC_KEY, MUSIC_FILES);
     this.load.setPath();
   }
 
