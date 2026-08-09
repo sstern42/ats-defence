@@ -42,9 +42,30 @@
  *   node tools/simulate-mobile.mjs --validate
  *   node tools/simulate-mobile.mjs --runs 2000
  *   node tools/simulate-mobile.mjs --runs 2000 --policy random
+ *   node tools/simulate-mobile.mjs --runs 2000 --bulk none
+ *
+ * ## The second thing being played, from 1.10.0
+ *
+ * The card between intakes used to be the whole of what a player of this board
+ * decides. It is not any more: there are three bulk rejects in a run and the
+ * ninth intake sends something the turret cannot answer, so when the charges are
+ * spent is a second decision and the two interact. `--bulk` is that decision
+ * modelled the same way `--policy` models the other one, and for the same
+ * reason: a policy brackets what a person will do where a number would only say
+ * what one person did.
+ *
+ * The one thing to hold on to when reading the output. `--bulk none` plays the
+ * board as though the button were not there, so its first eight intakes are the
+ * 1.7.0 game exactly, and that is what makes the browser check below still worth
+ * something. Any difference between `none` and the others is what the
+ * superweapon is worth, measured rather than asserted.
  */
 import { APPLICANTS } from '../src/config/applicants.js';
-import { MOBILE_RUN, MOBILE_TOWER } from '../src/config/mobile.js';
+import {
+  MOBILE_RUN,
+  MOBILE_SUPERWEAPON,
+  MOBILE_TOWER
+} from '../src/config/mobile.js';
 import { RADIAL_BOARD } from '../src/config/path.js';
 import {
   MIN_FIRE_INTERVAL_MS,
@@ -70,6 +91,19 @@ const TICK_MS = 16;
  * seven points in a run rather than at the end of one.
  */
 const OBSERVED = {
+  /**
+   * **These runs predate the boss intake and the bulk reject, and they are still
+   * a check rather than a superseded one.** The rule this file states above is
+   * that a check against a list that no longer exists agrees with nothing and
+   * looks like it agrees with something. What saves these is that intakes one to
+   * eight were not touched in 1.10.0: the ninth was added after them and the
+   * button is off under `--bulk none`, so the model these numbers are compared
+   * against is playing the identical game they were recorded from.
+   *
+   * That is why `--validate` forces the button off, and it is why it prints only
+   * the first eight intakes. Nothing here says anything about the ninth, and the
+   * ninth is the part that most wants a real handset.
+   */
   policy: 'random',
   runs: [
     { outcome: 'filled', cleared: 6, rejected: 110 },
@@ -244,7 +278,61 @@ function spawn(typeKey, returning) {
 
 const WALK = RADIAL_BOARD.spawnRadius - RADIAL_BOARD.arrivalRadius;
 
-function playRun(policy) {
+/**
+ * When a player spends a bulk reject.
+ *
+ * Three policies, bracketing the same way the card ones do rather than solving
+ * anything. `none` is the board without the button and is what the browser check
+ * is run against. `saving` is the player the design is aimed at: hold the
+ * charges for the intake that needs them, and break the rule only when the run
+ * is about to end anyway. `greedy` is the floor, a player who fires at the first
+ * crowd worth firing at and arrives at the ninth with nothing.
+ *
+ * The interesting number is `saving` against `none`, because that is what the
+ * button is worth to somebody using it as intended. `greedy` against `saving` is
+ * what the decision itself is worth, which is the same comparison `sensible`
+ * against `careless` makes for the cards.
+ */
+function wantsBulk(run, policy, live, bossHere) {
+  if (policy === 'none' || run.charges === 0) {
+    return false;
+  }
+
+  const crowd = live.filter((who) => who.radius <= run.stats.range).length;
+
+  // Six rather than the ten this was first written with. At ten it spent about a
+  // third of one charge a run, because the turret keeps the number standing
+  // inside its own reach below that for most of a run, so `greedy` was measuring
+  // very nearly the same player as `none` and bracketing nothing.
+  if (policy === 'greedy') {
+    return crowd >= 6;
+  }
+
+  // Saving and hoarding both do this. The boss is what the charges are for, so
+  // once it is inside the tower's reach they go in one after another as fast as
+  // the cooldown allows.
+  if (bossHere) {
+    const boss = live.find((who) => who.definition.arrivalCost !== undefined);
+
+    if (boss && boss.radius <= run.stats.range) {
+      return true;
+    }
+  }
+
+  // The exception, and the reason `saving` is not simply "never before the
+  // ninth". A charge saved for an intake the run does not reach is a charge
+  // wasted, so a run down to a quarter of its tolerance with a crowd in range
+  // spends one. `hoard` is the same player with the discipline to refuse that,
+  // and the gap between the two is the whole question of whether the discipline
+  // is worth anything.
+  if (policy === 'hoard') {
+    return false;
+  }
+
+  return run.health <= run.maxHealth * 0.25 && crowd >= 8;
+}
+
+function playRun(policy, bulkPolicy) {
   const run = {
     stats: { ...MOBILE_TOWER, splashRadius: 0 },
     beatsImmunity: false,
@@ -253,6 +341,9 @@ function playRun(policy) {
     taken: [],
     rejected: 0,
     arrived: 0,
+
+    charges: MOBILE_SUPERWEAPON.charges,
+    bulkUsed: 0,
 
     // What the tower had left at the end of each intake it finished, which is
     // the only per intake reading that says where the pressure actually is. The
@@ -266,7 +357,7 @@ function playRun(policy) {
       apply(run, pick(drawCards(run.taken), policy));
     }
 
-    const finished = playWave(run, MOBILE_WAVES[index]);
+    const finished = playWave(run, MOBILE_WAVES[index], bulkPolicy);
 
     if (!finished) {
       return { outcome: 'filled', cleared: index, ...totals(run) };
@@ -285,12 +376,15 @@ function totals(run) {
     health: run.health,
     maxHealth: run.maxHealth,
     left: run.left,
-    taken: run.taken
+    taken: run.taken,
+    bulkUsed: run.bulkUsed,
+    bossStopped: run.bossStopped ?? false,
+    bossSeen: run.bossSeen ?? false
   };
 }
 
 /** One intake. Returns false if the tower ran out partway through it. */
-function playWave(run, wave) {
+function playWave(run, wave, bulkPolicy) {
   const pending = [];
 
   wave.groups.forEach((group) => {
@@ -301,10 +395,22 @@ function playWave(run, wave) {
 
   pending.sort((a, b) => a.at - b.at);
 
+  // Whether this intake is the one the charges are being saved for, decided off
+  // the wave rather than off its number, so moving the boss list is a data
+  // change here as well as in the game.
+  const bossHere = wave.groups.some(
+    (group) => APPLICANTS[group.applicant].arrivalCost !== undefined
+  );
+
+  if (bossHere) {
+    run.bossSeen = true;
+  }
+
   const live = [];
   const returns = [];
   let now = 0;
   let nextFireAt = 0;
+  let nextBulkAt = 0;
   let released = false;
 
   for (;;) {
@@ -325,10 +431,41 @@ function playWave(run, wave) {
 
         live.splice(i, 1);
         run.arrived += 1;
-        run.health = Math.max(0, run.health - MOBILE_RUN.arrivalCost);
+        run.health = Math.max(
+          0,
+          run.health - (who.definition.arrivalCost ?? MOBILE_RUN.arrivalCost)
+        );
 
         if (run.health === 0) {
           return false;
+        }
+      }
+    }
+
+    // The bulk reject, before the turret fires, so a charge spent this tick is
+    // not also paid for by a shot the turret had already put into somebody who
+    // is now gone.
+    if (now >= nextBulkAt && wantsBulk(run, bulkPolicy, live, bossHere)) {
+      run.charges -= 1;
+      run.bulkUsed += 1;
+      nextBulkAt = now + MOBILE_SUPERWEAPON.cooldownMs;
+
+      for (let i = live.length - 1; i >= 0; i -= 1) {
+        const who = live[i];
+
+        who.health -= MOBILE_SUPERWEAPON.damage;
+
+        if (who.health <= 0) {
+          if (who.definition.arrivalCost !== undefined) {
+            run.bossStopped = true;
+          }
+
+          if (who.definition.returns && !who.hasReturned) {
+            returns.push(who.typeKey);
+          }
+
+          live.splice(i, 1);
+          run.rejected += 1;
         }
       }
     }
@@ -366,6 +503,10 @@ function playWave(run, wave) {
             const at = live.indexOf(who);
 
             if (at !== -1) {
+              if (who.definition.arrivalCost !== undefined) {
+                run.bossStopped = true;
+              }
+
               if (who.definition.returns && !who.hasReturned) {
                 returns.push(who.typeKey);
               }
@@ -404,6 +545,16 @@ const flag = (name, fallback) => {
 
 const validating = args.includes('--validate');
 const runs = Number(flag('runs', validating ? 400 : 2000));
+
+// Forced off while validating, because the recorded browser runs were played on
+// a board with no button on it. See the note on OBSERVED.
+const bulkPolicy = validating ? 'none' : flag('bulk', 'saving');
+
+// And the curve is cut short to match, since those runs never saw a ninth
+// intake and printing one under them would invite a comparison there is nothing
+// to compare against.
+const shown = validating ? Math.min(8, MOBILE_WAVES.length) : MOBILE_WAVES.length;
+
 const policies = validating
   ? ['random']
   : [flag('policy', null)].filter(Boolean).length
@@ -411,18 +562,28 @@ const policies = validating
     : ['random', 'sensible'];
 
 policies.forEach((policy) => {
-  const results = Array.from({ length: runs }, () => playRun(policy));
+  const results = Array.from({ length: runs }, () => playRun(policy, bulkPolicy));
   const held = results.filter((r) => r.outcome === 'held');
   const mean = (pick) =>
     results.reduce((sum, r) => sum + pick(r), 0) / results.length;
 
-  console.log(`\n${policy} (${runs} runs)`);
+  console.log(`\n${policy}, bulk ${bulkPolicy} (${runs} runs)`);
   console.log(`  held the vacancy   ${((held.length / runs) * 100).toFixed(1)}%`);
   console.log(`  mean rejections    ${mean((r) => r.rejected).toFixed(0)}`);
   console.log(`  mean arrivals      ${mean((r) => r.arrived).toFixed(0)}`);
   console.log(`  mean intakes clear ${mean((r) => r.cleared).toFixed(1)} of ${MOBILE_WAVES.length}`);
   console.log(
     `  tower left on wins ${held.length ? (held.reduce((s, r) => s + r.health, 0) / held.length).toFixed(0) : 'n/a'}`
+  );
+  console.log(`  mean bulk rejects  ${mean((r) => r.bulkUsed).toFixed(2)} of ${MOBILE_SUPERWEAPON.charges}`);
+
+  // Read off the runs that got to the ninth rather than off all of them, since
+  // a run that died in the sixth says nothing about whether the boss can be
+  // stopped and averaging it in would quietly report that it cannot.
+  const met = results.filter((r) => r.bossSeen);
+
+  console.log(
+    `  boss stopped       ${met.length ? `${((met.filter((r) => r.bossStopped).length / met.length) * 100).toFixed(0)}% of the ${met.length} runs that met it` : 'nobody met it'}`
   );
 
   // The mean is the wrong number to tune on and it took a pass to notice. A
@@ -432,7 +593,7 @@ policies.forEach((policy) => {
   // in question 2, computed here rather than waited for.
   console.log('\n  reached intake, and still alive at the end of it');
 
-  for (let intake = 1; intake <= MOBILE_WAVES.length; intake += 1) {
+  for (let intake = 1; intake <= shown; intake += 1) {
     // Cleared counts intakes finished, so a run that died during intake n has
     // cleared n - 1 and still reached n.
     const reached = results.filter((r) => r.cleared >= intake - 1).length;

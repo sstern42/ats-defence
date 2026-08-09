@@ -453,6 +453,30 @@ export const BACK_CHANNEL_WAVES = [
  * between the card pool and the wave curve. It is right, and the corollary
  * nobody wrote down is that measuring an interaction needs something that plays
  * the cards.
+ *
+ * ## The ninth intake, 1.10.0
+ *
+ * Everything above describes intakes one to eight and still does. None of their
+ * numbers moved for the boss, deliberately, so the curve quoted above is the
+ * curve those eight still produce and the browser runs recorded in the simulator
+ * still check the model against a list that exists.
+ *
+ * What the ninth adds is a kind of pressure the other eight have not got. Every
+ * intake up to it is a question of throughput: whether the turret and the cards
+ * clear applicants faster than the list sends them. The ninth sends one arrival
+ * the turret cannot clear at any build, so it is a question of whether the
+ * player spent the bulk rejects or kept them. The simulator models that as a
+ * policy rather than a number, which is why `--bulk` exists.
+ *
+ * On the same instrument, playing the cards well and keeping the charges:
+ *
+ *   intake         1    2    3    4    5    6    7    8    9
+ *   survived     100  100  100  100  100  100   99   58   47
+ *
+ * So the eighth is still the intake most runs end in and the ninth is now a
+ * second one, which is the two step shape the 1.7.0 pass was aiming at. It is
+ * only that shape for a player who does not spend a charge on the seventh, and
+ * what that costs is written down in config/mobile.js rather than repeated here.
  */
 export const MOBILE_WAVES = [
   // Graduates only, and few enough to watch one at a time. The board explains
@@ -531,6 +555,47 @@ export const MOBILE_WAVES = [
       { applicant: 'boomerang', count: 5, intervalMs: 1100, delayMs: 7000 },
       { applicant: 'overqualified', count: 6, intervalMs: 900, delayMs: 10000 },
       { applicant: 'careerChanger', count: 1, intervalMs: 1900, delayMs: 15000 }
+    ]
+  },
+
+  /**
+   * The ninth, and the only intake in the game built around one arrival.
+   *
+   * **It is a ninth rather than a rewritten eighth, and that is the whole of how
+   * it was kept cheap.** Intakes one to eight are the numbers the 1.7.0 pass
+   * measured, character for character, so the survival curve that pass produced
+   * still describes them and the simulator's browser check still checks
+   * something. A boss folded into the eighth would have retuned the one intake
+   * this list has real evidence about, and there would be no way to tell what the
+   * boss cost from what the retune cost.
+   *
+   * The Internal Candidate opens it alone, which is not a courtesy. It walks in
+   * at 34 pixels a second, so the three seconds before the volume arrives is
+   * almost all of the turret time it will ever get: after that everybody faster
+   * is closer to the desk and `findTarget` is looking at them instead. That is
+   * the Career Changer note in config/mobile.js turned the right way up and used
+   * on purpose rather than tripped over.
+   *
+   * **The escort is a third of the eighth's, and the first draft of it was not.**
+   * That draft sent thirty three applicants behind the boss and measured at 1.3%
+   * of runs held for a player picking cards at random, against 7.9% for the
+   * eight intake list it replaced. The cause is the eighth doing its job: a run
+   * arrives here holding about a tenth of its tolerance, so six ordinary
+   * arrivals end it and the boss never gets to be the thing that decided
+   * anything. Twenty of the thirty three came out, and the boss became the
+   * problem instead of the queue behind it.
+   *
+   * What is left is still three types rather than one. The Keyword Stuffers are
+   * the point of the bulk reject being damage that ignores who is immune to
+   * what, and the Overqualified arrive last, while the boss is inside the range
+   * and every charge is wanted elsewhere.
+   */
+  {
+    groups: [
+      { applicant: 'internalCandidate', count: 1, intervalMs: 1000, delayMs: 0 },
+      { applicant: 'graduate', count: 14, intervalMs: 620, delayMs: 2500 },
+      { applicant: 'keywordStuffer', count: 3, intervalMs: 1500, delayMs: 6000 },
+      { applicant: 'overqualified', count: 3, intervalMs: 1300, delayMs: 9500 }
     ]
   }
 ];

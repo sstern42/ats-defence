@@ -56,7 +56,7 @@ Four. The first three are chosen on the home screen and share every tower, every
 | Classic intake | The game as it shipped. One corridor, walked in single file, towers beside it. Every number in it is the number it already had. |
 | Open advert | No corridor. Applicants arrive across the whole left edge and converge on the desk, fanning out and squeezing according to the `spread` on each waypoint. Towers go anywhere off the HUD and the desk, traps go wherever they are put, and applicants push back. |
 | Back channel | No route at all. A floor, a desk in the corner of it, and applicants who work out their own way across. Every tower makes the ground it covers expensive rather than impassable, and how far out of their way they will go to avoid it is a property of the applicant type. |
-| One-click apply | The phone board, and the only one nobody picks. Portrait, no route, no placement and no input at all during an intake: one screening process fixed dead centre, applicants converging on it from every direction, and a turret that turns to whoever has least walking left. Everything the player decides happens between intakes, where the process is offered two improvements and can have one. |
+| One-click apply | The phone board, and the only one nobody picks. Portrait, no route and no placement: one screening process fixed dead centre, applicants converging on it from every direction, and a turret that turns to whoever has least walking left. Most of what the player decides happens between intakes, where the process is offered two improvements and can have one. The rest is three bulk rejects, spent during an intake or not at all, and a ninth intake that is one arrival the turret cannot answer. |
 
 **The crowd is still not pathfinding.** Open advert is waypoints, same as the path always was. Each applicant walks its own copy of the spine, displaced by its share of the spread at every point and tapering to zero at the vacancy so everybody converges on the one desk. Applicant.js did not change to allow it and should not have to.
 
@@ -68,7 +68,9 @@ Applicant.js did change for this one, in two places, and both were already wrong
 
 **Pushing back is open advert only.** Applicants near a tower wear its `integrity` down; a tower worn to nothing is suspended pending review for a few seconds and comes back at full integrity. Recovery is applied against incoming pressure rather than after it, which is what makes one applicant harmless and a crowd a problem. Suspension rather than destruction, because losing a tower outright to a crowd whose edges you cannot see is a punishment rather than a decision. That is one number in `modes.js` if it should ever become the other.
 
-**One-click apply is a second scene set rather than a fourth mode inside `GameScene`, and that is the whole of what makes it possible.** The first three modes are the same loop handed different data. This one is not: roughly two thirds of `GameScene` exists to serve a walked route and a player placing things beside it, and a board with neither has no counterpart for any of it. No route, no placement, no currency and no input during an intake are four inversions of things classic is built on, so the choice was a second set of scenes sharing the services layer, or four more branches through the file classic is played by. `main.js` picks the set and dynamically imports the phone one, so a desktop player downloads none of it.
+**One-click apply is a second scene set rather than a fourth mode inside `GameScene`, and that is the whole of what makes it possible.** The first three modes are the same loop handed different data. This one is not: roughly two thirds of `GameScene` exists to serve a walked route and a player placing things beside it, and a board with neither has no counterpart for any of it. No route, no placement, no currency and, at the time, no input during an intake were four inversions of things classic is built on, so the choice was a second set of scenes sharing the services layer, or four more branches through the file classic is played by. `main.js` picks the set and dynamically imports the phone one, so a desktop player downloads none of it.
+
+**The fourth of those inversions has gone and the argument survives it.** In 1.10.0 the board grew one control during an intake, the bulk reject, and the sentence above is written in the past tense for that reason. Three of the four are untouched and each is still worth a scene set on its own, so nothing about the split changes. What does change is that "no input during an intake" can no longer be quoted as a property of this mode: it is one button, three times a run, and anything that reads the absence of input as meaning something has to be checked against that. There is exactly one such thing, the idle abandonment clock, and it is dealt with under the analytics spec.
 
 **What it shares is everything under the scenes.** `services/`, `content/copy.js`, `entities/`, the config conventions, the Netlify functions and the build, all as they stand. `entities/Applicant.js` in particular was not touched: a straight line inwards is a path with one segment, so the file three tuned modes depend on carries a fourth with no fork, no subclass and no edit. Its board data is a centre, a ring to arrive on and a radius to arrive at, and its numbers are `config/mobile.js` and `config/upgrades.js`.
 
@@ -95,6 +97,9 @@ Applicant.js did change for this one, in two places, and both were already wrong
 | The Keyword Stuffer | Immune to Keyword Filter. |
 | The Referral | Spawns past the first tower position. |
 | The Boomerang | Respawns once at the end of the wave, whether killed or leaked. |
+| The Internal Candidate | Slow, and 2,600 health against a turret that manages a few hundred. Costs twenty times an ordinary arrival if it gets in. Only the phone board's ninth intake sends it. |
+
+The seventh is the phone board's boss and is in `applicants.js` with the other six rather than in `config/mobile.js` with that board's numbers. A type is not a number: `Applicant` is handed a definition, `Tower.canTarget` reads `immuneTo` off one, the plausibility check counts a wave by looking every key up in that object, and a second table would be a second place all of them have to look. It costs the three desktop modes nothing, because a type no wave list names is a type that never exists.
 
 Names and flavour text are content, not code. Keep all strings in a single `src/content/copy.js` so tone can be edited in one place.
 
@@ -131,7 +136,7 @@ src/
     applicants.js      Applicant stats as data
     game.js            Lives, budget, prep times, scoring
     modes.js           What each mode changes, as data
-    mobile.js          The phone board's tower, run and scoring numbers
+    mobile.js          The phone board's tower, run, superweapon and scoring numbers
     upgrades.js        The card pool, on stable ids the collector checks against
     path.js            Waypoint coordinates per mode, and the two boards that have none instead
     version.js         The version the build was cut from
@@ -248,6 +253,16 @@ The queries in `docs/` read one mode, and read classic unless told otherwise. Th
 | `feedback_given` | question, answer, final_wave |
 | `upgrade_offered` | taken, refused |
 
+`game_over` carries a sixteenth property on the phone board, `bulk_rejects_used`,
+and it is a property rather than a sixteenth event on the same terms `mode` is
+one: how many of a run's three charges were spent is a fact about the run, not a
+thing that happens. It clears the bar on question 4 the way the cards do, since
+a run ending with three unspent charges is the only record that the one button
+on that board went unpressed, and nothing else in the fifteen can express it. It
+is absent rather than null on the three boards that have no charges, and the
+queries are `docs/bulk-rejects.sql`. No collector change was needed: the property
+bag is stored whole.
+
 `upgrade_offered` is the fifteenth, and the only one recording something a player
 declined as well as something they did. Two cards are offered between intakes on
 the phone board and one is taken, which is the whole of what a player of that
@@ -316,6 +331,8 @@ Two more reasons arrived with the pause screen, which gave a run in progress a w
 The delay on hidden and the `reason` property were both added after launch preparation, because firing the instant the tab was hidden meant the event recorded the first time somebody glanced away, and since it only fires once, their real exit was never recorded at all. A player abandoned at wave five and went on to reach wave eight.
 
 The idle reason is off on the phone board, and the reason it is off is a rule rather than a preference. A mode that takes no input during an intake makes idle mean the opposite of what it was written to mean: a run would be recorded as abandoned against somebody sat watching it, and since the event fires once, their real exit would then never be recorded at all. That is precisely the failure the `reason` property was added to fix, arriving again through a different door. Backgrounding the app is what leaving looks like on a phone and `hidden` already catches it, so `unload`, `hidden`, `restart` and `quit` cover the mode between them. Anything added later that takes the input away has to make the same decision.
+
+**It stays off now that the board does take input, and the reason is the one written above rather than a convenience.** Three bulk rejects over a nine intake run is a player who touches the screen three times in about four minutes, so a minute of nothing still means somebody watching rather than an empty chair. The rule was never "there is no input", it was "input is not how you tell whether anybody is there", and that is still true of this board and would stop being true of one that asked for something every few seconds.
 
 It will still be lossy. A tab closed from a background window may never run the handler, and a player watching a long wave without moving the mouse is counted as idle. That is expected and will be stated in the write-up rather than hidden.
 
@@ -565,8 +582,8 @@ flagship card the worst in the pool. Fixing it means editing `Tower.js` or
 `applicants.js`, which is the sentence above about classic, so it was measured,
 written down and left.
 
-Installing it came off this list last, and it is the smallest thing on it by
-some distance. A manifest, a service worker and one call from `main.js`, and
+Installing it is the smallest thing to have come off this list by some
+distance. A manifest, a service worker and one call from `main.js`, and
 the interesting part is how little of the game had to be true for it to work:
 nothing in a run has ever needed the network. The art, the sounds, the waves,
 the card pool and the music are already in the build, so a worker that holds
@@ -596,6 +613,48 @@ shorter one is that it sets no orientation: the board a screen gets is decided
 by its size, so locking an installed app to portrait would take the landscape
 board off a tablet that had cleared the gate.
 
+A boss intake and a superweapon came off this list last, on request, and
+together, because neither works without the other. They are the first thing here
+to overturn a rule about a mode rather than a rule about the project. This file
+said in three places that one-click apply takes no input during an intake, and
+now it takes one button three times a run.
+
+They qualified on the terms everything above did, and the shape of it is the
+usual one. Every number is data: the boss is a seventh entry in `applicants.js`
+that no desktop wave list names, the charges and their damage are three fields in
+`config/mobile.js`, and the intake is a ninth entry in a list that already had
+eight. Nothing already working moved, and that was checked rather than asserted:
+intakes one to eight are character for character what the 1.7.0 pass measured, so
+the browser runs recorded in the simulator still check a list that exists.
+`Applicant.js` was not edited for this either, which is now four features in a
+row. And the one genuinely new behaviour, an applicant type carrying its own
+arrival cost and its own health bar rule, is two optional fields read where a
+default already sat.
+
+What it cost is three things and one of them is a rule. The rule is the one
+above, and what survives it is narrower and better stated: the idle abandonment
+clock is off on that board because input is not how you tell whether anybody is
+there, which was always the real reason and is still true. The second is a
+sixteenth property on `game_over` rather than a sixteenth event, argued in the
+analytics spec, with a query file that has no check fixture beside it where every
+other query file here has one. The third is the shape of the difficulty curve,
+and it is the most interesting: a player who keeps the charges has an eighth
+intake that 58% of runs survive and a ninth that 47% do, and a player who spends
+one to get out of trouble takes the eighth to 94% and the ninth to 30%, so the
+run then ends in the ninth or not at all. That is one intake deciding
+everything, which is precisely what the 1.7.0 tuning pass took out of this list.
+It is now a consequence of something the player chose rather than a property of
+the numbers, and the player who declines it gets the curve back, which is the
+best available answer and not a complete one.
+
+Two things it deliberately did not buy. The card pool was not touched, so it is
+still upside down and still measured, and adding a seventh card would have
+invalidated the only measurement this design has. And the boss is not a new
+behaviour in `Tower.js`: what makes it a boss is that the turret targets whoever
+is closest to the desk and this one is the slowest thing on the board, so it is
+ignored until it is too late. That is the note in `config/mobile.js` about the
+Career Changer, used on purpose rather than tripped over.
+
 ### Still true whatever gets built
 
 - Deploy is not a late step, and a red deploy preview is a failed step.
@@ -617,6 +676,10 @@ board off a tablet that had cleared the gate.
   which is a different fix from a wave being too heavy. The fifteenth was added
   because question 4 asks which things are dead weight and a card offered and
   refused leaves no trace at all, so counting what was taken cannot recover it.
+  The sixteenth was refused, and the boss intake and the bulk reject shipped
+  without one: how many charges a run spent is a property on `game_over`, which
+  is the seam `mode` went through, and a boss getting in is an
+  `applicant_leaked` with a type on it that the event has always carried.
   A feature existing is not a reason on its own. Sound shipped without one, and
   so did the whole of the second mode: towers going offline is the most eventful
   thing in it and it emits nothing, because no question in the spec asks how

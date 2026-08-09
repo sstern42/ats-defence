@@ -1,5 +1,5 @@
 /**
- * Draws the six applicant introduction animations and writes them to
+ * Draws the seven applicant introduction animations and writes them to
  * public/assets/intros as sprite strips.
  *
  * The brief was a funny clip for each applicant type, the first time one turns
@@ -310,7 +310,7 @@ function mortarboard(frame, x, y, angle, scale = 1) {
 }
 
 /**
- * The six recipes. Each one is handed the frame and how far through the loop it
+ * The seven recipes. Each one is handed the frame and how far through the loop
  * is, from 0 up to but not including 1, and draws that moment.
  */
 const RECIPES = {
@@ -518,6 +518,70 @@ const RECIPES = {
       SHADE.bright,
       1
     );
+  },
+
+  /**
+   * The process, running its full course around somebody who does not move.
+   *
+   * Everything else in this file animates the applicant. This one animates the
+   * screening and leaves the applicant standing there, because that is the joke:
+   * eight stages clear themselves in a second and a third, nobody is assessed,
+   * and when the loop comes round it starts again on the same person. The only
+   * part of them that moves is the pass they already have.
+   */
+  internalCandidate(frame, progress) {
+    const body = person(frame, { x: 40, feet: 64, height: 44 });
+
+    // The lanyard, swinging a little, which is the whole of the movement in the
+    // middle of the frame.
+    const swing = Math.sin(progress * Math.PI * 2) * 1.6;
+
+    // Drawn dark on a light body rather than the other way round. Every other
+    // prop in this file sits against empty frame and can be bright; this one is
+    // over a torso, and bright on body is two shades apart and reads as nothing.
+    bar(
+      frame,
+      40,
+      body.shoulderY,
+      40 + swing,
+      body.shoulderY + 7,
+      1.2,
+      SHADE.mid,
+      1
+    );
+    turnedRect(
+      frame,
+      40 + swing,
+      body.shoulderY + 10,
+      8,
+      6,
+      swing * 0.06,
+      SHADE.ink,
+      1
+    );
+
+    // Eight stages round the outside, clearing one at a time from the top.
+    //
+    // Upright rather than turned to face the middle, which was the first
+    // version and made half of them diamonds: at this size that reads as eight
+    // unrelated shapes scattered round the edge rather than as one process
+    // going round.
+    const stages = 8;
+    const cleared = Math.floor(progress * stages) + 1;
+
+    for (let stage = 0; stage < stages; stage += 1) {
+      const angle = -Math.PI / 2 + (stage / stages) * Math.PI * 2;
+
+      rect(
+        frame,
+        37 + Math.cos(angle) * 31,
+        37 + Math.sin(angle) * 31,
+        7,
+        7,
+        stage < cleared ? SHADE.bright : SHADE.ink,
+        1
+      );
+    }
   }
 };
 

@@ -1,5 +1,5 @@
 /**
- * Draws the six sound effects and writes them to public/assets/audio.
+ * Draws the seven sound effects and writes them to public/assets/audio.
  *
  * The art is Kenney's, and the sound was meant to be as well, but nothing in
  * this environment can reach kenney.nl to fetch a pack. Synthesising them here
@@ -169,7 +169,7 @@ function toWav(samples) {
 }
 
 /**
- * The six clips. Keys are file names, and they are the same keys the game
+ * The seven clips. Keys are file names, and they are the same keys the game
  * loads by, so src/config/audio.js and this list have to agree.
  */
 const RECIPES = {
@@ -246,6 +246,37 @@ const RECIPES = {
   denied: [
     tone({ duration: 0.13, freq: 124, freqEnd: 112, curve: 4 }),
     noise({ duration: 0.05, gain: 0.22, cutoff: 0.1 })
+  ],
+
+  /**
+   * Everybody on the board is rejected at once. The `reject` clip is one tone
+   * dropping in seventy milliseconds because it fires hundreds of times a run;
+   * this one fires three times at most, so it is that same drop with the whole
+   * batch going out underneath it.
+   *
+   * A knock rather than a blast. Whatever the button does to the board, what has
+   * actually happened is that a mail merge went out, and a superweapon that
+   * sounds like a weapon would be the one place in this game where the joke is
+   * dropped in favour of the mechanic.
+   */
+  'bulk-reject': [
+    tone({
+      duration: 0.09,
+      freq: 700,
+      freqEnd: 300,
+      harmonics: [1, 0.14],
+      curve: 3
+    }),
+    noise({ start: 0.02, duration: 0.34, gain: 0.5, cutoff: 0.07, curve: 2.4 }),
+    tone({
+      start: 0.04,
+      duration: 0.44,
+      freq: 98,
+      freqEnd: 76,
+      harmonics: [1, 0.38, 0.16],
+      attack: 0.01,
+      curve: 2
+    })
   ]
 };
 

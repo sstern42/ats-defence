@@ -7,6 +7,32 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.10.0 - 2026-08-09
+
+- A ninth intake on the phone board, and one arrival in it. The Internal
+  Candidate is the seventh applicant type, no desktop wave list names it, and it
+  has 2,600 health against a turret that manages a few hundred while everybody
+  faster is closer to the desk. Already has the job. The intake is a formality.
+- A bulk reject, three to a run, which is the first input this board has ever
+  taken during an intake. It is damage rather than a clearance, so it deletes a
+  crowd and wears the boss down, and it ignores who is immune to what, because a
+  mail merge is not a keyword filter.
+- The eight intakes before it did not move, character for character. The
+  simulator's browser check still checks them, with `--bulk none` playing the
+  board as though the button were not there.
+- The charges are the second decision this design has ever offered. Measured
+  over 10,000 runs a player who keeps all three holds the vacancy 47.6% of the
+  time, one who spends them to get out of trouble 31.6%, and one who fires at the
+  first crowd 16.2%. The full table is in `config/mobile.js`.
+- The boss carries its health bar from the moment it turns up rather than from
+  the first hit, since how much of it is left is the whole of what the player is
+  deciding against.
+- A seventh sound effect and a seventh introduction animation, both drawn by the
+  tools that drew the other six.
+- `game_over` carries `bulk_rejects_used` on that board. A property rather than a
+  sixteenth event, on the same grounds `mode` is one, and the queries are in
+  `docs/bulk-rejects.sql`.
+
 ## 1.9.0 - 2026-08-09
 
 - The background music is a real track. "Week 1.1: Super Retro Lounge" by
