@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { COPY } from '../../content/copy.js';
 import { RADIAL_BOARD } from '../../config/path.js';
+import { trackRestartClicked } from '../../services/analytics.js';
 
 /**
  * The end of a phone run, drawn over the board it happened on.
@@ -128,6 +129,16 @@ export default class MobileGameOverScene extends Phaser.Scene {
     }
 
     this.restarting = true;
+
+    // The one event this route was missing, and the only way question 3 of the
+    // spec, whether players replay after losing, gets an answer on this board.
+    // Sent from the same place the desktop game over sends it and with the same
+    // two properties, off the summary this scene was handed rather than by
+    // asking the board, which is about to be restarted underneath it.
+    trackRestartClicked({
+      fromWave: this.summary.intake,
+      previousScore: this.summary.score
+    });
 
     this.scene.stop();
     this.board.scene.restart();
