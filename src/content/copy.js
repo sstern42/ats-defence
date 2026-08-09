@@ -340,6 +340,20 @@ export const COPY = {
     // when a release moves the number.
     version: 'v{version}'
   },
+  /**
+   * The two things the phone board cannot serve, as opposed to the one thing it
+   * is not being offered for yet. Both are refusals rather than apologies: the
+   * system has decided the application does not meet the essential criteria, and
+   * it is the same joke in both.
+   */
+  phoneRefusal: {
+    rotateTitle: 'Turn it back',
+    rotateBody: 'The vacancy is filled top to bottom. Requisita does not accept landscape submissions.',
+    rendererTitle: 'Not on this browser',
+    rendererBody: 'This one cannot draw what the board needs. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
+    rendererNote: 'A more recent browser, or a different one, will do it.'
+  },
+
   unsupported: {
     title: 'Not on a phone, for now',
     body: 'The board wants more room than this. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',

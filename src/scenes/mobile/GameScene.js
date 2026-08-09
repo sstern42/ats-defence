@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
 
 import { COPY } from '../../content/copy.js';
+import { AUDIO_DIRECTORY, SOUNDS } from '../../config/audio.js';
 import { ART_DIRECTORY, ART_KEYS } from '../../config/art.js';
 import { APPLICANTS } from '../../config/applicants.js';
 import {
   MOBILE_RUN,
   MOBILE_TOWER,
   MOBILE_TOWER_KEY,
+  MOBILE_LEAK_SHAKE,
   MOBILE_SCORING,
   MOBILE_TOWER_KEY_UPDATED
 } from '../../config/mobile.js';
@@ -21,6 +23,8 @@ import {
 // arrival point, so the applicant says when it got there rather than the scene
 // testing a distance every frame to find out.
 import { arrivalPoint, spawnPoint } from '../../services/radial.js';
+import { GROUND_KEYS, TEXTURE_DIRECTORY } from '../../config/scenery.js';
+import { FLOOR_TINT, addVignette } from '../backdrop.js';
 import {
   setWaveNumber,
   stopWatchingForIdle,
@@ -31,6 +35,20 @@ import {
   trackWaveCompleted,
   trackWaveStarted
 } from '../../services/analytics.js';
+import {
+  initSound,
+  playSound,
+  soundEnabled,
+  toggleSound
+} from '../../services/audio.js';
+import {
+  initMusic,
+  musicEnabled,
+  startMusic,
+  stopMusic,
+  toggleMusic
+} from '../../services/music.js';
+import { FEEL, nudge, shake } from '../../services/feel.js';
 import Applicant from '../../entities/Applicant.js';
 import Tower from '../../entities/Tower.js';
 
@@ -71,6 +89,16 @@ export default class MobileGameScene extends Phaser.Scene {
     ART_KEYS.forEach((key) => {
       this.load.image(key, `${ART_DIRECTORY}${key}.png`);
     });
+
+    // The carpet and the vignette, but not floor-tread: that one is masked to a
+    // walked route and this board has no route to wear out.
+    GROUND_KEYS.filter((key) => key !== 'floor-tread').forEach((key) => {
+      this.load.image(key, `${TEXTURE_DIRECTORY}${key}.png`);
+    });
+
+    this.load.setPath(AUDIO_DIRECTORY);
+    Object.keys(SOUNDS).forEach((key) => this.load.audio(key, `${key}.wav`));
+    this.load.setPath();
   }
 
   create() {
@@ -81,6 +109,14 @@ export default class MobileGameScene extends Phaser.Scene {
     // clock would count somebody watching as an empty chair. The reasoning is
     // at stopWatchingForIdle in the service.
     stopWatchingForIdle();
+
+    // No BootScene on this route, so the two services that normally take their
+    // manager off it are handed this scene instead. Both are no-ops if the
+    // clips did not load or the browser has no audio at all.
+    initSound(this);
+    initMusic(this);
+
+    this.drawFloor();
 
     this.applicants = [];
     this.shots = [];
@@ -149,6 +185,11 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.beginPreparation(MOBILE_RUN.firstPrepMs);
 
+    // Off unless the player has asked for it, which is the state the desktop
+    // remembers for them. A run starting is what wants music, not the page
+    // loading, so this is here rather than at boot.
+    startMusic();
+
     this.buildHud();
   }
 
@@ -161,6 +202,31 @@ export default class MobileGameScene extends Phaser.Scene {
     this.drawTracers(time);
     this.drawHealthBars();
     this.drawBar();
+  }
+
+  /**
+   * The office, under everything.
+   *
+   * The same carpet the other three boards stand on, tiled, with the same
+   * vignette stretched over it so the board reads as a room with a middle rather
+   * than a flat sheet. It is the cheapest thing in this commit and the one that
+   * makes the board stop looking like a prototype.
+   *
+   * `floor-tread` is deliberately not here. It is the carpet worn through by
+   * thousands of applicants walking the same line, and it is masked to a route.
+   * This board has no route to wear out, which is the joke of the mode: they do
+   * not queue.
+   */
+  drawFloor() {
+    const { width, height } = RADIAL_BOARD.board;
+
+    this.add
+      .tileSprite(0, 0, width, height, 'floor-carpet')
+      .setOrigin(0, 0)
+      .setTint(FLOOR_TINT)
+      .setDepth(-20);
+
+    addVignette(this, -10);
   }
 
   // ---------------------------------------------------------------------- HUD
@@ -195,6 +261,66 @@ export default class MobileGameScene extends Phaser.Scene {
       .setDepth(100);
 
     this.showIntake();
+    this.buildSwitches();
+  }
+
+  /**
+   * The two switches, and the only controls on the board.
+   *
+   * They are here because the project's own rule is that sound has a toggle and
+   * the choice is remembered, and music has its own separate one. Shipping audio
+   * onto a phone with no way to silence it would break that, and a phone is the
+   * device most likely to be somewhere silence is expected.
+   *
+   * Drawn small and quiet at the bottom, well clear of the ring. They are the
+   * only thing on this screen a finger is meant to find during a run, and the
+   * design says the middle third is for the board.
+   */
+  buildSwitches() {
+    const { width, height } = RADIAL_BOARD.board;
+
+    this.soundSwitch = this.switch(width / 2 - 110, height - 60, () => {
+      toggleSound();
+      this.refreshSwitches();
+    });
+
+    this.musicSwitch = this.switch(width / 2 + 110, height - 60, () => {
+      toggleMusic();
+      this.refreshSwitches();
+    });
+
+    this.refreshSwitches();
+  }
+
+  switch(x, y, onPress) {
+    const button = this.add
+      .text(x, y, '', {
+        fontFamily: FONT,
+        fontSize: '20px',
+        color: '#6f7d8c',
+        padding: { x: 14, y: 10 }
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(100)
+      .setInteractive({ useHandCursor: true });
+
+    button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      // Down under the finger before anything is decided, since a control that
+      // moves says the tap arrived whether or not the state changes.
+      nudge(button, 0, FEEL.pressDrop);
+      onPress();
+    });
+
+    return button;
+  }
+
+  refreshSwitches() {
+    this.soundSwitch.setText(
+      soundEnabled() ? COPY.hud.soundOnTouch : COPY.hud.soundOffTouch
+    );
+    this.musicSwitch.setText(
+      musicEnabled() ? COPY.hud.musicOnTouch : COPY.hud.musicOffTouch
+    );
   }
 
   /**
@@ -247,6 +373,7 @@ export default class MobileGameScene extends Phaser.Scene {
       currency: null
     });
 
+    playSound('wave-open');
     this.spawnsRemaining = wave.groups.reduce(
       (total, group) => total + group.count,
       0
@@ -324,6 +451,8 @@ export default class MobileGameScene extends Phaser.Scene {
       // left absent, because the property has an honest answer here.
       towersOnBoard: 1
     });
+
+    playSound('wave-clear');
 
     this.waveIndex += 1;
 
@@ -501,6 +630,12 @@ export default class MobileGameScene extends Phaser.Scene {
     this.arrived += 1;
     this.health = Math.max(0, this.health - MOBILE_RUN.arrivalCost);
 
+    // The one moment on this board with no other signal. A rejection has a
+    // tracer and a body fading out; somebody getting in has nothing but a bar
+    // moving, and the bar is the thing you are least likely to be looking at.
+    playSound('leak');
+    shake(this, MOBILE_LEAK_SHAKE.durationMs, MOBILE_LEAK_SHAKE.intensity);
+
     if (this.health === 0) {
       this.end('filled');
     }
@@ -563,6 +698,8 @@ export default class MobileGameScene extends Phaser.Scene {
     this.drop(applicant);
     applicant.reject();
 
+    playSound('reject');
+
     this.rejected += 1;
   }
 
@@ -596,6 +733,8 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.prepTimer?.remove();
     this.clearWaveTimers();
+
+    stopMusic();
 
     trackGameOver({ finalWave: this.waveIndex, score: this.score() });
 
