@@ -8,6 +8,7 @@ import MobileBootScene from '../scenes/mobile/BootScene.js';
 import MobileGameScene from '../scenes/mobile/GameScene.js';
 import MobileGameOverScene from '../scenes/mobile/GameOverScene.js';
 import MobileHomeScene from '../scenes/mobile/HomeScene.js';
+import MobileLeaderboardScene from '../scenes/mobile/LeaderboardScene.js';
 import MobileUpgradeScene from '../scenes/mobile/UpgradeScene.js';
 
 /**
@@ -54,7 +55,10 @@ export function startMobile() {
       MobileHomeScene,
       MobileGameScene,
       MobileUpgradeScene,
-      MobileGameOverScene
+      MobileGameOverScene,
+      // Last, because it opens over the home page and over the game over
+      // screen, and it has to be drawn on top of whichever it was opened from.
+      MobileLeaderboardScene
     ]
   });
 }
