@@ -117,6 +117,16 @@ export const MOBILE_RUN = {
  */
 
 /**
+ * The shake when somebody gets in, matching the desktop board's leak exactly.
+ *
+ * Numbers rather than a call site literal, because they are feel rather than
+ * logic and this file is where this board's feel lives. `services/feel.js` is
+ * still what performs it, which is what keeps the reduced motion decision in the
+ * one place that makes it.
+ */
+export const MOBILE_LEAK_SHAKE = { durationMs: 180, intensity: 0.005 };
+
+/**
  * Turning a run into one number.
  *
  * The same three terms `GAME.scoring` has, because a run here is the same three
@@ -130,28 +140,34 @@ export const MOBILE_RUN = {
  * score would become a count of how long the run lasted. Four keeps it a term
  * rather than the whole formula.
  *
- * That also matters for the leaderboard, which is why this is in config rather
- * than in the scene. `netlify/functions/lib/plausibility.js` recomputes the
- * ceiling from the same numbers the game plays with, and a ceiling built from
- * hundreds of rejections at classic's weight would be so large it stopped
- * excluding anything. When this mode is registered, that function reads these.
+ * ## Why the keys are classic's words and not this board's
  *
- * `perTolerancePoint` is scored against what is left rather than against a
- * fraction of the maximum, because Extend the deadline raises the maximum. A
- * fraction would quietly punish the card that makes the tower more durable.
- */
-/**
- * The shake when somebody gets in, matching the desktop board's leak exactly.
+ * They used to be `perIntakeCleared` and `perTolerancePoint`, which is what the
+ * two terms are actually called here, and it cost more than it was worth. The
+ * leaderboard's ceiling is computed by one function for all four modes, and a
+ * mode whose weights are spelled differently is a mode that function has to know
+ * about by name. One vocabulary means it reads the weights off whichever mode it
+ * was handed and never asks which one it is, which is the arrangement every
+ * other field on a mode already has.
  *
- * Numbers rather than a call site literal, because they are feel rather than
- * logic and this file is where this board's feel lives. `services/feel.js` is
- * still what performs it, which is what keeps the reduced motion decision in the
- * one place that makes it.
+ * So `perLifeRemaining` is reinterpreted rather than renamed: a life on this
+ * board is a point of tower integrity, of which a run starts with two hundred
+ * rather than ten. The weight is two rather than forty for exactly that reason,
+ * and the two boards end up valuing an untouched defence at the same four
+ * hundred, which is a coincidence worth keeping.
+ *
+ * It is scored against what is left rather than against a fraction of the
+ * maximum, because Extend the deadline raises the maximum. A fraction would
+ * quietly punish the card that makes the tower more durable.
+ *
+ * That the leaderboard reads these is why they are in config rather than in the
+ * scene. `netlify/functions/lib/plausibility.js` recomputes the ceiling from the
+ * same numbers the game plays with, and a ceiling built from hundreds of
+ * rejections at classic's weight would be so large it stopped excluding
+ * anything.
  */
-export const MOBILE_LEAK_SHAKE = { durationMs: 180, intensity: 0.005 };
-
 export const MOBILE_SCORING = {
-  perIntakeCleared: 150,
+  perWaveCleared: 150,
   perRejection: 4,
-  perTolerancePoint: 2
+  perLifeRemaining: 2
 };
