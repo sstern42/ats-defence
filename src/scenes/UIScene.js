@@ -349,6 +349,7 @@ export default class UIScene extends Phaser.Scene {
       'trap-waiting': this.showTrapWait,
       'trap-waiting-started': this.startTrapWait,
       'trap-ready': this.endTrapWait,
+      'traps-changed': this.refreshButtons,
       'wave-preparing': this.showPreparation,
       'wave-started': this.showWaveOpen,
       'run-over': this.stopPalette
@@ -558,12 +559,28 @@ export default class UIScene extends Phaser.Scene {
 
   /**
    * Whether clicking the board with this selected would put anything down.
-   * The budget answers it for towers, and for a trap so does the wait after
-   * the last one was set.
+   *
+   * The budget answers it for towers. A trap has two more ways to say no: the
+   * wait after the last one was set, and the limit on how many of its type may
+   * be armed at once. The limit was missing here, so a player at the limit was
+   * shown a button in its ordinary colour and only found out by clicking it and
+   * reading the complaint. That is the one thing the palette is for.
    */
   available(typeKey) {
+    if (this.waitingTraps.has(typeKey)) {
+      return false;
+    }
+
+    if (TOWERS[typeKey].cost > this.currency) {
+      return false;
+    }
+
+    // Asked of the board rather than counted here, so there is one definition
+    // of how many is too many. The trap is free today, which is why the budget
+    // test above has never had anything to say about it, and that is a number in
+    // the config rather than a promise.
     return (
-      TOWERS[typeKey].cost <= this.currency && !this.waitingTraps.has(typeKey)
+      TOWERS[typeKey].behaviour !== 'trap' || this.gameScene.canLayTrap(typeKey)
     );
   }
 

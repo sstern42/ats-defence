@@ -418,6 +418,19 @@ export default class GameOverScene extends Phaser.Scene {
       mode: this.modeKey
     });
 
+    // The player can restart while a submission is in flight, which takes this
+    // scene and every object on it with it. Phaser destroys a scene's display
+    // list on shutdown, so the status line below is gone by the time a slow
+    // function answers, and writing to it throws.
+    //
+    // It is not a corner: handleKey deliberately lets space and enter restart
+    // while `submitting` is true, the submission waits eight seconds before it
+    // gives up, and a cold function can use most of that. The phone board has
+    // had this guard since it was written and this is the same guard.
+    if (!this.scene.isActive()) {
+      return;
+    }
+
     this.submitting = false;
 
     if (!result.ok) {

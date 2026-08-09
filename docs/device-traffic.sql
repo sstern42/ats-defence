@@ -4,9 +4,27 @@
 -- leaderboard-and-players.sql says under "What is deliberately not here" that
 -- it carries no split by `device_type`. That still holds for the six. This file
 -- is the split on its own, kept apart from them, because the question it
--- answers is a different one: the game was built desktop first, phones are
--- turned away at the door, tablets were let in afterwards, and none of that was
--- ever read back off the data.
+-- answers is a different one: the game was built desktop first, phones were
+-- turned away at the door and now get a board of their own, tablets were let in
+-- before that, and none of it was ever read back off the data.
+--
+--
+-- One seam in device_type, at 1.8.1
+-- ---------------------------------
+--
+-- Every row written before that release under-counts tablets, and the shortfall
+-- is not spread evenly: it is entirely iPads, and it lands entirely on the
+-- desktop row.
+--
+-- Since iPadOS 13, Safari on an iPad says it is a Mac unless the user asks
+-- otherwise, and the classifier matched that against nothing and fell through
+-- to `desktop`. It now pairs the agent string with `maxTouchPoints`, which a
+-- real Mac does not have. Nothing was backfilled, because the rows do not carry
+-- enough to tell one of those desktops from a genuine one.
+--
+-- So a tablet share read across that boundary steps up for a reason that is not
+-- traffic. Read it either side of the release rather than through it, and treat
+-- the earlier figure as a floor.
 --
 -- Run them in the Supabase SQL editor. Each stands on its own and repeats the
 -- base CTEs rather than sharing them, the same as the other files here.

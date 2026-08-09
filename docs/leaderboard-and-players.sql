@@ -60,6 +60,15 @@
 -- value in every query you run. Rows written before the column existed were
 -- backfilled as classic, which is what they are.
 --
+-- One seam in oneClickApply, at 1.8.1. Before that release the phone board sent
+-- the number of intakes it had cleared as `final_wave`, where the other three
+-- send the intake reached, so its rows read one lower on every run that ended in
+-- a loss, on `game_over`, `score_submitted`, `feedback_given` and the board's
+-- own column. It sends the intake reached now, as they do. Nothing was
+-- backfilled: a won run was already right, a lost one is out by exactly one, and
+-- nothing in a row says which it was without joining back to the events. Read
+-- the phone board either side of that release rather than through it.
+--
 -- Two places deliberately do not carry it, and both are session level.
 --
 -- Query 1 splits by mode instead of filtering, because it is the census.
