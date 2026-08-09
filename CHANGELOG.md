@@ -7,6 +7,25 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.11.3 - 2026-08-09
+
+- The background music is credited in the game. A line under the footer on the
+  home page naming the track, the artist and the licence, linking to the bundle
+  it came from, on the desktop page and the phone one.
+- Not required by the licence. The track is CC0 and the file next to it says so
+  in as many words. It is here because it is the one asset in the game somebody
+  else recorded, everything else being Kenney's pack or drawn by a script, and a
+  repo that credits its sprites and its sounds and stays quiet about its one
+  piece of music has an odd gap in it.
+- A second line rather than a fourth piece in the row above it, because naming a
+  track, an artist and a licence takes more width than the phone board's 624 has
+  left after the site, the year and the version.
+- The art is still credited in the README and not on the page, and that is a
+  decision rather than the next thing to tidy up. A hundred files cropped,
+  greyscaled and turned is a page. One track, unmodified apart from the encode,
+  is a line.
+- The README grew a Music section to match, which it did not have.
+
 ## 1.11.2 - 2026-08-09
 
 - Convene a panel shows where it lands. Every shot on the phone board now draws

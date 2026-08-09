@@ -422,7 +422,22 @@ export const COPY = {
     copyright: '© {year} Spencer Stern',
     // {version} is filled in from the build, so this never has to be edited
     // when a release moves the number.
-    version: 'v{version}'
+    version: 'v{version}',
+    /**
+     * The music, on its own line under the row above.
+     *
+     * It names the track, the artist and the licence, which is what an
+     * attribution is for, and it is longer than the three pieces above will
+     * take on a 720 wide screen. That is the whole reason it is a second line
+     * rather than a fourth piece.
+     *
+     * The art is credited in the README and not here, and that is not an
+     * oversight to correct later: Kenney's pack is a hundred files that have
+     * been cropped, greyscaled and turned, which is a page rather than a line.
+     * The music is one track, unmodified apart from the encode, so a line is
+     * the whole of it.
+     */
+    music: 'Music: “Super Retro Lounge” by Abstraction, CC0'
   },
   /**
    * The two things the phone board cannot serve. Both are refusals rather than

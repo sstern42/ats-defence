@@ -147,6 +147,34 @@ a readable recipe rather than a binary and the whole set is 68kB. Levels and the
 gap between repeats are data in `src/config/audio.js`, on the same principle as
 the balance. See `public/assets/audio/README.md`.
 
+## Music
+
+One loop, on its own toggle, and off until somebody asks for it. An effect is
+punctuation on something the player just did and is over before anybody could
+object. Music is a commitment made on their behalf in a tab sat next to whatever
+else they are doing, so it is offered rather than started. Turning the sound off
+still means silence, music included.
+
+**"Week 1.1: Super Retro Lounge" by [Abstraction](https://abstractionmusic.com)**,
+from the [Music Loop Bundle](https://tallbeard.itch.io/music-loop-bundle),
+released as CC0 by Abstraction Music and Tallbeard Studios. It is the one asset
+in the game somebody else recorded: everything around it is either Kenney's CC0
+pack or drawn by a script in `tools/`.
+
+The licence asks for nothing. The credit is in three places anyway, because the
+rest of the repo names where everything came from and a gap where the music
+should be would read as an oversight. The full licence text sits next to the
+file in `public/assets/audio/MUSIC-LICENCE.txt`, the encode and what it cost are
+in `public/assets/audio/README.md`, and the line under the footer on the home
+page is the one a player sees. That last one is `credit.music` in
+`src/content/copy.js`, and the address behind it is `MUSIC_CREDIT_URL` in
+`src/config/links.js`, on the same terms as every other string and every other
+link in the game.
+
+The bundle's README asks that projects making money consider the artist's
+Patreon. This one does not make any, and the tip jar has never been the point.
+Worth knowing if that ever changes.
+
 ## Licence
 
 MIT.
