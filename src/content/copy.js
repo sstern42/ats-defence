@@ -377,10 +377,16 @@ export const COPY = {
     version: 'v{version}'
   },
   /**
-   * The two things the phone board cannot serve, as opposed to the one thing it
-   * is not being offered for yet. Both are refusals rather than apologies: the
-   * system has decided the application does not meet the essential criteria, and
-   * it is the same joke in both.
+   * The two things the phone board cannot serve. Both are refusals rather than
+   * apologies: the system has decided the application does not meet the
+   * essential criteria, and it is the same joke in both.
+   *
+   * There used to be a third and it was the size of the screen. `unsupported`
+   * said "Not on a phone, for now" and it has gone, because the for now ran out
+   * and a phone gets a board of its own. A refusal nothing can reach is worse
+   * than no refusal: it reads as a live promise that the game will turn people
+   * away, and the next person to edit this file would keep it in step for
+   * nothing.
    */
   phoneRefusal: {
     rotateTitle: 'Turn it back',
@@ -388,12 +394,6 @@ export const COPY = {
     rendererTitle: 'Not on this browser',
     rendererBody: 'This one cannot draw what the board needs. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
     rendererNote: 'A more recent browser, or a different one, will do it.'
-  },
-
-  unsupported: {
-    title: 'Not on a phone, for now',
-    body: 'The board wants more room than this. Rather than serve you something broken, Requisita has decided this application does not meet the essential criteria.',
-    note: 'Come back on a tablet or a laptop.'
   },
   leaderboard: {
     // There is no single heading any more. Each board names itself, from the
