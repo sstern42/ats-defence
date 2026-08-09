@@ -117,6 +117,12 @@ export const UPGRADES = [
     once: true
   },
   {
+    // The third card the board did not show properly, and the only one it drew
+    // in the wrong place: the splash was marked out by a ring around the desk,
+    // which is where a splash never happens. It is drawn at the hit now, on
+    // every shot rather than only the ones that catch somebody, and the
+    // reasoning is in config/mobile.js at MOBILE_BURST. Nothing about the
+    // number moved, so the 29.4% above still stands.
     id: 'panelReview',
     stat: 'splashRadius',
     add: 28,

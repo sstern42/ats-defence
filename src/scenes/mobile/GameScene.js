@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { COPY } from '../../content/copy.js';
 import { APPLICANTS } from '../../config/applicants.js';
 import {
+  MOBILE_BURST,
   MOBILE_RUN,
   MOBILE_SUPERWEAPON,
   MOBILE_TOWER,
@@ -152,6 +153,11 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.applicants = [];
     this.shots = [];
+
+    // Where the shots landed, once there is a panel to land them on. Kept apart
+    // from the shots because it outlives them: a circle takes longer to read
+    // than a line does. See MOBILE_BURST.
+    this.bursts = [];
 
     // Per run rather than per session, so a restart introduces everybody again.
     this.seenTypes = new Set();
@@ -1413,6 +1419,12 @@ export default class MobileGameScene extends Phaser.Scene {
     const damage = this.tower.rollDamage();
     const { splashRadius } = this.stats;
 
+    // Drawn whether or not it catches anybody, which is the point of it. See
+    // MOBILE_BURST: an area that only appears when it works cannot be aimed.
+    if (splashRadius > 0) {
+      this.recordBurst(target, splashRadius, time);
+    }
+
     // Snapshotted before anybody is hit, because resolving a hit can take the
     // person hit off this list and iterating it while it shrinks would skip
     // whoever moved up into the gap.
@@ -1616,8 +1628,34 @@ export default class MobileGameScene extends Phaser.Scene {
     };
   }
 
+  /**
+   * The panel sitting down, wherever the shot landed.
+   *
+   * The centre is taken at the moment of the hit rather than followed, because
+   * the hit happened there: an applicant who walks on out of the ring was still
+   * caught, and one who walks into it after the fact was not. Everything about
+   * why it is drawn at all is in config/mobile.js at MOBILE_BURST.
+   */
+  recordBurst(target, radius, time) {
+    this.bursts.push({
+      x: target.x,
+      y: target.y,
+      radius,
+      until: time + MOBILE_BURST.durationMs,
+
+      // On the burst for the reason the width and the count are on the shot: it
+      // is a record of something that has already happened, and how wide the
+      // panel was when it sat down is a fact about that.
+      colour: this.stats.tracerColour
+    });
+  }
+
   drawTracers(time) {
     this.tracers.clear();
+
+    // Under the tracers rather than over them, so the line that caused the ring
+    // is still the brightest thing in it.
+    this.drawBursts(time);
 
     // Walked backwards so an expired tracer can be spliced out without the loop
     // skipping the one after it, and so nothing allocates a filtered copy of
@@ -1632,6 +1670,30 @@ export default class MobileGameScene extends Phaser.Scene {
       }
 
       this.drawShot(shot);
+    }
+  }
+
+  /**
+   * The area each recent shot caught, drawn the same size and the same weight
+   * for as long as it is there. The expiry walk is the tracers' one.
+   */
+  drawBursts(time) {
+    const { fillAlpha, lineAlpha, lineWidth } = MOBILE_BURST;
+
+    for (let index = this.bursts.length - 1; index >= 0; index -= 1) {
+      const burst = this.bursts[index];
+
+      if (time >= burst.until) {
+        this.bursts.splice(index, 1);
+
+        continue;
+      }
+
+      this.tracers.fillStyle(burst.colour, fillAlpha);
+      this.tracers.fillCircle(burst.x, burst.y, burst.radius);
+
+      this.tracers.lineStyle(lineWidth, burst.colour, lineAlpha);
+      this.tracers.strokeCircle(burst.x, burst.y, burst.radius);
     }
   }
 
@@ -1745,18 +1807,23 @@ export default class MobileGameScene extends Phaser.Scene {
     });
   }
 
-  /** Redrawn rather than drawn once, since a card can widen it mid run. */
+  /**
+   * The reach, redrawn rather than drawn once, since a card can widen it mid
+   * run.
+   *
+   * The splash radius used to be drawn here too, as a second ring around the
+   * desk. It has gone, and the removal is the substance of the change rather
+   * than tidying up after it: a splash lands where the shot lands, so a circle
+   * at the middle of the board marked out the one place it never happens, and
+   * next to a ring that genuinely does mean range it read as a smaller range.
+   * It is drawn at the hit now, by drawBursts.
+   */
   drawRange() {
     const { centre } = RADIAL_BOARD;
 
     this.range.clear();
     this.range.lineStyle(1, this.stats.tracerColour, 0.18);
     this.range.strokeCircle(centre.x, centre.y, this.stats.range);
-
-    if (this.stats.splashRadius > 0) {
-      this.range.lineStyle(1, this.stats.tracerColour, 0.1);
-      this.range.strokeCircle(centre.x, centre.y, this.stats.splashRadius);
-    }
   }
 
   /** The one bar the design asks for, under the thing it belongs to. */

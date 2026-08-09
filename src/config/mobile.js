@@ -84,10 +84,11 @@ export const MOBILE_TOWER = {
 /**
  * What a shot looks like, and the two cards it is how the board shows.
  *
- * Four of the six show themselves without help: the range ring grows, the
- * splash catches somebody standing behind, the tolerance bar refills, and a
- * Keyword Stuffer stops walking through untouched. The other two buy a number
- * the player is never shown, so a shot carries them instead.
+ * Three of the six show themselves without help: the range ring grows, the
+ * tolerance bar refills, and a Keyword Stuffer stops walking through untouched.
+ * The other three buy a number the player is never shown. Two of them are facts
+ * about a shot and are here. The third is Convene a panel, which is a fact
+ * about where a shot lands, and it is at MOBILE_BURST below.
  *
  * ## Screen in parallel, as a count of lines
  *
@@ -151,6 +152,51 @@ export const MOBILE_TRACER = {
   // Knockout Question's tracer on the desktop board, which is the tower that
   // rejects outright, so the association is already in the palette.
   heat: [0xd98a6a, 0xe0703c, 0xe04a3c]
+};
+
+/**
+ * Where a shot lands, once Convene a panel has been taken.
+ *
+ * ## What was wrong, which is worse than the other two were
+ *
+ * The reload and the damage cards were invisible. This one was misdrawn, which
+ * is a harder thing to unlearn. Splash happened at the far end of the shot,
+ * around whoever was hit, and left no mark there at all: a bystander's health
+ * bar dropped without anything on the board saying why, and on a crowded intake
+ * that is indistinguishable from another turret nobody has. Meanwhile the one
+ * thing the card did draw was a faint ring around the desk, `splashRadius`
+ * wide, sat exactly where a splash never happens. It read as a second, smaller
+ * range, which is the other card in the pool.
+ *
+ * So the ring has moved to where the hit is, and it is drawn on every shot
+ * rather than only when somebody is caught. That is deliberate: a circle that
+ * only appears when it works teaches nothing about aiming, and this card's whole
+ * pitch is that the thing absorbing the shots is now standing in the middle of
+ * an area rather than in front of one turret. The player wants to see the area
+ * miss before they understand what it is for.
+ *
+ * ## Why it does not open out
+ *
+ * The desktop's burst expands and fades over its life, and that version is not
+ * copied here for the reason the tracers are not: nothing on this board is said
+ * by movement alone, so the ring is the same size and the same weight for as
+ * long as it is there, and a player who has asked their system for less motion
+ * sees exactly what everybody else sees.
+ *
+ * `durationMs` is longer than a tracer's 90 rather than equal to it. A line is
+ * read at a glance because it is already pointing at the thing it hit, and a
+ * circle has to be looked at. At the base reload this still clears well before
+ * the next shot, so two of them are never on the board at once.
+ *
+ * Cosmetic, like the other two. Nothing here changes who is caught: the radius
+ * is `splashRadius` on the run's own stats, the same number the hit is resolved
+ * against, so the ring is the answer rather than an illustration of it.
+ */
+export const MOBILE_BURST = {
+  durationMs: 200,
+  fillAlpha: 0.16,
+  lineAlpha: 0.5,
+  lineWidth: 2
 };
 
 /**

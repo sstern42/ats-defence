@@ -7,6 +7,27 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.11.2 - 2026-08-09
+
+- Convene a panel shows where it lands. Every shot on the phone board now draws
+  the area it caught, around whoever was hit, for a fifth of a second. It was
+  the worst drawn of the six cards rather than merely the least visible: a
+  bystander's health bar dropped with nothing on the board saying why, which on
+  a crowded intake looks like a turret the player has not got.
+- The ring it used to draw around the desk has gone, and the removal is most of
+  the fix. A splash happens at the far end of the shot, so a circle in the
+  middle of the board marked out the one place it never happens, and sat next to
+  a ring that genuinely does mean range it read as a second, smaller range,
+  which is a different card.
+- Drawn on every shot rather than only the ones that catch somebody. An area
+  that appears only when it works cannot be aimed, and watching it miss is how
+  a player learns what it is for.
+- It does not open out or fade, unlike the desktop board's, because nothing on
+  this board is said by movement alone. Same size, same weight, for as long as
+  it is there.
+- Cosmetic. The radius drawn is the radius the hit is resolved against, so the
+  ring is the answer rather than a picture of it, and the simulator sees nothing.
+
 ## 1.11.1 - 2026-08-09
 
 - Raise the bar now shows itself on the phone board. Each one taken draws a shot
