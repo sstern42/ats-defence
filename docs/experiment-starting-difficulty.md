@@ -196,6 +196,44 @@ produces it is a sixth of the sample, and it is biased rather than merely
 small: somebody testing their own game abandons mid-run constantly, reloads
 repeatedly, and already knows what every tower does.
 
+### Phone sessions are in the exposure check and in nothing else
+
+A quarter of the exposures on this experiment come from a device that could
+never have played the mode it varies. Measured on 9 August 2026: 46 of 171
+bucketed sessions are `device_type = 'mobile'`, and 44 of those never started a
+run in any mode at all. Forty were phones bucketed and then shown the refusal
+that stood until 1.7.0, four are phones that reached the phone board and did not
+start a run, one played the back channel, and one is a test of the phone board.
+
+**It changes no metric here, and the reason is the denominator.** The primary,
+the secondary and the guardrail are all denominated on runs with a
+`game_started` and `mode = 'classic'`. A session that never started a classic
+run contributes nothing to either half of any of them, so all three are already
+clean and were clean before anybody noticed this.
+
+Where it does appear is query 7, the exposure cross-check, which counts sessions
+rather than runs. That is the query with no mode filter on it, deliberately, and
+the argument in "Global properties" in `CLAUDE.md` is that bucketing happens
+before a mode is chosen. Phones do not weaken it. **They are validly bucketed:**
+GrowthBook assigned them, the assignment was fair, and a sample ratio check is
+asking whether the randomiser splits evenly rather than whether the players
+went on to play anything. Removing them would shrink the sample of the very
+thing that check exists to test.
+
+What has to be avoided is reading query 7's session counts as a count of classic
+players, because a quarter of them are not. It is a check on the randomiser and
+it is not a population.
+
+One thing to know when reading exposures written before 9 August 2026. Until
+then a phone opened its session before the mode was decided, so its exposure
+says `classic` whatever it went on to play, and the only way to find these
+sessions is the `device_type` proxy used in the paragraph above. From 1.7.1 the
+mode is decided from the shape of the screen before the session opens, so a
+phone exposure says `oneClickApply` and can be filtered directly. The back
+channel session above is the reason the proxy is a proxy rather than a rule: it
+is a mobile user agent on a screen large enough to clear the gate, it could have
+chosen classic, and it belongs in the check.
+
 ### Why there was no traffic, and what it was not
 
 Worth recording, because the obvious suspect was checked and cleared.
