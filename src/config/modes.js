@@ -34,6 +34,14 @@
  * - `entryJitter` is how far back from the first waypoint an applicant may
  *   start, so a crowd walks on with a ragged front rather than in a rank.
  * - `pressure` is applicants pushing back, and null is them not doing so.
+ * - `scoring` is what a run in this mode is worth, and `startingLives` is how
+ *   much of the third term a run begins with. Both are here rather than read
+ *   globally because the leaderboard's ceiling is computed per mode, and a
+ *   board that sends two hundred applicants measured at a board that sends
+ *   seventy has a ceiling so generous it excludes nothing. The three desktop
+ *   modes point at `GAME`, which is the same object they have always been
+ *   scored by, so nothing about any of them moves: what changes is that the
+ *   function reading them no longer has to know which mode it was handed.
  * - `scenery` is where the furniture stands, from scenery.js. It changes
  *   nothing about how a run plays and it is a mode setting anyway, because the
  *   two boards have different floors free: a corridor leaves pockets between
@@ -45,7 +53,8 @@ import {
   PATH_WAYPOINTS,
   RADIAL_BOARD
 } from './path.js';
-import { MOBILE_SCORING } from './mobile.js';
+import { GAME } from './game.js';
+import { MOBILE_RUN, MOBILE_SCORING } from './mobile.js';
 import {
   BACK_CHANNEL_SCENERY,
   CLASSIC_SCENERY,
@@ -67,7 +76,9 @@ export const MODES = {
     trapSnapDistance: 46,
     entryJitter: 0,
     pressure: null,
-    scenery: CLASSIC_SCENERY
+    scenery: CLASSIC_SCENERY,
+    scoring: GAME.scoring,
+    startingLives: GAME.startingLives
   },
   openField: {
     waypoints: OPEN_FIELD_SPINE,
@@ -114,7 +125,9 @@ export const MODES = {
       range: 96,
       suspensionMs: 9000,
       recoveryPerSecond: 4
-    }
+    },
+    scoring: GAME.scoring,
+    startingLives: GAME.startingLives
   },
 
   /**
@@ -148,7 +161,9 @@ export const MODES = {
     trapSnapDistance: 0,
     entryJitter: 70,
     pressure: null,
-    scenery: BACK_CHANNEL_SCENERY
+    scenery: BACK_CHANNEL_SCENERY,
+    scoring: GAME.scoring,
+    startingLives: GAME.startingLives
   },
 
   /**
@@ -175,6 +190,13 @@ export const MODES = {
    * term would swamp the other two, and the leaderboard's ceiling would be so
    * large it stopped excluding anything. The reasoning is in config/mobile.js
    * beside the numbers.
+   *
+   * `startingLives` is the third term's maximum, and on this board a life is a
+   * point of tower integrity: two hundred of them rather than ten, weighted at
+   * two rather than forty. There are no lives here in the sense the other three
+   * modes mean, and the field is called what it is called because one function
+   * computes the ceiling for all four and a mode spelling its own terms
+   * differently is a mode that function has to know about by name.
    */
   oneClickApply: {
     shape: 'phone',
@@ -182,6 +204,7 @@ export const MODES = {
     waves: MOBILE_WAVES,
     experimentalFirstWave: false,
     scoring: MOBILE_SCORING,
+    startingLives: MOBILE_RUN.towerHealth,
     pressure: null
   }
 };

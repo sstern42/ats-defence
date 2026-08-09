@@ -19,7 +19,6 @@
  * list the ceiling is computed from.
  */
 import { APPLICANTS } from '../../../src/config/applicants.js';
-import { GAME } from '../../../src/config/game.js';
 import { MODES } from '../../../src/config/modes.js';
 import { WAVE_ONE_VARIANTS } from '../../../src/config/waves.js';
 
@@ -71,8 +70,28 @@ export function waveCount(modeKey) {
  * one that lets a mediocre forgery through.
  */
 export function maximumScore(finalWave, modeKey) {
-  const { perWaveCleared, perRejection, perLifeRemaining } = GAME.scoring;
   const mode = MODES[modeKey];
+
+  // Off the mode rather than out of GAME, which is the whole of the fix and
+  // the reason this comment is longer than the change.
+  //
+  // The weights used to be read globally, from the one mode that had any. That
+  // was correct while every board was scored the same way and became silently
+  // wrong the moment one was not. The phone board pays four a rejection over
+  // 188 of them and forty times less for what is left of the defence; measured
+  // at classic's weights it came out at 3240 against a perfect run's 2352, so
+  // there was 888 points of room to invent a score in and still be waved
+  // through. The check was still running and had stopped being a check.
+  //
+  // Read off the mode it now comes out at 2352 exactly, which is a perfect run
+  // and nothing above one. That is tighter than the other three boards sit and
+  // it is not a problem: the comparison is `>`, so the perfect run passes, and
+  // this board has no experimental first wave to leave slack for.
+  //
+  // The three desktop modes point at the same GAME object they always did, so
+  // this reads the identical numbers for them and no existing score changes
+  // standing.
+  const { perWaveCleared, perRejection, perLifeRemaining } = mode.scoring;
 
   let rejections = busiestFirstWave(mode);
 
@@ -83,7 +102,7 @@ export function maximumScore(finalWave, modeKey) {
   return (
     finalWave * perWaveCleared +
     rejections * perRejection +
-    GAME.startingLives * perLifeRemaining
+    mode.startingLives * perLifeRemaining
   );
 }
 

@@ -780,12 +780,12 @@ export default class MobileGameScene extends Phaser.Scene {
   }
 
   score() {
-    const { perIntakeCleared, perRejection, perTolerancePoint } = MOBILE_SCORING;
+    const { perWaveCleared, perRejection, perLifeRemaining } = MOBILE_SCORING;
 
     return (
-      this.waveIndex * perIntakeCleared +
+      this.waveIndex * perWaveCleared +
       this.rejected * perRejection +
-      this.health * perTolerancePoint
+      this.health * perLifeRemaining
     );
   }
 
