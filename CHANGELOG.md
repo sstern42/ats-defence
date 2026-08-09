@@ -7,6 +7,26 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.11.1 - 2026-08-09
+
+- Raise the bar now shows itself on the phone board. Each one taken draws a shot
+  wider and warmer, from the turret's pale blue through to the orange the
+  desktop board gives the screening that rejects outright. It was the last card
+  in the pool whose effect a player could not see: a shorter reload could at
+  least be counted, but a bigger number per shot leaves nothing behind except
+  health bars emptying in fewer hits, which nobody holds in their head from one
+  intake to the next.
+- Two readings rather than one, because the board is drawn at 720 by 1280 and
+  then scaled down to whatever phone is holding it. A pixel of extra width on
+  its own is a rounding error at that size. The colour is what survives it.
+- The width stops at four, which is the gap between parallel lines minus enough
+  to still see it. A wider line would close it and merge the parallel screenings
+  back into the single beam they were drawn to stop being, so one card's signal
+  cannot eat the other's.
+- Cosmetic and only cosmetic. The damage, the target and the reload are what
+  they were, nothing in the simulator can see it, and a run that takes the card
+  is the same run it measured at.
+
 ## 1.11.0 - 2026-08-09
 
 - Salary Expectations reaches the phone board, which is the sixth screening

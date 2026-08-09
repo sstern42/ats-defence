@@ -222,6 +222,13 @@ export default class MobileGameScene extends Phaser.Scene {
     // config/mobile.js at MOBILE_TRACER.
     this.screenings = 1;
 
+    // How many times the bar has been raised, which is what a shot's width and
+    // colour are drawn from. Another drawing number for the same reason, and
+    // the reasoning for the card needing one is at MOBILE_TRACER too: damage is
+    // the other card whose effect the board never showed, and the worse of the
+    // two, because a shorter reload can at least be counted.
+    this.raises = 0;
+
     const definition = this.stats;
 
     this.range = this.add.graphics().setDepth(0);
@@ -911,6 +918,13 @@ export default class MobileGameScene extends Phaser.Scene {
       this.screenings = Math.min(this.screenings + 1, MOBILE_TRACER.maxLines);
     }
 
+    // Raise the bar is the other one the board did not show, and it is keyed on
+    // the stat for the same reason: a card added later that buys the same
+    // damage is the same card as far as a shot looks.
+    if (card.stat === 'damage') {
+      this.raises += 1;
+    }
+
     this.drawRange();
   }
 
@@ -1563,18 +1577,43 @@ export default class MobileGameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ drawing
 
   recordShot(target, time) {
+    const { width, colour } = this.tracerLook();
+
     this.shots.push({
       x: target.x,
       y: target.y,
       until: time + this.tower.definition.tracerDurationMs,
 
-      // Carried on the shot rather than read off the scene when it is drawn.
-      // Cards are taken between intakes with the board held, so nothing is in
-      // flight when the count changes and the two can never differ today. It is
-      // still the right field: a tracer is a record of a shot that has already
-      // happened, and what it looked like is a fact about that shot.
-      lines: this.screenings
+      // All three carried on the shot rather than read off the scene when it is
+      // drawn. Cards are taken between intakes with the board held, so nothing
+      // is in flight when any of them change and they can never differ today. It
+      // is still the right place: a tracer is a record of a shot that has
+      // already happened, and what it looked like is a fact about that shot.
+      lines: this.screenings,
+      width,
+      colour
     });
+  }
+
+  /**
+   * What a shot is drawn with, given how many times the bar has been raised.
+   *
+   * Nought raises is the tower's own colour at the base width, so a run that
+   * never takes the card draws exactly what it drew before. Past that it widens
+   * a step at a time to a cap tied to the spacing between parallel lines, and
+   * warms a stop at a time to the end of the ramp. Both caps and the reasoning
+   * for having two readings rather than one are in config/mobile.js.
+   */
+  tracerLook() {
+    const { width, widthStep, maxWidth, heat } = MOBILE_TRACER;
+
+    return {
+      width: Math.min(width + this.raises * widthStep, maxWidth),
+      colour:
+        this.raises === 0
+          ? this.stats.tracerColour
+          : heat[Math.min(this.raises, heat.length) - 1]
+    };
   }
 
   drawTracers(time) {
@@ -1597,7 +1636,8 @@ export default class MobileGameScene extends Phaser.Scene {
   }
 
   /**
-   * One shot, drawn as one line per screening running at once.
+   * One shot, drawn as one line per screening running at once, as wide and as
+   * warm as the bar has been raised.
    *
    * The lines are genuinely parallel rather than a fan, offset by the same
    * amount at both ends, because a fan converging on the target is one screening
@@ -1606,17 +1646,19 @@ export default class MobileGameScene extends Phaser.Scene {
    * unupgraded run draws exactly what it drew before: at one line the offset is
    * nought and this is the old lineBetween with arithmetic in front of it.
    *
-   * It says nothing by movement, which is the rule on this board. The count is
-   * there for as long as the tracer is, it is the same count on every shot, and a
-   * player who has asked their system for less motion sees the same four lines as
-   * everybody else. Compare the floating damage numbers argument at buildHud:
-   * this is legible for the same reason those were not.
+   * It says nothing by movement, which is the rule on this board. The count, the
+   * width and the colour are there for as long as the tracer is, they are the
+   * same on every shot, and a player who has asked their system for less motion
+   * sees what everybody else sees. Compare the floating damage numbers argument
+   * at buildHud: this is legible for the same reason those were not.
    */
   drawShot(shot) {
     const { x: fromX, y: fromY } = this.tower;
     const lines = shot.lines ?? 1;
+    const width = shot.width ?? MOBILE_TRACER.width;
+    const colour = shot.colour ?? this.tower.definition.tracerColour;
 
-    this.tracers.lineStyle(2, this.tower.definition.tracerColour, 0.8);
+    this.tracers.lineStyle(width, colour, 0.8);
 
     if (lines === 1) {
       this.tracers.lineBetween(fromX, fromY, shot.x, shot.y);

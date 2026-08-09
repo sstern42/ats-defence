@@ -82,31 +82,75 @@ export const MOBILE_TOWER = {
 };
 
 /**
- * What a shot looks like once Screen in parallel has been taken.
+ * What a shot looks like, and the two cards it is how the board shows.
  *
- * That card buys a shorter reload, which is the least visible thing a card in
- * this pool can buy. A player who takes it sees a turret firing at the same
- * target with the same tracer and has to count the gaps between shots to know
- * anything happened, and on a board where a Career Changer is absorbing
- * everything the turret has, they will be counting for a while. The other five
- * cards all show themselves: the range ring grows, the splash catches somebody
- * standing behind, the tolerance bar refills, a Keyword Stuffer stops walking
- * through untouched.
+ * Four of the six show themselves without help: the range ring grows, the
+ * splash catches somebody standing behind, the tolerance bar refills, and a
+ * Keyword Stuffer stops walking through untouched. The other two buy a number
+ * the player is never shown, so a shot carries them instead.
  *
- * So a shot draws one line per screening running at once, side by side, and the
- * count goes up with the card. It is cosmetic and deliberately so: the damage,
- * the target and the reload are exactly what they were, and nothing in
- * `tools/simulate-mobile.mjs` can see this. A card that measures at 13.5% still
- * measures at 13.5%.
+ * ## Screen in parallel, as a count of lines
+ *
+ * That card buys a shorter reload. A player who takes it sees a turret firing
+ * at the same target with the same tracer and has to count the gaps between
+ * shots to know anything happened, and on a board where a Career Changer is
+ * absorbing everything the turret has, they will be counting for a while. So a
+ * shot draws one line per screening running at once, side by side, and the
+ * count goes up with the card.
  *
  * `spacing` is the gap between neighbouring lines, and `maxLines` is where it
  * stops. The reload floor allows about seven of these cards to matter, and seven
  * lines seven pixels apart is a beam rather than a set of parallel screenings,
  * which says less than one line did. Four is where it still reads as counted.
+ *
+ * ## Raise the bar, as the weight and the heat of them
+ *
+ * Damage is the other one, and it is worse than the reload rather than better.
+ * A shorter reload can at least be counted. A bigger number per shot cannot be
+ * seen at all: the same turret fires at the same rate at the same target, and
+ * the only trace of the card is that health bars empty in fewer shots, which is
+ * a thing nobody holds in their head across intakes. The flagship of this pool
+ * is the card the design measures at 29.4% and the player watches for four
+ * minutes without ever seeing it arrive.
+ *
+ * So each Raise the bar widens the lines by `widthStep` and moves them one stop
+ * along `heat`, which runs from the tower's own pale blue into the warm orange
+ * the desktop board already gives its hardest hitting screening. Two readings
+ * rather than one, because this board is drawn at 720 by 1280 and then scaled
+ * down to whatever phone is holding it: a line two pixels wide lands at about
+ * one, and a pixel of extra width on its own is not a signal, it is a rounding
+ * error. Colour survives the scaling. Width says which of two warm shots is the
+ * warmer, once somebody has taken two.
+ *
+ * `maxWidth` is 4 and it is tied to `spacing` rather than picked. Four lines
+ * seven apart leaves three pixels of gap, and a line six wide closes it, so a
+ * player stacking damage would watch the parallel screenings above merge back
+ * into the single beam they were drawn to stop being. One card's signal must not
+ * eat the other's. `heat` stops after three for the reason `maxLines` stops
+ * after four: past that the stops are too close together to read as steps.
+ *
+ * The colours deliberately go warm rather than anywhere else. The other thing
+ * this board draws in its own colour is the salary pad, which is yellow, and a
+ * ramp through yellow would have the shots agreeing with it about nothing.
+ *
+ * ## Both are cosmetic and deliberately so
+ *
+ * The damage, the target and the reload are exactly what they were, and nothing
+ * in `tools/simulate-mobile.mjs` can see any of this. The cards that measure at
+ * 13.5% and 7.5% still measure at 13.5% and 7.5%.
  */
 export const MOBILE_TRACER = {
   spacing: 7,
-  maxLines: 4
+  maxLines: 4,
+
+  width: 2,
+  widthStep: 1,
+  maxWidth: 4,
+
+  // One stop per Raise the bar taken, clamped at the last. The first is the
+  // Knockout Question's tracer on the desktop board, which is the tower that
+  // rejects outright, so the association is already in the palette.
+  heat: [0xd98a6a, 0xe0703c, 0xe04a3c]
 };
 
 /**
