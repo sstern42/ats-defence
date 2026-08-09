@@ -43,6 +43,7 @@
  *   node tools/simulate-mobile.mjs --runs 2000
  *   node tools/simulate-mobile.mjs --runs 2000 --policy random
  *   node tools/simulate-mobile.mjs --runs 2000 --bulk none
+ *   node tools/simulate-mobile.mjs --runs 2000 --trap ahead
  *
  * ## The second thing being played, from 1.10.0
  *
@@ -59,12 +60,31 @@
  * 1.7.0 game exactly, and that is what makes the browser check below still worth
  * something. Any difference between `none` and the others is what the
  * superweapon is worth, measured rather than asserted.
+ *
+ * ## The third thing being played, from 1.11.0
+ *
+ * Salary expectations, which is a pad laid on the floor rather than a button, so
+ * it is the first thing on this board whose value depends on *where* rather than
+ * on *when*. `--trap` models it on the same terms the other two are modelled:
+ * policies that bracket what a person does rather than a solver that plays it
+ * better than anybody could.
+ *
+ * The model is exact in the way that matters. An applicant is an angle and a
+ * radius walking inwards, a pad is an angle and a radius sitting still, and
+ * whether one treads on the other is the same distance calculation splash
+ * already uses. What it cannot model is the thumb: a person taps a spot they
+ * judged half a second ago on a board full of moving dots, and every policy in
+ * here places on this tick's positions with perfect information. So the trap
+ * numbers should be read as the ceiling of what a placement is worth rather than
+ * as what a player will get out of it, which is the opposite of the reading the
+ * card policies want.
  */
 import { APPLICANTS } from '../src/config/applicants.js';
 import {
   MOBILE_RUN,
   MOBILE_SUPERWEAPON,
-  MOBILE_TOWER
+  MOBILE_TOWER,
+  MOBILE_TRAP
 } from '../src/config/mobile.js';
 import { RADIAL_BOARD } from '../src/config/path.js';
 import {
@@ -253,13 +273,118 @@ function apply(run, card) {
   );
 }
 
-/** Straight-line distance between two applicants, from angle and radius. */
+/**
+ * Straight-line distance between two positions, from angle and radius.
+ *
+ * Takes anything carrying the two, which is every applicant and also a pad on
+ * the floor. A trap is a position that does not move, so the same law of cosines
+ * that decides splash decides who has trodden on one.
+ */
 function apart(a, b) {
   return Math.sqrt(
     a.radius * a.radius +
       b.radius * b.radius -
       2 * a.radius * b.radius * Math.cos(a.angle - b.angle)
   );
+}
+
+/**
+ * How far in front of somebody a pad is laid, in pixels.
+ *
+ * A pad laid on the spot somebody is standing goes off on them alone and
+ * immediately, which is a player spending the cooldown to hit one applicant.
+ * Laid ahead of them, it is still there when whoever was behind them arrives,
+ * which is the whole of why it is worth putting somewhere rather than on
+ * somebody. Fifty is a little under a second of walking for most types.
+ */
+const TRAP_LEAD = 50;
+
+/**
+ * Where a player lays the pad, and whether they bother.
+ *
+ * Four policies, bracketing rather than solving, the same as the other two
+ * decisions. `none` is the board without the pad, and is the game every number
+ * recorded before 1.11.0 was measured on. `blind` taps somewhere a person could
+ * walk without looking at where anybody is, which is the floor. `front` lays it
+ * just in front of whoever is nearest the desk. `cluster` holds out for a spot
+ * that catches two, and gives up holding out after a couple of seconds rather
+ * than saving a pad it never spends.
+ *
+ * **The names were `eager` and `ahead` while this was being tuned, and they were
+ * the wrong way round.** `front` was written as the obvious, slightly thoughtless
+ * play and `cluster` as the considered one, and `front` measures three points
+ * better. The reason is the board: every applicant walks a straight line to the
+ * same desk, so the ground just in front of the leader is where all those lines
+ * are closest together, and a heuristic that goes looking for a crowd further out
+ * is choosing a thinner part of the board. So they are named for what they do
+ * rather than for how clever they were meant to be.
+ */
+function wantsTrap(policy, live, waitedMs) {
+  if (policy === 'none' || live.length === 0) {
+    return null;
+  }
+
+  // Anywhere somebody could walk, chosen without looking. The angle is free
+  // because arrivals come from every direction, so this is a fair model of a
+  // thumb going down on a board rather than a deliberately bad placement.
+  if (policy === 'blind') {
+    return {
+      angle: Math.random() * Math.PI * 2,
+      radius:
+        RADIAL_BOARD.arrivalRadius +
+        Math.random() * (RADIAL_BOARD.spawnRadius - RADIAL_BOARD.arrivalRadius)
+    };
+  }
+
+  // Only where somebody could actually tread on it. Inside the desk is under
+  // the tower and outside the ring is floor nobody crosses, and the board
+  // refuses a tap in either place for the same reason.
+  const spots = live
+    .map((who) => ({
+      angle: who.angle,
+      radius: Math.max(who.radius - TRAP_LEAD, RADIAL_BOARD.arrivalRadius + 4)
+    }))
+    .filter((spot) => spot.radius <= RADIAL_BOARD.spawnRadius);
+
+  if (spots.length === 0) {
+    return null;
+  }
+
+  if (policy === 'front') {
+    // Whoever has least walking left, which is the applicant the eye is on and
+    // the one the turret is already shooting at.
+    return spots.sort((a, b) => a.radius - b.radius)[0];
+  }
+
+  // How many are close enough to that spot to be caught by it, counted on this
+  // tick's positions. It undercounts, since the crowd is still converging and
+  // more of them will be inside the radius by the time the pad goes off, which
+  // is the right direction for a policy to be wrong in.
+  const scored = spots
+    .map((spot) => ({
+      spot,
+      caught: live.filter(
+        (who) => apart(who, spot) <= MOBILE_TRAP.triggerRadius * 1.5
+      ).length
+    }))
+    .sort((a, b) => b.caught - a.caught);
+
+  const best = scored[0];
+
+  // Two is the whole rule. One is a pad spent on somebody the turret was going
+  // to reach anyway, and holding out for three means never laying it in the
+  // early intakes, where nobody arrives in threes.
+  //
+  // The patience runs out after two seconds, and it has to. The rearm is
+  // measured from laying, so a pad held back does not bank anything: it delays
+  // the next one as well. A policy that waits indefinitely for a crowd is
+  // therefore not a more careful player, it is a player with fewer pads, which
+  // is what the first version of this measured and misread.
+  if (best.caught < 2 && waitedMs < 2000) {
+    return null;
+  }
+
+  return best.caught >= 2 ? best.spot : spots.sort((a, b) => a.radius - b.radius)[0];
 }
 
 function spawn(typeKey, returning) {
@@ -332,7 +457,7 @@ function wantsBulk(run, policy, live, bossHere) {
   return run.health <= run.maxHealth * 0.25 && crowd >= 8;
 }
 
-function playRun(policy, bulkPolicy) {
+function playRun(policy, bulkPolicy, trapPolicy) {
   const run = {
     stats: { ...MOBILE_TOWER, splashRadius: 0 },
     beatsImmunity: false,
@@ -344,6 +469,14 @@ function playRun(policy, bulkPolicy) {
 
     charges: MOBILE_SUPERWEAPON.charges,
     bulkUsed: 0,
+
+    // Pads laid over the run, and how many rejections went to them. The second
+    // is what says whether the thing is pulling its weight, since a pad that
+    // goes off on somebody the turret would have killed anyway is worth nothing
+    // and is still counted as laid.
+    trapsLaid: 0,
+    trapKills: 0,
+    trapsStale: 0,
 
     // What the tower had left at the end of each intake it finished, which is
     // the only per intake reading that says where the pressure actually is. The
@@ -357,7 +490,7 @@ function playRun(policy, bulkPolicy) {
       apply(run, pick(drawCards(run.taken), policy));
     }
 
-    const finished = playWave(run, MOBILE_WAVES[index], bulkPolicy);
+    const finished = playWave(run, MOBILE_WAVES[index], bulkPolicy, trapPolicy);
 
     if (!finished) {
       return { outcome: 'filled', cleared: index, ...totals(run) };
@@ -378,13 +511,16 @@ function totals(run) {
     left: run.left,
     taken: run.taken,
     bulkUsed: run.bulkUsed,
+    trapsLaid: run.trapsLaid,
+    trapKills: run.trapKills,
+    trapsStale: run.trapsStale,
     bossStopped: run.bossStopped ?? false,
     bossSeen: run.bossSeen ?? false
   };
 }
 
 /** One intake. Returns false if the tower ran out partway through it. */
-function playWave(run, wave, bulkPolicy) {
+function playWave(run, wave, bulkPolicy, trapPolicy) {
   const pending = [];
 
   wave.groups.forEach((group) => {
@@ -413,6 +549,12 @@ function playWave(run, wave, bulkPolicy) {
   let nextBulkAt = 0;
   let released = false;
 
+  // The pad, and when another may be laid. Both are per intake because the game
+  // is: an unsprung pad is picked up when the intake ends, so a placement that
+  // caught nobody costs the rest of that intake rather than the rest of the run.
+  let trap = null;
+  let nextTrapAt = 0;
+
   for (;;) {
     while (pending.length > 0 && pending[0].at <= now) {
       live.push(spawn(pending.shift().typeKey, false));
@@ -440,6 +582,58 @@ function playWave(run, wave, bulkPolicy) {
           return false;
         }
       }
+    }
+
+    // The pad. Laid first, then sprung, in that order and in one tick, because
+    // a pad laid on top of somebody already standing there goes off immediately
+    // in the game too: `checkTraps` runs on the frame after `layTrap` and does
+    // not care how long the thing has been down.
+    if (trap === null && now >= nextTrapAt) {
+      const spot = wantsTrap(trapPolicy, live, now - nextTrapAt);
+
+      if (spot) {
+        trap = { ...spot, staleAt: now + MOBILE_TRAP.staleMs };
+        nextTrapAt = now + MOBILE_TRAP.rearmDelayMs;
+        run.trapsLaid += 1;
+      }
+    }
+
+    // A pad nobody has answered goes stale, which is what stops this being a
+    // question of how fast the player can tap rather than where.
+    if (trap !== null && now >= trap.staleAt) {
+      trap = null;
+      run.trapsStale += 1;
+    }
+
+    if (
+      trap !== null &&
+      live.some((who) => apart(who, trap) <= MOBILE_TRAP.triggerRadius)
+    ) {
+      for (let i = live.length - 1; i >= 0; i -= 1) {
+        const who = live[i];
+
+        if (apart(who, trap) > MOBILE_TRAP.triggerRadius) {
+          continue;
+        }
+
+        who.health -= MOBILE_TRAP.damage;
+
+        if (who.health <= 0) {
+          if (who.definition.arrivalCost !== undefined) {
+            run.bossStopped = true;
+          }
+
+          if (who.definition.returns && !who.hasReturned) {
+            returns.push(who.typeKey);
+          }
+
+          live.splice(i, 1);
+          run.rejected += 1;
+          run.trapKills += 1;
+        }
+      }
+
+      trap = null;
     }
 
     // The bulk reject, before the turret fires, so a charge spent this tick is
@@ -550,6 +744,11 @@ const runs = Number(flag('runs', validating ? 400 : 2000));
 // a board with no button on it. See the note on OBSERVED.
 const bulkPolicy = validating ? 'none' : flag('bulk', 'saving');
 
+// Off while validating for the same reason the button is: those browser runs
+// were played on a board with no pad on it, and a model laying one would be
+// checked against a game nobody played.
+const trapPolicy = validating ? 'none' : flag('trap', 'none');
+
 // And the curve is cut short to match, since those runs never saw a ninth
 // intake and printing one under them would invite a comparison there is nothing
 // to compare against.
@@ -562,12 +761,14 @@ const policies = validating
     : ['random', 'sensible'];
 
 policies.forEach((policy) => {
-  const results = Array.from({ length: runs }, () => playRun(policy, bulkPolicy));
+  const results = Array.from({ length: runs }, () =>
+    playRun(policy, bulkPolicy, trapPolicy)
+  );
   const held = results.filter((r) => r.outcome === 'held');
   const mean = (pick) =>
     results.reduce((sum, r) => sum + pick(r), 0) / results.length;
 
-  console.log(`\n${policy}, bulk ${bulkPolicy} (${runs} runs)`);
+  console.log(`\n${policy}, bulk ${bulkPolicy}, trap ${trapPolicy} (${runs} runs)`);
   console.log(`  held the vacancy   ${((held.length / runs) * 100).toFixed(1)}%`);
   console.log(`  mean rejections    ${mean((r) => r.rejected).toFixed(0)}`);
   console.log(`  mean arrivals      ${mean((r) => r.arrived).toFixed(0)}`);
@@ -576,6 +777,16 @@ policies.forEach((policy) => {
     `  tower left on wins ${held.length ? (held.reduce((s, r) => s + r.health, 0) / held.length).toFixed(0) : 'n/a'}`
   );
   console.log(`  mean bulk rejects  ${mean((r) => r.bulkUsed).toFixed(2)} of ${MOBILE_SUPERWEAPON.charges}`);
+  console.log(
+    `  mean pads laid     ${mean((r) => r.trapsLaid).toFixed(1)}, ${mean((r) => r.trapsStale).toFixed(1)} of them stale`
+  );
+
+  // Against the rejections rather than on its own, since a pad that goes off on
+  // somebody the turret was about to reach anyway has cost the run nothing and
+  // bought it nothing, and the count of pads laid cannot tell the difference.
+  console.log(
+    `  rejected by a pad  ${mean((r) => r.trapKills).toFixed(1)} of ${mean((r) => r.rejected).toFixed(0)}`
+  );
 
   // Read off the runs that got to the ninth rather than off all of them, since
   // a run that died in the sixth says nothing about whether the boss can be

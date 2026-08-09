@@ -9,7 +9,10 @@ import {
   MOBILE_TOWER_KEY,
   MOBILE_LEAK_SHAKE,
   MOBILE_SCORING,
-  MOBILE_TOWER_KEY_UPDATED
+  MOBILE_TOWER_KEY_UPDATED,
+  MOBILE_TRACER,
+  MOBILE_TRAP,
+  MOBILE_TRAP_KEY
 } from '../../config/mobile.js';
 import { introKeyFor } from '../../config/intros.js';
 import { RADIAL_BOARD } from '../../config/path.js';
@@ -30,6 +33,7 @@ import {
   trackApplicantLeaked,
   trackGameOver,
   trackGameStarted,
+  trackTowerPlaced,
   trackUpgradeOffered,
   trackWaveCompleted,
   trackWaveStarted
@@ -44,6 +48,7 @@ import {
 import { FEEL, fadeOut, landing, nudge, shake } from '../../services/feel.js';
 import Applicant from '../../entities/Applicant.js';
 import Tower from '../../entities/Tower.js';
+import Trap from '../../entities/Trap.js';
 
 /**
  * The phone game's loop, for issue #47. One tower in the middle, applicants
@@ -115,6 +120,15 @@ const BULK_FILL_SPENT = 0x1e2229;
 const BULK_EDGE = 0x5f8ba6;
 const BULK_EDGE_SPENT = 0x2f363f;
 
+/**
+ * The pad's line, under the button's. It is the only thing on this board that
+ * explains where a tap goes, and it is permanent for the reason the bulk
+ * reject's note is: a control nothing explains is a control nobody uses, and
+ * this one asks the player to touch a part of the screen that has never done
+ * anything before.
+ */
+const TRAP_NOTE_Y = 1160;
+
 export default class MobileGameScene extends Phaser.Scene {
   constructor() {
     super('MobileGameScene');
@@ -164,6 +178,12 @@ export default class MobileGameScene extends Phaser.Scene {
     this.bulkUsed = 0;
     this.nextBulkAt = 0;
 
+    // The pad on the floor, when another may be laid, and when this one goes
+    // unanswered. All three are cleared and re-cleared per intake by openTrap.
+    this.trap = null;
+    this.nextTrapAt = 0;
+    this.trapStaleAt = 0;
+
     this.waveIndex = 0;
     this.spawnsRemaining = 0;
     this.waveTimers = [];
@@ -192,6 +212,15 @@ export default class MobileGameScene extends Phaser.Scene {
     // is: on the desktop board the scene resolves it too.
     this.stats = { ...MOBILE_TOWER, splashRadius: 0 };
     this.maxHealth = MOBILE_RUN.towerHealth;
+
+    // How many screenings a shot is drawn as, which is one until Screen in
+    // parallel says otherwise. It is a drawing number rather than a stat, so it
+    // sits beside them rather than on them: nothing reads it except drawTracers,
+    // and a tower definition carrying a field only the renderer wants would be
+    // the first thing to go looking for in a balance pass and the last thing to
+    // find anything in. The reasoning for the card needing this at all is in
+    // config/mobile.js at MOBILE_TRACER.
+    this.screenings = 1;
 
     const definition = this.stats;
 
@@ -226,6 +255,7 @@ export default class MobileGameScene extends Phaser.Scene {
   update(time) {
     if (!this.over) {
       this.fire(time);
+      this.checkTrap(time);
       this.checkWaveComplete();
     }
 
@@ -233,6 +263,8 @@ export default class MobileGameScene extends Phaser.Scene {
     this.drawHealthBars();
     this.drawBar();
     this.watchBulkReject();
+    this.watchTrapNote();
+    this.showRating();
   }
 
   /**
@@ -296,7 +328,7 @@ export default class MobileGameScene extends Phaser.Scene {
    *
    * Drawn on this scene rather than on a UIScene of its own. The desktop splits
    * them because its HUD is a six button palette with state to keep in step; this
-   * is one line of text that is told what to say when the intake changes.
+   * is two lines of text that are told what to say when their number moves.
    */
   buildHud() {
     this.intakeLabel = this.add
@@ -308,9 +340,66 @@ export default class MobileGameScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(100);
 
+    this.buildRating();
+
     this.showIntake();
     this.buildBulkReject();
+    this.buildTrapNote();
     this.buildSwitches();
+  }
+
+  /**
+   * The rating as it stands, which is the score the run would submit if it ended
+   * on this frame.
+   *
+   * The real number rather than a version that only goes up. Two of its three
+   * terms are things earned and the third is the tolerance left, so an applicant
+   * getting in takes some off, and that is the point: the readout that quietly
+   * kept climbing while the vacancy was being filled would be telling a player
+   * the opposite of what the board is. It also has to be the number the summary
+   * and the leaderboard will say, and a banked-only version would part company
+   * with both the moment anybody got in.
+   *
+   * Beside the intake counter rather than under it. The band from y 122 is where
+   * a type gets introduced on a card, and the band under the ring is where
+   * somebody can spawn, so the counter's own line is the only piece of this
+   * board that is reliably free. Quieter than the counter it sits next to, since
+   * which intake this is decides what the player is watching for and this does
+   * not decide anything at all.
+   */
+  buildRating() {
+    this.ratingLabel = this.add
+      .text(RADIAL_BOARD.board.width - 30, 78, '', {
+        fontFamily: FONT,
+        fontSize: '24px',
+        color: '#6f7d8c'
+      })
+      .setOrigin(1, 0.5)
+      .setDepth(100);
+
+    this.ratingShown = null;
+    this.showRating();
+  }
+
+  /**
+   * Redraws the rating when, and only when, it has moved.
+   *
+   * Polled from `update` rather than pushed from the four places that change it,
+   * on the same grounds `watchBulkReject` is: two of them are a rejection and an
+   * arrival, which are the busiest moments on this board, and a scene emitting
+   * events to itself to keep a Text in step is more machinery than a comparison.
+   * The guard is the whole of why it is cheap, since re-rendering a Text every
+   * frame to say what it already said is the expensive way round.
+   */
+  showRating() {
+    const rating = this.score();
+
+    if (rating === this.ratingShown) {
+      return;
+    }
+
+    this.ratingShown = rating;
+    this.ratingLabel.setText(`${COPY.hud.rating} ${rating}`);
   }
 
   /**
@@ -584,6 +673,7 @@ export default class MobileGameScene extends Phaser.Scene {
     const wave = MOBILE_WAVES[this.waveIndex];
 
     this.phase = 'running';
+    this.openTrap();
     this.showIntake();
     this.waveStartedAt = this.time.now;
     this.healthAtWaveStart = this.health;
@@ -812,6 +902,15 @@ export default class MobileGameScene extends Phaser.Scene {
       MIN_FIRE_INTERVAL_MS
     );
 
+    // Screen in parallel is the one card whose effect the board does not show,
+    // so a shot is drawn as one line per screening running at once. Keyed on the
+    // stat rather than the id, on the same terms the two branches above are: this
+    // method is the one place that knows what a stat means, and a card added
+    // later that buys the same reload is the same card as far as a shot looks.
+    if (card.stat === 'fireIntervalMs') {
+      this.screenings = Math.min(this.screenings + 1, MOBILE_TRACER.maxLines);
+    }
+
     this.drawRange();
   }
 
@@ -1037,6 +1136,255 @@ export default class MobileGameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * The pad's line, and the tap that lays one.
+   *
+   * The tap is taken on the scene rather than on a zone, because the target is
+   * most of the board and a zone that size would sit over the switches and the
+   * button. `trapSpot` is what decides whether a tap meant anything, and it does
+   * it by asking where on the floor the tap was rather than what it was over,
+   * which is the cheaper of the two ways round and cannot fall out of step with
+   * a control being moved.
+   *
+   * On pointer up rather than down, which is the rule the desktop board settled
+   * on for a finger: a preview follows the drag and the thing lands where the
+   * finger comes off. There is no preview here, since a pad is a single tap on a
+   * board with nothing to line it up against, and lifting is still where a tap
+   * is committed on a touchscreen.
+   */
+  buildTrapNote() {
+    const { width } = RADIAL_BOARD.board;
+
+    this.trapNote = this.add
+      .text(width / 2, TRAP_NOTE_Y, '', {
+        fontFamily: FONT,
+        fontSize: '20px',
+        color: '#6f7d8c'
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(100);
+
+    this.trapNoteShown = null;
+    this.refreshTrapNote();
+
+    this.input.on(Phaser.Input.Events.POINTER_UP, (pointer) => {
+      this.layTrap(pointer.worldX, pointer.worldY);
+    });
+  }
+
+  /**
+   * What the line says: how to lay one, or how long until there is one to lay.
+   *
+   * Three states rather than two, because "there is a pad on the floor" and
+   * "there is no pad and none coming yet" are the same silence to a player and
+   * are opposite instructions. State rather than movement, as everything else on
+   * this board is.
+   */
+  refreshTrapNote() {
+    const waiting = Math.max(0, this.nextTrapAt - this.time.now);
+
+    let line = COPY.hud.trapReady;
+
+    if (this.trap !== null) {
+      line = COPY.hud.trapLaid;
+    } else if (waiting > 0) {
+      line = `${COPY.hud.trapAsking} ${Math.ceil(waiting / 1000)}s`;
+    }
+
+    if (line === this.trapNoteShown) {
+      return;
+    }
+
+    this.trapNoteShown = line;
+    this.trapNote.setText(line);
+    this.trapNote.setColor(this.trapReady() ? '#8b98a6' : '#6f7d8c');
+  }
+
+  /**
+   * Polled, because the only thing that changes most of the time is the number
+   * of seconds left, and nothing happens when a second passes. The comparison in
+   * `refreshTrapNote` is what keeps this from re-rendering a Text every frame,
+   * which is the same arrangement the bulk reject and the rating use.
+   */
+  watchTrapNote() {
+    this.refreshTrapNote();
+  }
+
+  // ---------------------------------------------------------------------- pad
+
+  /**
+   * Salary expectations: the second thing a player of this board does during an
+   * intake, and the first that is a question of where rather than of when.
+   *
+   * The numbers, and the measurement they came out of, are in config/mobile.js
+   * at MOBILE_TRAP. What is here is only the three things a scene has to own:
+   * where a tap is allowed to land, when the pad goes off, and when it goes
+   * stale.
+   *
+   * `entities/Trap.js` is used exactly as the other three boards use it. It
+   * knows how big it is, when it has been trodden on and how to take itself off
+   * the board, and what that costs an applicant is the scene's business, which
+   * is the same seam a tower is resolved through.
+   */
+  layTrap(x, y) {
+    const spot = this.trapSpot(x, y);
+
+    // A tap on the HUD, on the desk or out on the floor nobody crosses. Silent
+    // rather than refused out loud, since most taps that land here are a thumb
+    // resting on the screen rather than somebody asking for a pad.
+    if (!spot) {
+      return;
+    }
+
+    if (!this.trapReady()) {
+      playSound('denied');
+
+      return;
+    }
+
+    this.trap = new Trap(
+      this,
+      spot.x,
+      spot.y,
+      MOBILE_TRAP_KEY,
+      MOBILE_TRAP,
+      MOBILE_TRAP.sprite.base
+    );
+
+    // Painted on the carpet rather than stood on it, so anybody walking over one
+    // walks over it rather than behind it. Under the applicants at depth 5 and
+    // over the floor.
+    this.trap.setDepth(2);
+
+    this.nextTrapAt = this.time.now + MOBILE_TRAP.rearmDelayMs;
+    this.trapStaleAt = this.time.now + MOBILE_TRAP.staleMs;
+
+    playSound('place');
+
+    // The event the desktop already sends for a trap, with the same type on it,
+    // so this board's pads land in the same row of the same query rather than
+    // in a fourth one nothing is looking at. There is no grid here and no
+    // budget: the position is the board pixel it went down on, rounded, and the
+    // currency is null rather than a nought that would read as a player who had
+    // spent everything.
+    trackTowerPlaced({
+      towerType: MOBILE_TRAP_KEY,
+      currencyBefore: null,
+      gridX: Math.round(spot.x),
+      gridY: Math.round(spot.y)
+    });
+
+    this.refreshTrapNote();
+  }
+
+  /**
+   * Where a tap is allowed to put a pad, or null for nowhere.
+   *
+   * The rule is one ring test and it does the work of three. Everybody arrives
+   * on the spawn ring and walks straight in to the desk, so ground outside that
+   * ring is ground nobody crosses and ground inside the desk is under the tower.
+   * The band between them is exactly the part of the board a pad can do anything
+   * on, and it also happens to exclude every piece of HUD on this screen: the
+   * intake counter, the rating, the bulk reject and both switches all sit
+   * further from the middle than the ring is, so nothing needs to know about
+   * them by name.
+   */
+  trapSpot(x, y) {
+    const { centre, spawnRadius, arrivalRadius } = RADIAL_BOARD;
+    const out = Phaser.Math.Distance.Between(centre.x, centre.y, x, y);
+
+    if (out > spawnRadius || out < arrivalRadius + MOBILE_TRAP.triggerRadius) {
+      return null;
+    }
+
+    return { x, y };
+  }
+
+  /** Whether a tap right now would put a pad down. */
+  trapReady() {
+    return (
+      !this.over &&
+      this.phase === 'running' &&
+      this.trap === null &&
+      this.time.now >= this.nextTrapAt
+    );
+  }
+
+  /**
+   * The pad, once a tick: sprung by whoever has walked onto it, or gone if
+   * nobody has.
+   *
+   * Springing hits everybody inside the radius rather than only whoever set it
+   * off, which is what makes where it went down worth thinking about, and it
+   * goes through `hit` rather than round it so a Keyword Stuffer is caught by it
+   * like anybody else. Immunity is a property of an applicant against a named
+   * tower type and a question about money is not the keyword filter, which is
+   * the same reasoning the bulk reject is built on.
+   */
+  checkTrap(time) {
+    if (this.trap === null) {
+      return;
+    }
+
+    if (time >= this.trapStaleAt) {
+      this.clearTrap();
+
+      return;
+    }
+
+    if (!this.applicants.some((who) => who.active && this.trap.catches(who))) {
+      return;
+    }
+
+    // Copied before anybody is hit, for the reason splash copies it: resolving a
+    // hit takes the person hit off `this.applicants`, and walking a list while
+    // it shrinks skips whoever moved up into the gap.
+    const caught = this.applicants.filter(
+      (who) => who.active && this.trap.catches(who)
+    );
+
+    const pad = this.trap;
+
+    this.trap = null;
+
+    caught.forEach((who) => this.hit(who, pad.rollDamage()));
+
+    pad.spring();
+    playSound('reject');
+    this.refreshTrapNote();
+  }
+
+  /**
+   * A pad nobody answered. It fades rather than bursting, because bursting is
+   * what going off looks like and these two must not read the same: one of them
+   * cost somebody a walk and the other cost the player a placement.
+   */
+  clearTrap() {
+    const pad = this.trap;
+
+    this.trap = null;
+
+    fadeOut(pad, 260, () => pad.destroy());
+    this.refreshTrapNote();
+  }
+
+  /**
+   * The clock and the pad, at the start of every intake.
+   *
+   * The rearm starts again as each intake opens, so the first pad of each is
+   * always there to be laid rather than owed to the one before. Anything still
+   * on the floor goes with it, since the board it was laid to catch has gone
+   * home.
+   */
+  openTrap() {
+    if (this.trap) {
+      this.clearTrap();
+    }
+
+    this.nextTrapAt = 0;
+    this.trapStaleAt = 0;
+  }
+
   // -------------------------------------------------------------------- firing
 
   fire(time) {
@@ -1131,6 +1479,10 @@ export default class MobileGameScene extends Phaser.Scene {
     this.clearWaveTimers();
     this.clearIntroCard();
 
+    if (this.trap) {
+      this.clearTrap();
+    }
+
     stopMusic();
 
     // The charges are reported here rather than on a sixteenth event, and the
@@ -1148,6 +1500,13 @@ export default class MobileGameScene extends Phaser.Scene {
     if (outcome === 'filled') {
       this.tower.base.setAlpha(0.3);
     }
+
+    // The last arrival moved the rating and the board is about to stop being
+    // updated, so it is refreshed here rather than left a frame behind. The
+    // summary over the top says the same number, and the board underneath it
+    // disagreeing by the cost of the applicant who ended the run is the sort of
+    // thing somebody notices and nobody can explain.
+    this.showRating();
 
     // Paused rather than left running, so the board freezes on the moment it
     // ended instead of carrying on behind the summary. It also stops the
@@ -1207,7 +1566,14 @@ export default class MobileGameScene extends Phaser.Scene {
     this.shots.push({
       x: target.x,
       y: target.y,
-      until: time + this.tower.definition.tracerDurationMs
+      until: time + this.tower.definition.tracerDurationMs,
+
+      // Carried on the shot rather than read off the scene when it is drawn.
+      // Cards are taken between intakes with the board held, so nothing is in
+      // flight when the count changes and the two can never differ today. It is
+      // still the right field: a tracer is a record of a shot that has already
+      // happened, and what it looked like is a fact about that shot.
+      lines: this.screenings
     });
   }
 
@@ -1226,8 +1592,65 @@ export default class MobileGameScene extends Phaser.Scene {
         continue;
       }
 
-      this.tracers.lineStyle(2, this.tower.definition.tracerColour, 0.8);
-      this.tracers.lineBetween(this.tower.x, this.tower.y, shot.x, shot.y);
+      this.drawShot(shot);
+    }
+  }
+
+  /**
+   * One shot, drawn as one line per screening running at once.
+   *
+   * The lines are genuinely parallel rather than a fan, offset by the same
+   * amount at both ends, because a fan converging on the target is one screening
+   * with a wide muzzle and this is meant to read as several going on at once.
+   * The set is centred on the line the shot would have been anyway, so an
+   * unupgraded run draws exactly what it drew before: at one line the offset is
+   * nought and this is the old lineBetween with arithmetic in front of it.
+   *
+   * It says nothing by movement, which is the rule on this board. The count is
+   * there for as long as the tracer is, it is the same count on every shot, and a
+   * player who has asked their system for less motion sees the same four lines as
+   * everybody else. Compare the floating damage numbers argument at buildHud:
+   * this is legible for the same reason those were not.
+   */
+  drawShot(shot) {
+    const { x: fromX, y: fromY } = this.tower;
+    const lines = shot.lines ?? 1;
+
+    this.tracers.lineStyle(2, this.tower.definition.tracerColour, 0.8);
+
+    if (lines === 1) {
+      this.tracers.lineBetween(fromX, fromY, shot.x, shot.y);
+
+      return;
+    }
+
+    // The unit vector across the shot, for offsetting each line sideways. A
+    // target sat exactly on the turret has no direction to be across, which the
+    // arrival boundary makes impossible and which costs one guard to survive
+    // anyway rather than drawing a divide by nought's worth of nothing.
+    const dx = shot.x - fromX;
+    const dy = shot.y - fromY;
+    const length = Math.hypot(dx, dy);
+
+    if (length === 0) {
+      return;
+    }
+
+    const acrossX = -dy / length;
+    const acrossY = dx / length;
+    const middle = (lines - 1) / 2;
+
+    for (let line = 0; line < lines; line += 1) {
+      const offset = (line - middle) * MOBILE_TRACER.spacing;
+      const shiftX = acrossX * offset;
+      const shiftY = acrossY * offset;
+
+      this.tracers.lineBetween(
+        fromX + shiftX,
+        fromY + shiftY,
+        shot.x + shiftX,
+        shot.y + shiftY
+      );
     }
   }
 

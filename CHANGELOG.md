@@ -7,6 +7,42 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.11.0 - 2026-08-09
+
+- Salary Expectations reaches the phone board, which is the sixth screening
+  mechanism arriving on the fourth board and the first thing that mode has ever
+  asked a player to put somewhere. Tap the floor during an intake and a pad goes
+  down: free, one at a time, sixteen seconds before the next, and it catches
+  everybody standing on it rather than only whoever set it off. Nobody is immune
+  to a question about money.
+- A pad nobody walks into is gone in six seconds, and that rule is the reason
+  this is a placement rather than a button. Without it, tapping at random
+  measured as well as aiming, because everybody on that board walks a straight
+  line to the same desk and a pad dropped anywhere is on somebody's route.
+- Measured over 5,000 runs a side: the pad is worth about ten points of a run to
+  somebody using it properly, six of which come from looking at the board before
+  tapping. It rescues nobody from a bad draw. The table, and the lever to pull it
+  back, are in `config/mobile.js`.
+- The obvious placement beats the clever one. Dropping it just ahead of whoever
+  is closest to the desk beats hunting for a crowd further out, because that is
+  where all the lines are nearest together.
+- The phone board's HUD carries the rating as it stands, beside the intake
+  counter. It is the number the summary and the leaderboard will say, so it
+  falls when somebody gets in: two of its three terms are earned and the third
+  is the tolerance left, and a readout that kept climbing while the vacancy was
+  being filled would say the opposite of what the board is doing.
+- Screen in parallel now shows itself. A shot on the phone board is drawn as one
+  line per screening running at once, side by side, so taking the card changes
+  what a shot looks like as well as how often one happens. It was the only card
+  in the pool whose effect the board never showed: the range ring grows, the
+  splash catches somebody standing behind, the tolerance bar refills, and a
+  shorter reload could only be seen by counting the gaps.
+- Cosmetic and only cosmetic. The damage, the target and the reload are what they
+  were, nothing in the simulator can see it, and a run that takes the card is the
+  same run it measured at.
+- It stops at four lines, because seven of them seven pixels apart is a beam
+  rather than a set of parallel screenings.
+
 ## 1.10.0 - 2026-08-09
 
 - A ninth intake on the phone board, and one arrival in it. The Internal

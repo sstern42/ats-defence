@@ -256,7 +256,28 @@ export const COPY = {
      */
     bulkReject: 'Bulk reject',
     bulkRejectSpent: 'No bulk rejects left',
-    bulkRejectNote: 'Everyone currently applying gets the same email.'
+    bulkRejectNote: 'Everyone currently applying gets the same email.',
+    /**
+     * The pad on the phone board, in its three states. `trapWaiting` above is
+     * the desktop's line for the same thing and is deliberately not reused: that
+     * one explains why a button is greyed out, and this one has to tell somebody
+     * that a part of the screen which has never done anything is now worth
+     * touching.
+     *
+     * The seconds are added on after `trapAsking`, as the bulk reject's count
+     * and the rating's number are.
+     */
+    trapReady: 'Tap the floor to ask what they expect to be paid.',
+    trapLaid: 'The question is on the floor. Somebody has to walk into it.',
+    trapAsking: 'Salary bands under review, ready in',
+    /**
+     * The running rating on the phone board, with the number added on after, as
+     * the two above it are. It is deliberately the same word the summary and the
+     * leaderboard use rather than a livelier one for the HUD: it is the same
+     * figure, and a board calling it one thing while the screen after it calls
+     * it another would read as two measurements.
+     */
+    rating: 'Rating'
   },
   pause: {
     title: 'Screening on hold',
