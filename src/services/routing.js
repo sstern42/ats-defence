@@ -383,11 +383,6 @@ export default class CostField {
   }
 
   /**
-   * Drops the points that sit on the line between their neighbours. A straight
-   * run across six cells is one segment rather than six, which is the same walk
-   * with less of a path to build.
-   */
-  /**
    * Pulls the route taut.
    *
    * What comes out of the walk downhill is a chain of cell centres, and a grid
@@ -465,6 +460,11 @@ export default class CostField {
     return (total / samples) * length;
   }
 
+  /**
+   * Drops the points that sit on the line between their neighbours. A straight
+   * run across six cells is one segment rather than six, which is the same walk
+   * with less of a path to build.
+   */
   straighten(points) {
     return points.filter((point, index) => {
       const before = points[index - 1];

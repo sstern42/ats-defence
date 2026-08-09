@@ -1002,6 +1002,13 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.traps = this.traps.filter((trap) => !sprung.includes(trap));
+
+    // A slot has just come free, and the palette greys the button while there is
+    // none. Nothing else on the board changes when a trap goes off, so without
+    // this the button stays grey until the next thing that happens to repaint
+    // it, which is usually the budget moving.
+    this.events.emit('traps-changed');
+
     this.drawFields();
   }
 
@@ -1506,11 +1513,20 @@ export default class GameScene extends Phaser.Scene {
       const runX = to.x - from.x;
       const runY = to.y - from.y;
       const lengthSquared = runX * runX + runY * runY;
-      const along = Phaser.Math.Clamp(
-        ((point.x - from.x) * runX + (point.y - from.y) * runY) / lengthSquared,
-        0,
-        1
-      );
+      // Two waypoints in the same place would divide by nothing and hand every
+      // comparison below a NaN, which loses silently: the distance never reads
+      // as closer, so the whole leg simply stops existing and a trap laid on it
+      // snaps somewhere else. No route in path.js does this. It costs one test
+      // to make sure the next one cannot.
+      const along =
+        lengthSquared === 0
+          ? 0
+          : Phaser.Math.Clamp(
+              ((point.x - from.x) * runX + (point.y - from.y) * runY) /
+                lengthSquared,
+              0,
+              1
+            );
       const onSegment = {
         x: from.x + along * runX,
         y: from.y + along * runY
@@ -1952,6 +1968,7 @@ export default class GameScene extends Phaser.Scene {
     trap.setDepth(DEPTHS.pads);
 
     this.traps.push(trap);
+    this.events.emit('traps-changed');
     this.startTrapDelay(typeKey, definition);
 
     playSound('place');

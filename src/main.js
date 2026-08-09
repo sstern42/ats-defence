@@ -170,9 +170,14 @@ async function boot() {
   // not merely add a run that was never played, it adds one that is indexed
   // under the device it was not on. Nothing downstream could tell it apart.
   //
-  // What it costs is that the events log kept on `window` is not there either,
-  // so checking that the mobile build emits anything has to happen on a real
-  // handset. That is a real gap and it is the cheaper of the two.
+  // What it costs is less than this comment used to claim. It said the events
+  // log kept on `window` was not there either, so checking that the mobile build
+  // emits anything had to happen on a handset. That was never true: `track`
+  // records before it sends, and only the send is gated on a session having been
+  // opened, so `?shape=phone` still fills `window.requisita.events` and
+  // `?analytics` still prints them. What a review genuinely cannot check from a
+  // laptop is that anything leaves the browser, which is the narrower gap and
+  // the one worth stating.
   // The mode is decided here, before the session is opened, and not by the
   // scene set that will play it.
   //

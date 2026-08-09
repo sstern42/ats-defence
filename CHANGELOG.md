@@ -7,6 +7,32 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.8.1 - 2026-08-09
+
+- The phone board's game over screen said "Intake reached" over the number of
+  intakes cleared, which is one lower on every run that ends in a loss. A player
+  who went out in the fifth was told they reached the fourth. The same number is
+  what that board sent as `final_wave` on every event carrying one and what it
+  submitted to the leaderboard, so the phone board has been reporting one less
+  than the other three boards since it opened. It now sends the intake reached,
+  as they do. Scores are unaffected, since a score has always paid for what was
+  finished.
+- Submitting a score and then restarting before the board answered could throw.
+  The game over screen carried on writing its status line after the scene it
+  belongs to had been stopped, and the restart is offered on the same screen,
+  from a key, while the submission is still in flight. The phone board has always
+  checked for this and the desktop one now does too.
+- An applicant's walk is thrown away with the applicant. Phaser hands the tween
+  driving it to whoever made it to clear up, and nothing did, so every applicant
+  a run had ever sent was still being held onto at the end of it, along with a
+  tween per re-route on the back channel. Nothing visible changes; a long run
+  holds a great deal less.
+- An iPad is recorded as a tablet again. Since iPadOS 13 Safari says it is a Mac
+  by default, so every one of them was being counted as a desktop, on the one
+  property that exists to say how much of the traffic is not.
+- The Salary Expectations button greys out when there is already one on the
+  board, rather than looking available and refusing the click.
+
 ## 1.8.0 - 2026-08-09
 
 - The game can be installed. A browser that offers it will now put it on a home
