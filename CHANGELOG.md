@@ -7,6 +7,27 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.9.0 - 2026-08-09
+
+- The background music is a real track. "Week 1.1: Super Retro Lounge" by
+  Abstraction, from the Tallbeard Music Loop Bundle, CC0, and lounge music for a
+  game about enterprise software is close enough to the joke to be worth the
+  bytes.
+- It replaces the four chords that used to be scheduled note by note on the
+  audio clock. `services/music.js` is 180 lines shorter for it: Phaser handles
+  the decoding, the looping and the autoplay unlock, and already did for the six
+  sound effects.
+- Sound off still means silence, music included. That used to be checked four
+  times a second and is now a consequence of the track going through the same
+  mixer as everything else.
+- Two encodings ship, and the browser takes one. Vorbis leads because it loops
+  without a gap; the MP3 is for Safari before 18.4, which could not play Vorbis.
+- The audio directory is 708kB where it was 68kB, and the loop comes round every
+  24 seconds. Both are real costs and both are written down in the README next
+  to the file.
+- Nothing else moved. The HUD toggle, the `N` key, the off-by-default and the
+  remembered preference are all where they were, on all four boards.
+
 ## 1.8.0 - 2026-08-09
 
 - The game can be installed. A browser that offers it will now put it on a home
