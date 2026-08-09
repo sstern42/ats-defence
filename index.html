@@ -11,6 +11,15 @@
     <meta name="theme-color" content="#14161a" />
     <link rel="canonical" href="https://ats.spencerstern.com/" />
 
+    <!-- The tab icon, drawn by tools/make-favicon.mjs. The SVG is the one a
+         current browser takes, the PNG is for one that will not, and there is
+         no .ico because a browser only goes looking for one when the page has
+         declared no icon at all. The touch icon is a hundred and eighty pixels
+         and square, since iOS masks its own corners on. -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
     <!-- The launch happens on LinkedIn, so the card preview is the first thing
          most people will see of this. Absolute URLs, because a relative one is
          not resolved by the scrapers. -->

@@ -27,6 +27,7 @@ Read these before writing anything.
 | Art | Kenney CC0 assets |
 | Ground and furniture | Drawn by `tools/make-textures.mjs`, committed as PNG |
 | Applicant introductions | Drawn by `tools/make-intros.mjs`, committed as sprite strips |
+| Tab icon | Drawn by `tools/make-favicon.mjs`, committed as SVG and PNG |
 | Sound | Synthesised by `tools/make-sounds.mjs`, committed as WAV |
 | Music | Scheduled on the audio clock from `config/music.js`, no file |
 | Backend | Supabase (leaderboard and analytics, both behind Netlify functions) |
@@ -163,6 +164,7 @@ tools/simulate-mobile.mjs  Plays the phone board thousands of times without a br
 tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-textures.mjs  Draws the ground and the furniture, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
+tools/make-favicon.mjs  Draws the tab icon, run by hand
 docs/                  Analysis notes, their queries and the fixtures
 netlify.toml           Build command, publish directory, Node version
 vite.config.js         Puts the package.json version into the build
