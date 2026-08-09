@@ -381,11 +381,26 @@ export const BACK_CHANNEL_WAVES = [
  * from 23 to 17, which is 85 of the tower's 200 rather than 115, and the
  * graduate counts come down with them so the overflow falls too.
  *
+ * Measured twice, and both runs lost in the last intake: 98 rejections and 117
+ * rejections, same outcome, same point of failure. Cutting a tenth off did not
+ * flip it.
+ *
+ * **The measurements are the thing to distrust here, not the numbers.** All
+ * three passes were measured by a script that takes whichever card is drawn on
+ * top, which is a player who declines the answer to their problem about half the
+ * times it is offered. Two runs of the identical list came out nineteen
+ * rejections apart, so the noise in that proxy is a fair fraction of the effect
+ * being tuned for.
+ *
+ * Tuning this list until a bot choosing at random can win it would make it
+ * trivial for somebody choosing well, and choosing well is the entire game. So
+ * these numbers stop here until there is a better read: either a script that
+ * takes the structural card when it is offered, or a person.
+ *
  * `CLAUDE.md` says the difficulty of this design lives in the interaction
- * between the card pool and the wave curve. Both halves now exist and the draw
- * is no longer noise, so this is the first pass that could be measured against
- * the thing it is meant to balance, and it is measured twice rather than once
- * for the reason the two passes above exist.
+ * between the card pool and the wave curve. It is right, and the corollary
+ * nobody wrote down is that measuring the interaction needs something that
+ * plays the cards.
  */
 export const MOBILE_WAVES = [
   // Graduates only, and few enough to watch one at a time. The board explains
