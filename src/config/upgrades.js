@@ -137,6 +137,10 @@ export const UPGRADES = [
     weight: 1
   },
   {
+    // The one card here whose effect the board did not show. It is drawn now,
+    // as one tracer per screening running at once, and the reasoning is in
+    // config/mobile.js at MOBILE_TRACER. Nothing about the number moved: it is
+    // what a shot looks like, not what it does, so the 13.5% above still stands.
     id: 'parallelScreening',
     stat: 'fireIntervalMs',
     add: -32,

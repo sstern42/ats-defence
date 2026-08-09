@@ -9,7 +9,8 @@ import {
   MOBILE_TOWER_KEY,
   MOBILE_LEAK_SHAKE,
   MOBILE_SCORING,
-  MOBILE_TOWER_KEY_UPDATED
+  MOBILE_TOWER_KEY_UPDATED,
+  MOBILE_TRACER
 } from '../../config/mobile.js';
 import { introKeyFor } from '../../config/intros.js';
 import { RADIAL_BOARD } from '../../config/path.js';
@@ -192,6 +193,15 @@ export default class MobileGameScene extends Phaser.Scene {
     // is: on the desktop board the scene resolves it too.
     this.stats = { ...MOBILE_TOWER, splashRadius: 0 };
     this.maxHealth = MOBILE_RUN.towerHealth;
+
+    // How many screenings a shot is drawn as, which is one until Screen in
+    // parallel says otherwise. It is a drawing number rather than a stat, so it
+    // sits beside them rather than on them: nothing reads it except drawTracers,
+    // and a tower definition carrying a field only the renderer wants would be
+    // the first thing to go looking for in a balance pass and the last thing to
+    // find anything in. The reasoning for the card needing this at all is in
+    // config/mobile.js at MOBILE_TRACER.
+    this.screenings = 1;
 
     const definition = this.stats;
 
@@ -812,6 +822,15 @@ export default class MobileGameScene extends Phaser.Scene {
       MIN_FIRE_INTERVAL_MS
     );
 
+    // Screen in parallel is the one card whose effect the board does not show,
+    // so a shot is drawn as one line per screening running at once. Keyed on the
+    // stat rather than the id, on the same terms the two branches above are: this
+    // method is the one place that knows what a stat means, and a card added
+    // later that buys the same reload is the same card as far as a shot looks.
+    if (card.stat === 'fireIntervalMs') {
+      this.screenings = Math.min(this.screenings + 1, MOBILE_TRACER.maxLines);
+    }
+
     this.drawRange();
   }
 
@@ -1207,7 +1226,14 @@ export default class MobileGameScene extends Phaser.Scene {
     this.shots.push({
       x: target.x,
       y: target.y,
-      until: time + this.tower.definition.tracerDurationMs
+      until: time + this.tower.definition.tracerDurationMs,
+
+      // Carried on the shot rather than read off the scene when it is drawn.
+      // Cards are taken between intakes with the board held, so nothing is in
+      // flight when the count changes and the two can never differ today. It is
+      // still the right field: a tracer is a record of a shot that has already
+      // happened, and what it looked like is a fact about that shot.
+      lines: this.screenings
     });
   }
 
@@ -1226,8 +1252,65 @@ export default class MobileGameScene extends Phaser.Scene {
         continue;
       }
 
-      this.tracers.lineStyle(2, this.tower.definition.tracerColour, 0.8);
-      this.tracers.lineBetween(this.tower.x, this.tower.y, shot.x, shot.y);
+      this.drawShot(shot);
+    }
+  }
+
+  /**
+   * One shot, drawn as one line per screening running at once.
+   *
+   * The lines are genuinely parallel rather than a fan, offset by the same
+   * amount at both ends, because a fan converging on the target is one screening
+   * with a wide muzzle and this is meant to read as several going on at once.
+   * The set is centred on the line the shot would have been anyway, so an
+   * unupgraded run draws exactly what it drew before: at one line the offset is
+   * nought and this is the old lineBetween with arithmetic in front of it.
+   *
+   * It says nothing by movement, which is the rule on this board. The count is
+   * there for as long as the tracer is, it is the same count on every shot, and a
+   * player who has asked their system for less motion sees the same four lines as
+   * everybody else. Compare the floating damage numbers argument at buildHud:
+   * this is legible for the same reason those were not.
+   */
+  drawShot(shot) {
+    const { x: fromX, y: fromY } = this.tower;
+    const lines = shot.lines ?? 1;
+
+    this.tracers.lineStyle(2, this.tower.definition.tracerColour, 0.8);
+
+    if (lines === 1) {
+      this.tracers.lineBetween(fromX, fromY, shot.x, shot.y);
+
+      return;
+    }
+
+    // The unit vector across the shot, for offsetting each line sideways. A
+    // target sat exactly on the turret has no direction to be across, which the
+    // arrival boundary makes impossible and which costs one guard to survive
+    // anyway rather than drawing a divide by nought's worth of nothing.
+    const dx = shot.x - fromX;
+    const dy = shot.y - fromY;
+    const length = Math.hypot(dx, dy);
+
+    if (length === 0) {
+      return;
+    }
+
+    const acrossX = -dy / length;
+    const acrossY = dx / length;
+    const middle = (lines - 1) / 2;
+
+    for (let line = 0; line < lines; line += 1) {
+      const offset = (line - middle) * MOBILE_TRACER.spacing;
+      const shiftX = acrossX * offset;
+      const shiftY = acrossY * offset;
+
+      this.tracers.lineBetween(
+        fromX + shiftX,
+        fromY + shiftY,
+        shot.x + shiftX,
+        shot.y + shiftY
+      );
     }
   }
 

@@ -82,6 +82,34 @@ export const MOBILE_TOWER = {
 };
 
 /**
+ * What a shot looks like once Screen in parallel has been taken.
+ *
+ * That card buys a shorter reload, which is the least visible thing a card in
+ * this pool can buy. A player who takes it sees a turret firing at the same
+ * target with the same tracer and has to count the gaps between shots to know
+ * anything happened, and on a board where a Career Changer is absorbing
+ * everything the turret has, they will be counting for a while. The other five
+ * cards all show themselves: the range ring grows, the splash catches somebody
+ * standing behind, the tolerance bar refills, a Keyword Stuffer stops walking
+ * through untouched.
+ *
+ * So a shot draws one line per screening running at once, side by side, and the
+ * count goes up with the card. It is cosmetic and deliberately so: the damage,
+ * the target and the reload are exactly what they were, and nothing in
+ * `tools/simulate-mobile.mjs` can see this. A card that measures at 13.5% still
+ * measures at 13.5%.
+ *
+ * `spacing` is the gap between neighbouring lines, and `maxLines` is where it
+ * stops. The reload floor allows about seven of these cards to matter, and seven
+ * lines seven pixels apart is a beam rather than a set of parallel screenings,
+ * which says less than one line did. Four is where it still reads as counted.
+ */
+export const MOBILE_TRACER = {
+  spacing: 7,
+  maxLines: 4
+};
+
+/**
  * The run itself.
  *
  * `towerHealth` is what the vacancy's lives are on this board, held on the

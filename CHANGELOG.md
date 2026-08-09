@@ -7,6 +7,20 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.10.1 - 2026-08-09
+
+- Screen in parallel now shows itself. A shot on the phone board is drawn as one
+  line per screening running at once, side by side, so taking the card changes
+  what a shot looks like as well as how often one happens. It was the only card
+  in the pool whose effect the board never showed: the range ring grows, the
+  splash catches somebody standing behind, the tolerance bar refills, and a
+  shorter reload could only be seen by counting the gaps.
+- Cosmetic and only cosmetic. The damage, the target and the reload are what they
+  were, nothing in the simulator can see it, and a run that takes the card is the
+  same run it measured at.
+- It stops at four lines, because seven of them seven pixels apart is a beam
+  rather than a set of parallel screenings.
+
 ## 1.10.0 - 2026-08-09
 
 - A ninth intake on the phone board, and one arrival in it. The Internal
