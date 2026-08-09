@@ -4,8 +4,10 @@ import { COPY } from '../content/copy.js';
 
 import { RADIAL_BOARD } from '../config/path.js';
 import { setMode } from '../services/mode.js';
+import MobileBootScene from '../scenes/mobile/BootScene.js';
 import MobileGameScene from '../scenes/mobile/GameScene.js';
 import MobileGameOverScene from '../scenes/mobile/GameOverScene.js';
+import MobileHomeScene from '../scenes/mobile/HomeScene.js';
 import MobileUpgradeScene from '../scenes/mobile/UpgradeScene.js';
 
 /**
@@ -42,9 +44,18 @@ export function startMobile() {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    // The board first, then the modal that goes over it, which is the drawing
-    // order the desktop config uses for the same reason.
-    scene: [MobileGameScene, MobileUpgradeScene, MobileGameOverScene]
+    // Only the first scene starts on boot. It loads what the build draws and
+    // starts the home page, which starts the board when the player asks for a
+    // run. The order after that is the drawing order, so the two scenes that go
+    // over a held board come after it, which is the arrangement the desktop
+    // config uses for the same reason.
+    scene: [
+      MobileBootScene,
+      MobileHomeScene,
+      MobileGameScene,
+      MobileUpgradeScene,
+      MobileGameOverScene
+    ]
   });
 }
 

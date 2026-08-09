@@ -1,8 +1,6 @@
 import Phaser from 'phaser';
 
 import { COPY } from '../../content/copy.js';
-import { AUDIO_DIRECTORY, SOUNDS } from '../../config/audio.js';
-import { ART_DIRECTORY, ART_KEYS } from '../../config/art.js';
 import { APPLICANTS } from '../../config/applicants.js';
 import {
   MOBILE_RUN,
@@ -23,7 +21,6 @@ import {
 // arrival point, so the applicant says when it got there rather than the scene
 // testing a distance every frame to find out.
 import { arrivalPoint, spawnPoint } from '../../services/radial.js';
-import { GROUND_KEYS, TEXTURE_DIRECTORY } from '../../config/scenery.js';
 import { FLOOR_TINT, addVignette } from '../backdrop.js';
 import {
   setWaveNumber,
@@ -35,14 +32,8 @@ import {
   trackWaveCompleted,
   trackWaveStarted
 } from '../../services/analytics.js';
+import { playSound, soundEnabled, toggleSound } from '../../services/audio.js';
 import {
-  initSound,
-  playSound,
-  soundEnabled,
-  toggleSound
-} from '../../services/audio.js';
-import {
-  initMusic,
   musicEnabled,
   startMusic,
   stopMusic,
@@ -82,24 +73,10 @@ export default class MobileGameScene extends Phaser.Scene {
     super('MobileGameScene');
   }
 
-  preload() {
-    // Loaded here rather than through BootScene, which also pulls in the
-    // sounds, the music, the intros and the scenery none of this uses yet. The
-    // manifest is still the one source of what the art is.
-    ART_KEYS.forEach((key) => {
-      this.load.image(key, `${ART_DIRECTORY}${key}.png`);
-    });
-
-    // The carpet and the vignette, but not floor-tread: that one is masked to a
-    // walked route and this board has no route to wear out.
-    GROUND_KEYS.filter((key) => key !== 'floor-tread').forEach((key) => {
-      this.load.image(key, `${TEXTURE_DIRECTORY}${key}.png`);
-    });
-
-    this.load.setPath(AUDIO_DIRECTORY);
-    Object.keys(SOUNDS).forEach((key) => this.load.audio(key, `${key}.wav`));
-    this.load.setPath();
-  }
+  // No `preload`. The art and the clips are fetched by the mobile BootScene,
+  // which had to exist once the home page needed the same carpet this board
+  // stands on, and they are in the cache by the time a run is asked for. A
+  // restart does not come back through there and does not need to.
 
   create() {
     // A run has begun, which is what game_started means on every other board.
@@ -109,12 +86,6 @@ export default class MobileGameScene extends Phaser.Scene {
     // clock would count somebody watching as an empty chair. The reasoning is
     // at stopWatchingForIdle in the service.
     stopWatchingForIdle();
-
-    // No BootScene on this route, so the two services that normally take their
-    // manager off it are handed this scene instead. Both are no-ops if the
-    // clips did not load or the browser has no audio at all.
-    initSound(this);
-    initMusic(this);
 
     this.drawFloor();
 

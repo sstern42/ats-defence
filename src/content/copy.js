@@ -143,16 +143,31 @@ export const COPY = {
       ]
     },
     /**
-     * The phone board. It has no tabs on the home screen and no how-to list,
-     * because the screen that would draw them is one this mode never appears on.
-     * What it needs is a name for the leaderboard to head its board with and for
-     * anything reading the analytics to recognise.
+     * The phone board. It still has no tab, because the screen that draws tabs
+     * is the desktop one and this mode never appears on it, and the phone page
+     * offers one mode and therefore no choice to make.
+     *
+     * It does have a how-to list now, and the list is the reason the two rules
+     * above it do not apply here. The lines are drawn down a column 624 wide and
+     * laid out by measuring, so a line that wraps pushes the next one down
+     * rather than landing on it. Write them to read well and let them wrap.
+     *
+     * There is no `howToTouch`. The desktop keeps two lists because its lines
+     * name a click or a key, and none of these does: this board takes nothing
+     * from the player once an intake starts, so there is no gesture to describe
+     * either way.
      */
     oneClickApply: {
       name: 'One-click apply',
       blurb: 'Somebody pointed a button at every vacancy at once. They arrive from every direction and there is one of you.',
       banner: 'Applications inbound',
-      board: 'Best screeners, one-click apply'
+      board: 'Best screeners, one-click apply',
+      howTo: [
+        'One screening process, fixed in the middle, firing on its own.',
+        'They arrive from every direction at once, never in a queue.',
+        'Between intakes, two improvements are proposed. Take one.',
+        'The vacancy holds until enough of them get through it.'
+      ]
     }
   },
   hints: {
