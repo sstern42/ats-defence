@@ -157,6 +157,13 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
 
     const durationMs = (path.getLength() / this.definition.speed) * 1000;
 
+    // The walk being replaced is thrown away rather than merely stopped. See
+    // destroy below for why stopping one is not enough: `setPath` stops the old
+    // tween and then overwrites the only reference to it, so without this every
+    // re-route leaves one behind, and this mode re-routes everybody on the board
+    // every time a tower goes down.
+    this.releasePathTween();
+
     this.setPath(path, {
       from: 0,
       to: 1,
@@ -228,5 +235,48 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
       ease: 'Quad.easeOut',
       onComplete: () => this.destroy()
     });
+  }
+
+  /**
+   * Throws away the tween that was doing the walking, if there is one.
+   *
+   * Phaser's PathFollower builds its tween with `persist: true`, which means the
+   * tween manager will not clear it up on its own: a persistent tween is the
+   * owner's to destroy, and the owner here is us. `stopFollow` stops it and
+   * leaves it in the manager, so an applicant that is rejected, walks in or is
+   * re-routed leaves a finished tween behind for the rest of the run.
+   *
+   * That costs almost nothing per frame, since a finished tween returns out of
+   * `update` immediately. What it costs is memory, and worse than the tween's
+   * own: the tween holds the `onComplete` handed to `walk`, that closure holds
+   * the applicant, and so every applicant a run has ever sent is still reachable
+   * at the end of it. On the two boards that matter, the one that re-routes
+   * everybody on every placement and the one that sends hundreds an intake,
+   * that is the largest thing a long run accumulates.
+   *
+   * `persist` is cleared before the destroy rather than left alone, and that
+   * order is the whole of why this works. The manager decides whether to drop a
+   * tween from its list by what `Tween.update` returns, and a persistent tween
+   * answers "keep me" whether it is finished, pending removal or already
+   * destroyed. Destroying it alone would free everything it holds, which is the
+   * part that matters, and still leave the husk on the list to be stepped for
+   * the rest of the run.
+   */
+  releasePathTween() {
+    if (this.pathTween) {
+      this.pathTween.persist = false;
+      this.pathTween.destroy();
+      this.pathTween = null;
+    }
+  }
+
+  /**
+   * The walk goes with the walker. Phaser does not do this for us, for the
+   * reason written out above.
+   */
+  destroy(fromScene) {
+    this.releasePathTween();
+
+    super.destroy(fromScene);
   }
 }
