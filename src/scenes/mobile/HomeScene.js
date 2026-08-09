@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { KOFI_URL, SITE_URL } from '../../config/links.js';
+import { KOFI_URL, MUSIC_CREDIT_URL, SITE_URL } from '../../config/links.js';
 import { RADIAL_BOARD } from '../../config/path.js';
 import { VERSION } from '../../config/version.js';
 import { COPY } from '../../content/copy.js';
@@ -76,9 +76,16 @@ const HOW_TO_TOP = 938;
 const HOW_TO_GAP = 16;
 
 const KOFI_Y = 1152;
-const FOOTER_Y = 1212;
+const FOOTER_Y = 1198;
 const FOOTER_GAP = 9;
 const FOOTER_SEPARATOR = '·';
+
+/**
+ * The music credit, on its own line under the row. The row above it is already
+ * most of the 624 the column has, so a fourth piece would run off the edge, and
+ * the pair sits where the single row used to end.
+ */
+const CREDIT_Y = 1230;
 
 export default class MobileHomeScene extends Phaser.Scene {
   constructor() {
@@ -315,6 +322,39 @@ export default class MobileHomeScene extends Phaser.Scene {
       );
 
       x = text.x + text.width;
+    });
+
+    this.createMusicCredit();
+  }
+
+  /**
+   * Who wrote the music, under the row that says who wrote everything else.
+   *
+   * The licence does not require it. The track is CC0 and the file next to it
+   * in public/assets/audio says so. It is here because it is the one asset in
+   * the game somebody else recorded, and because this build plays it on the
+   * same toggle the desktop does.
+   *
+   * The whole line is the target rather than the artist's name inside it, since
+   * a thumb cannot aim at three words in the middle of a sentence.
+   */
+  createMusicCredit() {
+    const credit = this.add
+      .text(INSET, CREDIT_Y, COPY.credit.music, {
+        fontFamily: FONT,
+        fontSize: '18px',
+        // The link colour rather than the muted one, because it is a link.
+        color: LINK_COLOUR,
+        wordWrap: { width: this.columnWidth }
+      })
+      .setInteractive({ useHandCursor: true });
+
+    // A new tab, and noopener, same as the two links above it. No event goes
+    // with it either: where somebody went after reading a credit is not one of
+    // the six questions in the spec.
+    credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      nudge(credit, 0, FEEL.pressDrop);
+      window.open(MUSIC_CREDIT_URL, '_blank', 'noopener,noreferrer');
     });
   }
 

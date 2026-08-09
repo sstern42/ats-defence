@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { KOFI_URL, SITE_URL } from '../config/links.js';
+import { KOFI_URL, MUSIC_CREDIT_URL, SITE_URL } from '../config/links.js';
 import { DESKTOP_MODE_KEYS } from '../config/modes.js';
 import { VERSION } from '../config/version.js';
 import { COPY } from '../content/copy.js';
@@ -71,6 +71,9 @@ const HOW_TO_WIDTH = 470;
 const FOOTER_Y = 700;
 const FOOTER_GAP = 10;
 const FOOTER_SEPARATOR = '·';
+
+/** The music credit, on its own line under the row. */
+const CREDIT_Y = 722;
 
 /**
  * The page the game opens on.
@@ -422,6 +425,49 @@ export default class HomeScene extends Phaser.Scene {
       );
 
       x = text.x + text.width;
+    });
+
+    this.createMusicCredit();
+  }
+
+  /**
+   * Who wrote the music, under the row that says who wrote everything else.
+   *
+   * The licence does not require it. The track is CC0 and the file next to it
+   * in public/assets/audio says so. It is here because it is the one asset in
+   * the game somebody else recorded, and because a screen that credits the site
+   * it came from and the year it was written can spare a line for that.
+   *
+   * On the home page and nowhere else, on the same grounds the rest of the
+   * footer is: the game over screen has a score, a name box and a restart
+   * button competing for the same strip, and a credit is not what anybody is
+   * reading at that moment. The music itself has a toggle in the HUD, which is
+   * the only other place it is mentioned during a run and is not a place to put
+   * a link out of the game.
+   */
+  createMusicCredit() {
+    const credit = this.add
+      .text(LEFT_X, CREDIT_Y, COPY.credit.music, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        // The link colour rather than the muted one, because it is a link. The
+        // two are a shade apart, so what actually says so is the hover.
+        color: KOFI_COLOUR
+      })
+      .setInteractive({ useHandCursor: true });
+
+    credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () =>
+      credit.setColor(KOFI_HOVER_COLOUR)
+    );
+
+    credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
+      credit.setColor(KOFI_COLOUR)
+    );
+
+    // A new tab, and noopener, same as the two links above it. No event: where
+    // somebody went after reading a credit is not one of the six questions.
+    credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
+      window.open(MUSIC_CREDIT_URL, '_blank', 'noopener,noreferrer');
     });
   }
 

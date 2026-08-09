@@ -43,6 +43,13 @@ CC0 by Abstraction Music and Tallbeard Studios, so the full text is in
 is here because the rest of the repo names where everything came from, and
 because the licence file asks nicely rather than insisting.
 
+The game says it too, as of 1.11.3. A line under the footer on the home page,
+on both boards, linking to the bundle. Same reasoning: not required, and a
+credit that only a reader of the repo can find is a credit to the wrong
+audience. The string is `credit.music` in `src/content/copy.js` and the address
+is `MUSIC_CREDIT_URL` in `src/config/links.js`, so the two places it is written
+down are the two places every other string and link in the game live.
+
 The bundle's own README asks that projects making money consider the artist's
 Patreon. This one does not make any, and the tip jar in the game goes to a Ko-fi
 that has never been the point. Worth knowing if that ever changes.
