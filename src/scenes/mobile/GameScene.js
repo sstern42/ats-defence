@@ -26,6 +26,16 @@ import { arrivalPoint, spawnPoint } from '../../services/radial.js';
 import { GROUND_KEYS, TEXTURE_DIRECTORY } from '../../config/scenery.js';
 import { FLOOR_TINT, addVignette } from '../backdrop.js';
 import {
+  setWaveNumber,
+  stopWatchingForIdle,
+  trackApplicantLeaked,
+  trackGameOver,
+  trackGameStarted,
+  trackUpgradeOffered,
+  trackWaveCompleted,
+  trackWaveStarted
+} from '../../services/analytics.js';
+import {
   initSound,
   playSound,
   soundEnabled,
@@ -57,9 +67,9 @@ import Tower from '../../entities/Tower.js';
  * So the strongest form of "classic does not move" is available and taken: the
  * file three tuned modes depend on is not touched at all.
  *
- * What this is not, yet: no analytics, no leaderboard, and no floating damage
- * numbers. The last of those is unsettled rather than unbuilt, and the reason is
- * at buildHud below.
+ * What this is not, yet: no leaderboard, and no floating damage numbers. The
+ * second of those is unsettled rather than unbuilt, and the reason is at
+ * buildHud below.
  */
 
 /** Tall enough to survive the board being scaled down onto a phone screen. */
@@ -92,6 +102,14 @@ export default class MobileGameScene extends Phaser.Scene {
   }
 
   create() {
+    // A run has begun, which is what game_started means on every other board.
+    trackGameStarted();
+
+    // This board takes nothing from the player during an intake, so the idle
+    // clock would count somebody watching as an empty chair. The reasoning is
+    // at stopWatchingForIdle in the service.
+    stopWatchingForIdle();
+
     // No BootScene on this route, so the two services that normally take their
     // manager off it are handed this scene instead. Both are no-ops if the
     // clips did not load or the browser has no audio at all.
@@ -342,6 +360,18 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.phase = 'running';
     this.showIntake();
+    this.waveStartedAt = this.time.now;
+    this.healthAtWaveStart = this.health;
+
+    setWaveNumber(this.waveNumber());
+    trackWaveStarted({
+      waveNumber: this.waveNumber(),
+      // Tolerance is what lives are on this board. Currency was decided out of
+      // this mode, so it reports null rather than a zero that would read as a
+      // player who had spent everything they had.
+      livesRemaining: this.health,
+      currency: null
+    });
 
     playSound('wave-open');
     this.spawnsRemaining = wave.groups.reduce(
@@ -413,6 +443,15 @@ export default class MobileGameScene extends Phaser.Scene {
   completeWave() {
     this.clearWaveTimers();
 
+    trackWaveCompleted({
+      waveNumber: this.waveNumber(),
+      durationMs: this.time.now - this.waveStartedAt,
+      livesLost: this.healthAtWaveStart - this.health,
+      // One tower, always, and the player never placed it. Reported rather than
+      // left absent, because the property has an honest answer here.
+      towersOnBoard: 1
+    });
+
     playSound('wave-clear');
 
     this.waveIndex += 1;
@@ -444,6 +483,9 @@ export default class MobileGameScene extends Phaser.Scene {
       UPGRADES_OFFERED
     );
 
+    // Held so the one that was not taken can be reported with the one that was.
+    this.offered = offer;
+
     this.scene.launch('MobileUpgradeScene', { offer });
     this.scene.pause();
   }
@@ -454,6 +496,13 @@ export default class MobileGameScene extends Phaser.Scene {
    * that is still paused never fires it.
    */
   takeUpgrade(card) {
+    // Both halves, because take rate is only meaningful against offer rate and
+    // a card rarely taken may simply be rarely offered.
+    trackUpgradeOffered({
+      taken: card.id,
+      refused: this.offered.find((other) => other.id !== card.id)?.id ?? null
+    });
+
     this.scene.resume();
     this.applyUpgrade(card);
     this.beginPreparation(MOBILE_RUN.prepMs);
@@ -576,6 +625,8 @@ export default class MobileGameScene extends Phaser.Scene {
     this.drop(applicant);
     applicant.destroy();
 
+    trackApplicantLeaked(applicant.typeKey);
+
     this.arrived += 1;
     this.health = Math.max(0, this.health - MOBILE_RUN.arrivalCost);
 
@@ -685,6 +736,8 @@ export default class MobileGameScene extends Phaser.Scene {
 
     stopMusic();
 
+    trackGameOver({ finalWave: this.waveIndex, score: this.score() });
+
     if (outcome === 'filled') {
       this.tower.base.setAlpha(0.3);
     }
@@ -712,6 +765,11 @@ export default class MobileGameScene extends Phaser.Scene {
    * whether that was the last, so a run that ends part way through the eighth is
    * holding seven.
    */
+  /** Which intake is being played, one based, for anything that counts them. */
+  waveNumber() {
+    return Math.min(this.waveIndex + 1, MOBILE_WAVES.length);
+  }
+
   score() {
     const { perIntakeCleared, perRejection, perTolerancePoint } = MOBILE_SCORING;
 

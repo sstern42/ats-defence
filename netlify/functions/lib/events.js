@@ -8,6 +8,7 @@
  * anybody who finds it.
  */
 import { FEEDBACK_ANSWERS } from '../../../src/config/feedback.js';
+import { UPGRADE_IDS } from '../../../src/config/upgrades.js';
 import { MODE_KEYS } from '../../../src/config/modes.js';
 
 /**
@@ -36,10 +37,18 @@ export const ALLOWED_EVENTS = new Set([
   'leaderboard_viewed',
   'kofi_clicked',
   'experiment_viewed',
-  'feedback_given'
+  'feedback_given',
+
+  // The fifteenth. The phone board's only player decision, and the only event
+  // that records something declined as well as something done. Its argument is
+  // in services/analytics.js at trackUpgradeOffered.
+  'upgrade_offered'
 ]);
 
 /** Long enough for the largest real event several times over. */
+/** The cards, read from the same config the game draws them from. */
+const UPGRADE_ID = new Set(UPGRADE_IDS);
+
 const MAX_PROPERTIES_BYTES = 4096;
 const MAX_STRING = 300;
 const MAX_ID = 64;
@@ -110,6 +119,17 @@ export function checkEvent(payload) {
   // nothing left in it worth keeping.
   if (event === 'feedback_given' && !FEEDBACK_ANSWER.has(properties.answer)) {
     return { error: 'unknown answer' };
+  }
+
+  // Same arrangement, same reason. A card id is a closed set read from the same
+  // config the game draws the cards from, and an event naming a card that does
+  // not exist has nothing in it worth keeping. `refused` is checked too, since
+  // it is half of what makes this event worth having.
+  if (
+    event === 'upgrade_offered' &&
+    (!UPGRADE_ID.has(properties.taken) || !UPGRADE_ID.has(properties.refused))
+  ) {
+    return { error: 'unknown upgrade' };
   }
 
   const sessionId = trimmed(properties.session_id, MAX_ID);
