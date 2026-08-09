@@ -399,6 +399,10 @@ export const COPY = {
     // it and not in what is on offer.
     typingHintTouch: 'Sixteen characters, and be nice.',
     emptyHintTouch: 'Tap the box to put a name to it, or start again with the button.',
-    doneHintTouch: 'Reopen the vacancy with the button.'
+    doneHintTouch: 'Reopen the vacancy with the button.',
+    // The phone board opens the board rather than showing it alongside, so it
+    // needs a way in and a way out that the two desktop screens never did.
+    view: 'See the board',
+    close: 'Back'
   }
 };

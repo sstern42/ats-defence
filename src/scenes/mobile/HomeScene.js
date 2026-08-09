@@ -69,8 +69,10 @@ const BLURB_Y = 546;
 const START_Y = 676;
 const START_HEIGHT = 104;
 
-const HOW_TO_HEADING_Y = 848;
-const HOW_TO_TOP = 896;
+const BOARD_LINK_Y = 818;
+
+const HOW_TO_HEADING_Y = 890;
+const HOW_TO_TOP = 938;
 const HOW_TO_GAP = 16;
 
 const KOFI_Y = 1152;
@@ -93,6 +95,7 @@ export default class MobileHomeScene extends Phaser.Scene {
 
     this.createPitch();
     this.createStartButton();
+    this.createBoardLink();
     this.createHowTo();
     this.createKofiLink();
     this.createFooter();
@@ -173,6 +176,34 @@ export default class MobileHomeScene extends Phaser.Scene {
     button.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
       nudge(label, 0, FEEL.pressDrop);
       this.start();
+    });
+  }
+
+  /**
+   * The way to the board, under the button rather than beside it.
+   *
+   * On the desktop page the board is the whole right hand column and it is the
+   * reason to press start. There is no right hand column here, so it is a link
+   * to a screen instead, and it sits directly under the button it is an
+   * alternative to rather than at the bottom with the tip jar, which is not an
+   * alternative to anything.
+   */
+  createBoardLink() {
+    const link = this.add
+      .text(INSET, BOARD_LINK_Y, COPY.leaderboard.view, {
+        fontFamily: FONT,
+        fontSize: '22px',
+        color: LINK_COLOUR
+      })
+      .setInteractive({ useHandCursor: true });
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      nudge(link, 0, FEEL.pressDrop);
+
+      this.scene.launch('MobileLeaderboardScene', {
+        fromScreen: 'home',
+        parent: this.scene.key
+      });
     });
   }
 

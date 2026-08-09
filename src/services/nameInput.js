@@ -238,6 +238,32 @@ export default class NameInput {
     this.element.blur();
   }
 
+  /**
+   * Takes the field out of the page while something is drawn over the box, and
+   * puts it back afterwards.
+   *
+   * It exists because the field is invisible and the game is one canvas, so a
+   * screen drawn on top of the box has no way to cover it: a tap that looks
+   * like it landed on whatever is now there would instead focus a field nobody
+   * can see and open a keyboard for it. The phone board's leaderboard is drawn
+   * over the game over screen, which is where that happens.
+   *
+   * `display` rather than moving it away, so it cannot be focused, tabbed to or
+   * read out while it is parked. Blurred on the way out, since hiding a focused
+   * field leaves the keyboard up on its own.
+   */
+  park(parked) {
+    if (parked) {
+      this.element.blur();
+    }
+
+    this.element.style.display = parked ? 'none' : '';
+
+    if (!parked) {
+      this.refresh();
+    }
+  }
+
   destroy() {
     if (this.destroyed) {
       return;
