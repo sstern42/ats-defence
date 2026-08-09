@@ -28,7 +28,11 @@ It also gives the applicants something back. Enough of them crowded round a scre
 
 How much any of them minds is a property of the type, which is where most of the mode lives. The Graduate applies to everything and walks at the desk in a straight line through whatever is in the way. The Overqualified has seen a knockout question before and goes a very long way round one. The Keyword Stuffer minds the rest of the board as much as anybody and strolls straight through a Keyword Filter, because a Keyword Filter has nothing to say to it. And Salary Expectations, which lays down no threat at all, is the one thing nobody routes round: it goes on the ground they have just been pushed onto.
 
-The three modes keep separate leaderboards. They send different numbers of applicants at boards of a different shape, so a rating from one is not a rating from the others.
+**One-click apply** is the phone board, and it is the only one nobody picks. A phone is routed to it by the size of its screen, because the other three are a landscape board with a six button palette and a phone is the wrong shape for all of it. There is no path, no placement and no input at all during an intake: one screening process fixed dead centre, applicants converging on it from every direction, and a turret that turns to whoever has least walking left. Everything the player decides happens between intakes, where the process is offered exactly two improvements and can have one of them.
+
+The joke it tells is the one the other three cannot. The other boards are a system somebody is operating. This one is a system running on its own while somebody watches, and the only question it ever asks is which of two ways it should be more thorough.
+
+The four modes keep separate leaderboards. They send different numbers of applicants at boards of a different shape, so a rating from one is not a rating from the others.
 
 ## Running it
 
@@ -52,9 +56,11 @@ Two optional environment variables, neither of them secret, both documented in `
 | Backend | Supabase, behind Netlify functions |
 | Experiments | GrowthBook |
 
-**Balance lives in data.** `src/config/waves.js`, `towers.js`, `applicants.js`, `game.js` and `modes.js` are plain exported objects with no logic in them, so tuning never means touching the game loop. Two of the three boards are a hardcoded list of waypoints, and the crowd is not the exception it looks like: a waypoint there carries a spread, each applicant walks their own copy of the line displaced by their share of it, and a horde is what that looks like from the outside.
+**Balance lives in data.** `src/config/waves.js`, `towers.js`, `applicants.js`, `game.js`, `mobile.js`, `upgrades.js` and `modes.js` are plain exported objects with no logic in them, so tuning never means touching the game loop. Two of the four boards are a hardcoded list of waypoints, and the crowd is not the exception it looks like: a waypoint there carries a spread, each applicant walks their own copy of the line displaced by their share of it, and a horde is what that looks like from the outside.
 
 The third board does have pathfinding, which this file said for a long time it never would. It earned the exception by being the only way to tell the joke it exists for, and it kept the rule that mattered: what it varies is still data. How frightening each tower is and how much each applicant type minds are numbers in `towers.js` and `applicants.js`, `services/routing.js` is the only file that knows what to do with them, and the modes that have no field on them never find out any of it is there.
+
+The fourth needs neither, and that is the whole of its board data: a centre, a ring to arrive on and a radius to arrive at. A walk is a straight line inwards, which is a path with one segment in it, so `entities/Applicant.js` carries it with no fork, no subclass and no edit, and the file three tuned modes depend on was not touched to add a fourth. Its wave list and its card pool are tuned against `tools/simulate-mobile.mjs`, which plays the board a few thousand times without a browser, because a design whose difficulty lives in the interaction between a card pool and a wave curve cannot be tuned by one person playing it twice.
 
 **Copy lives in one file.** Every user-facing string is in `src/content/copy.js`.
 
@@ -62,9 +68,11 @@ The third board does have pathfinding, which this file said for a long time it n
 
 ## Instrumentation
 
-Thirteen events, seven global properties on every one of them, all landing in Supabase. The intent was to answer specific questions rather than to collect telemetry in general: where players quit, whether the difficulty curve is right, whether they replay after losing, which towers are dead weight.
+Fifteen events, seven global properties on every one of them, all landing in Supabase. The intent was to answer specific questions rather than to collect telemetry in general: where players quit, whether the difficulty curve is right, whether they replay after losing, which towers are dead weight.
 
-The seventh global is `mode`, and it arrived with the second mode rather than with the spec. Every question in the list above has three answers now, and an event that does not say which game it came from cannot tell them apart. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run the other thirteen are already reporting. The queries in `docs/` now read one mode at a time, defaulting to classic, since wave five means a different intake in each and the boards are separate. The tower usage fixture carries five open advert runs that must not reach any of its expected figures, and each places the one tower no classic run in it ever places: strip the filter and the deadest tower in the game climbs to a fifth of all runs, which is the finding the filter exists to protect.
+The fifteenth, `upgrade_offered`, is the phone board's only player decision, and it is the one event that records something declined as well as something done. `tower_placed` has no slot for a refusal because on the desktop boards everything is always on offer. A two of six draw makes "which of these is dead weight" answerable only as take rate against offer rate, and a card rarely taken may simply be rarely offered. The queries are in `docs/upgrade-cards.sql`.
+
+The seventh global is `mode`, and it arrived with the second mode rather than with the spec. Every question in the list above has four answers now, and an event that does not say which game it came from cannot tell them apart. It is a property rather than a fourteenth event because it is not a thing that happens: it is a fact about the run the other thirteen are already reporting. The queries in `docs/` now read one mode at a time, defaulting to classic, since wave five means a different intake in each and the boards are separate. The tower usage fixture carries five open advert runs that must not reach any of its expected figures, and each places the one tower no classic run in it ever places: strip the filter and the deadest tower in the game climbs to a fifth of all runs, which is the finding the filter exists to protect.
 
 It has already earned its keep twice. The wave curve for the balancing pass was read off these events rather than guessed at, and the first real run through the collector exposed a bug in the abandonment tracking that would otherwise have quietly ruined the experiment's secondary metric.
 
@@ -80,11 +88,13 @@ GrowthBook does the bucketing and nothing else. There is no data source behind i
 
 ## Platform
 
-Desktop and tablet. Phones get an honest message instead of a broken board.
+Desktop, tablet and phone. A phone gets a different game rather than a smaller one.
 
 Placing a tower means seeing what it would take before committing to it, which a mouse does by hovering. A finger cannot hover, so on a touchscreen the two halves become pressing and lifting: the preview follows the drag and the tower lands where the finger comes off. It is drawn above the finger rather than under it, since a fingertip covers most of a cell. Which route an event takes is decided per event rather than once at boot, so a laptop with a touchscreen works either way, and both routes end in the same placement code.
 
-The gate is the size of the screen and nothing else: 900 by 600, or the message. No phone clears both in either orientation, so phones are turned away without having to be named, and a tablet clears them and renders the fixed 1024 by 768 board at close to its own size.
+The gate is still the size of the screen and nothing else: 900 by 600. What has changed is what sits on the other side of it. A tablet clears it and renders the fixed 1024 by 768 board at close to its own size. No phone clears it in either orientation, and a phone used to get an honest message saying so. It now gets the fourth mode, one-click apply, which is a portrait board built for the shape rather than the landscape board shrunk to fit it: one screening process fixed in the middle, applicants converging on it from every direction, nothing to place, and the only decision a choice between two cards between intakes. `?shape=phone` and `?shape=desktop` override the gate in both directions, which is how either board gets reviewed on a deploy preview from whatever is to hand.
+
+Two honest refusals are left and neither is about the size of the screen. A browser that cannot give the board a WebGL context gets a message rather than a blank canvas, and a phone turned on its side gets one too, because the portrait board letterboxed into a landscape strip is exactly the broken layout the message exists to beat. The landscape one is a veil over the page rather than a screen instead of it, so a run survives being turned sideways and is still there on the way back.
 
 The leaderboard takes a tablet too, which it did not at first. A soft keyboard only opens for a real form field, and only when the player's own tap lands on it, so there is an invisible one sat exactly over the name box the game draws. It filters what it is given by the same rules the key presses went through, hands the text back and is never seen: the box, the letters and the caret are all still drawn on the canvas. It is only built where the pointer is coarse, so the keyboard route is untouched, and the game is lifted clear while the field has focus, since the keyboard covers the half of the screen the box sits in.
 
