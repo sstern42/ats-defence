@@ -258,7 +258,18 @@ export function trackApplicantLeaked(applicantType) {
  * The run has ended properly, one way or the other. Nothing can be abandoned
  * after this, so the idle timer comes off.
  */
-export function trackGameOver({ finalWave, score }) {
+/**
+ * `bulkRejectsUsed` is the phone board's only in-run decision and is absent
+ * everywhere else, since the other three boards have no such thing to spend. It
+ * is a property on an event that already fires rather than a sixteenth event,
+ * which is the seam `mode` went through: how many of a run's charges were spent
+ * is a fact about the run, not a thing that happens.
+ *
+ * Left off the bag entirely rather than sent as a null on the boards that have
+ * none. A column of nulls says the same as an absent key and costs three
+ * quarters of the rows to say it.
+ */
+export function trackGameOver({ finalWave, score, bulkRejectsUsed }) {
   const runDurationMs = clock() - state.runStartedAt;
 
   state.runInProgress = false;
@@ -268,7 +279,10 @@ export function trackGameOver({ finalWave, score }) {
   track('game_over', {
     final_wave: finalWave,
     score,
-    run_duration_ms: Math.round(runDurationMs)
+    run_duration_ms: Math.round(runDurationMs),
+    ...(bulkRejectsUsed === undefined
+      ? {}
+      : { bulk_rejects_used: bulkRejectsUsed })
   });
 }
 
