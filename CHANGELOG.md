@@ -7,6 +7,25 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.7.2 - 2026-08-09
+
+- The game has a tab icon. It had none, so every tab open on it carried
+  whichever blank page glyph the browser keeps for sites that have not said,
+  which is a poor look for something meant to be opened from a link in a post.
+- It is an application with a mark drawn across it, in the carpet, paper and
+  rejection colours already on the board. Cropping the share card down was the
+  obvious answer and the wrong one: the card is a screenshot of a board, and a
+  board at sixteen pixels is a grey smudge. An icon that small is a mark rather
+  than a picture.
+- Drawn by `tools/make-favicon.mjs`, on the same terms as the sounds, the
+  textures and the introductions: Node built-ins, no dependency, output
+  committed. The SVG and both PNGs come out of one description of the shapes,
+  so a vector file and a bitmap cannot drift apart.
+- Three files and no `.ico`, because a browser only goes looking for one when
+  the page has declared no icon at all. The touch icon is a hundred and eighty
+  pixels and drawn square, since the phone board is a real thing to put on a
+  home screen and iOS masks its own corners on.
+
 ## 1.7.1 - 2026-08-09
 
 - The fifteenth event has never worked. `upgrade_offered` was posted through the
