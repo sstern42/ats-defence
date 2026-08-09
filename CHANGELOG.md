@@ -7,6 +7,41 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.7.0 - 2026-08-09
+
+- The phone version is open. A phone used to be told the board wanted more room
+  than it had, and now it gets one-click apply: a portrait board built for the
+  shape rather than the landscape board shrunk into it. One screening process
+  fixed dead centre, applicants converging on it from every direction, nothing
+  to place, and no input at all during an intake. Everything the player decides
+  happens between them, where the process is offered two improvements and can
+  have one.
+- The board itself has been playable behind `?shape=phone` for a while. What
+  this release is, is the line that stopped a real phone reaching it. The
+  message it used to show has gone with it, because a refusal nothing can reach
+  reads as a promise that the game still turns people away.
+- Two honest refusals are left and neither is about the size of the screen. A
+  browser that cannot give the board a WebGL context gets told so rather than a
+  blank canvas. A phone turned on its side gets told so too, and the run is
+  still there when it is turned back.
+- The intake list has had its first real tuning pass. It used to be flat: every
+  run survived the first seven intakes whatever it did, and the whole game was
+  decided in the eighth. Every intake from the third now costs something, and
+  the last two are both places a run can end.
+- The cards decide the run now, which they did not before. Playing them well and
+  playing them badly used to come out at 13% and 27% of vacancies held, in that
+  order, which is a game where reading the cards makes it worse. It is 58% and
+  4% the right way round.
+- The vacancy is more patient and each arrival costs it less, which is what
+  makes room for the above rather than a softening. A run absorbs sixty
+  applicants where it used to absorb forty.
+- The tip jar is on the phone game over screen, where it has always been on the
+  desktop one and where it was missing here.
+- The question is asked on the phone too. It is the same one question, once a
+  session, and it was not being asked on the board that needed it most.
+- Nothing else moved. No other mode was retuned, no other wave list was touched,
+  and the leaderboard needs nothing applied that is not already there.
+
 ## 1.6.0 - 2026-08-07
 
 - The game asks a question now. One, on the game over screen, under the board

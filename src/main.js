@@ -37,15 +37,15 @@ const config = {
  * committing and a finger cannot hover. The drag gesture gave the finger a way
  * to do that, so the reason for the test went and the test went with it.
  *
- * What is left turns away phones without having to ask what anything is. No
- * phone in landscape has six hundred pixels of height, and none in portrait has
- * nine hundred of width, so the shape of the screen answers it. A tablet clears
- * both and renders the fixed 1024 by 768 board at close to its own size, which
- * is the case this was opened up for.
+ * What is left sorts phones from everything else without having to ask what
+ * anything is. No phone in landscape has six hundred pixels of height, and none
+ * in portrait has nine hundred of width, so the shape of the screen answers it.
+ * A tablet clears both and renders the fixed 1024 by 768 board at close to its
+ * own size, which is the case this was opened up for.
  *
  * What it does not test is the HUD, which is still drawn at a size that suits a
- * mouse. That is the thing to watch on a tablet, and the reason phones stay out
- * even once they are big enough.
+ * mouse. That is the thing to watch on a tablet, and it is the reason a phone
+ * gets the other board rather than this one at a smaller scale.
  *
  * It used to be called isSupported, and the rename is the whole of what changed
  * about it. The test answers which shape of the game a screen gets rather than
@@ -61,9 +61,9 @@ function hasRoomForTheBoard() {
  * name.
  *
  * The decision has always been made here, by the test above, and this is the
- * same decision with somewhere for a second answer to go. Today there is only
- * one shape built, so `phone` still ends at the honest refusal it always did.
- * What the seam buys before then is the override.
+ * same decision with somewhere for a second answer to go. Both answers are now
+ * a game. `phone` used to end at an honest refusal and it ends at the portrait
+ * board instead, which is the whole of what this release is.
  *
  * `?shape=phone` is the reviewing mechanism for everything that follows it.
  * There is no dev server anybody can look at, so a deploy preview is the only
@@ -136,8 +136,8 @@ async function boot() {
   // bounce rate is currently being read for.
   //
   // Behind an explicit parameter nobody arrives at by accident, so the size gate
-  // below is untouched and a phone that turns up on its own still gets the
-  // honest refusal it has always had. There is no mobile game to route to yet.
+  // below is untouched and a phone that turns up on its own gets the game rather
+  // than a profiler.
   if (new URLSearchParams(window.location.search).has('bench')) {
     const { startBench } = await import('./bench/index.js');
 
@@ -166,49 +166,44 @@ async function boot() {
     initAnalytics();
   }
 
-  // The phone shape now has something behind it, but only for somebody who
-  // asked for it by name.
+  // The phone shape has a game behind it for everybody now, and the `forced`
+  // test that used to stand here is gone.
   //
-  // A phone that turned up on its own still gets the refusal, because what is
-  // behind that shape is a board with no waves, no HUD and no way to lose
-  // gracefully, and putting that in front of a player who came to the address on
-  // a launch post is worse than turning them away honestly. This is the split
-  // the override was built for: the shape is reviewable long before it is
-  // playable.
+  // It was there because what sat behind the shape was a board with no waves, no
+  // HUD and no way to lose gracefully, and putting that in front of somebody who
+  // came to the address off a launch post is worse than turning them away
+  // honestly. That reason has run out. The board has eight intakes, a tuned
+  // wave list, cards, a leaderboard and a way to end, so the honest thing and
+  // the playable thing are now the same thing.
   //
-  // The line to change is the `forced` test, and changing it is the release.
-  // That is the pull request that bumps the version and writes the changelog
-  // entry, and it is not this one.
+  // The override stays, and only its second half is still load bearing:
+  // `?shape=desktop` on a phone, and `?shape=phone` on a laptop, which is how
+  // every change to either board gets reviewed. What it no longer decides is
+  // whether anybody gets a game.
+  //
+  // Two honest refusals are left and neither is about the size of the screen.
+  // No WebGL is below. Landscape is inside watchOrientation, because a run
+  // survives being turned sideways and a refusal that ends the page would not.
   if (shape.name === 'phone') {
-    if (shape.forced) {
-      const { hasWebgl, startMobile, watchOrientation } = await import(
-        './mobile/index.js'
+    const { hasWebgl, startMobile, watchOrientation } = await import(
+      './mobile/index.js'
+    );
+
+    // Asked before the game is built, because the board is forced onto a WebGL
+    // context and forcing one that cannot be had is a blank screen with nothing
+    // to read on it.
+    if (!hasWebgl()) {
+      showRefusal(
+        COPY.phoneRefusal.rendererTitle,
+        COPY.phoneRefusal.rendererBody,
+        COPY.phoneRefusal.rendererNote
       );
-
-      // Asked before the game is built, because the board is forced onto a
-      // WebGL context now and forcing one that cannot be had is a blank screen
-      // with nothing to read on it.
-      if (!hasWebgl()) {
-        showRefusal(
-          COPY.phoneRefusal.rendererTitle,
-          COPY.phoneRefusal.rendererBody,
-          COPY.phoneRefusal.rendererNote
-        );
-
-        return;
-      }
-
-      startMobile();
-      watchOrientation();
 
       return;
     }
 
-    showRefusal(
-      COPY.unsupported.title,
-      COPY.unsupported.body,
-      COPY.unsupported.note
-    );
+    startMobile();
+    watchOrientation();
 
     return;
   }

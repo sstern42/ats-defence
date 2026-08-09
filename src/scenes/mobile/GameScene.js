@@ -59,8 +59,8 @@ import Tower from '../../entities/Tower.js';
  * So the strongest form of "classic does not move" is available and taken: the
  * file three tuned modes depend on is not touched at all.
  *
- * What this is not: floating damage numbers. They are unsettled rather than
- * unbuilt, and the reason is at buildHud below.
+ * What this is not: floating damage numbers. They were the third item on the
+ * design's HUD and they are not being built. The reason is at buildHud below.
  */
 
 /** Tall enough to survive the board being scaled down onto a phone screen. */
@@ -238,13 +238,30 @@ export default class MobileGameScene extends Phaser.Scene {
   /**
    * The whole HUD: which intake this is, and the bar under the tower drawn by
    * drawBar. The design asks for a wave counter, one health bar and floating
-   * damage numbers, and nothing else. Two of the three are here.
+   * damage numbers, and nothing else. Two of the three are here, and the third
+   * is not coming.
    *
-   * Floating damage numbers are deliberately absent rather than forgotten. They
-   * are unsettled on #47: information carried by an animation runs into "nothing
-   * is said by movement alone", and the question of whether they say anything at
-   * all is worth answering before they are built. If the bar and the deaths
-   * carry the state they are decoration and reduced motion can drop them.
+   * **Floating damage numbers are decided against rather than deferred.** The
+   * question was whether they are information or decoration, and it has an
+   * answer either way.
+   *
+   * If they are decoration, they are decoration that costs a per applicant text
+   * object on the board with the highest entity count in the game, and a reduced
+   * motion preference would drop them outright with nothing lost, which is the
+   * definition of something not worth building.
+   *
+   * If they are information, they are information carried by an animation, which
+   * is the one thing this project says nothing may be. A number that has faded
+   * out cannot be read twice, it appears where the applicant was rather than
+   * where the eye is, and hundreds of them at once is the least legible way to
+   * say anything on a phone.
+   *
+   * What was actually wanted was a way to tell a working card from a card doing
+   * nothing, and drawHealthBars is that: it is state rather than movement, so it
+   * survives a reduced motion preference without a special case, and it makes
+   * the Career Changer soaking the entire output of the turret visible, which is
+   * the most important dynamic on this board and was previously indistinguishable
+   * from the tower being idle. The argument is written out in full down there.
    *
    * The diagnostic readout this replaces is gone. It was debug output, it ran off
    * the right edge once a few cards were listed, and it showed through the game
