@@ -7,6 +7,30 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.7.1 - 2026-08-09
+
+- The fifteenth event has never worked. `upgrade_offered` was posted through the
+  wrong door: the function that takes a built event was handed the name of one
+  instead, so the collector was sent a bare string, refused it, and every card
+  taken on every run since the event landed went unrecorded. The whole argument
+  for adding it was take rate against offer rate, and there was neither.
+- What hid it is worth more than the fix. The same wrong door skips the log kept
+  on the page for checking exactly this, so the event was missing from the
+  browser and missing from the store, and the two agreed with each other. It
+  took playing a run on a real phone and then going and looking.
+- A phone was opening its session under the wrong mode. The mode was set by the
+  scene set that plays the board, which happens after the two events that open a
+  session have already gone, so a phone announced itself as classic and then
+  reported everything after that as one-click apply.
+- The half of that which matters is the experiment. Starting difficulty varies
+  classic's first intake, the check that reads who was bucketed deliberately
+  does not filter by mode, and a phone player was therefore sitting in the
+  denominator of an experiment they were never shown. The mode is now decided
+  from the shape of the screen, before anything is sent.
+- Nothing a player can see has changed, and nothing has been retuned. The version
+  moved so the footer says which build is deployed, which is the thing that was
+  missing when the question was whether the fix was live.
+
 ## 1.7.0 - 2026-08-09
 
 - The phone version is open. A phone used to be told the board wanted more room

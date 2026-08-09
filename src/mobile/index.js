@@ -3,7 +3,6 @@ import Phaser from 'phaser';
 import { COPY } from '../content/copy.js';
 
 import { RADIAL_BOARD } from '../config/path.js';
-import { setMode } from '../services/mode.js';
 import MobileBootScene from '../scenes/mobile/BootScene.js';
 import MobileGameScene from '../scenes/mobile/GameScene.js';
 import MobileGameOverScene from '../scenes/mobile/GameOverScene.js';
@@ -29,12 +28,12 @@ import MobileUpgradeScene from '../scenes/mobile/UpgradeScene.js';
  * WebGL context.
  */
 export function startMobile() {
-  // Set before the game is built, because `mode` is a global property on every
-  // analytics event and the first one this route can send is already in flight
-  // by the time a scene has created anything. It is also what the leaderboard
-  // will read when a score is submitted from here.
-  setMode('oneClickApply');
-
+  // The mode is not set here any more. It is set in main.js, from the shape,
+  // before the session is opened, because two events go out before this module
+  // has even been imported and both of them carry `mode`. Setting it here was
+  // early enough for the leaderboard and for every event a scene sends, and too
+  // late for the two that matter most, which is a distinction that does not
+  // survive being written down.
   return new Phaser.Game({
     type: Phaser.WEBGL,
     parent: 'game',

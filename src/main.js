@@ -9,6 +9,7 @@ import PauseScene from './scenes/PauseScene.js';
 import UIScene from './scenes/UIScene.js';
 import { initAnalytics } from './services/analytics.js';
 import { initExperiments } from './services/experiments.js';
+import { setMode } from './services/mode.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -160,6 +161,31 @@ async function boot() {
   // What it costs is that the events log kept on `window` is not there either,
   // so checking that the mobile build emits anything has to happen on a real
   // handset. That is a real gap and it is the cheaper of the two.
+  // The mode is decided here, before the session is opened, and not by the
+  // scene set that will play it.
+  //
+  // It used to be set inside startMobile, which is after the dynamic import
+  // below and therefore after both of the events that open a session have
+  // already gone. `mode` is a global property on every event, so a phone was
+  // sending `session_started` and the GrowthBook exposure marked classic and
+  // then every event after them marked oneClickApply, which is one session
+  // claiming to be two things.
+  //
+  // The exposure is the half that mattered. The starting difficulty experiment
+  // varies classic wave one, the cross-check that reads exposures deliberately
+  // does not filter on mode, and a phone player bucketed and filed as classic
+  // therefore sat in the denominator of an experiment they could not have seen.
+  //
+  // Nothing changes for the other three. A desktop session opens on the default
+  // and the player picks a mode on the home screen afterwards, which is
+  // `session_started` recording the setting rather than a decision, as it
+  // always did. A phone has no such choice to make: the shape decides, the
+  // decision has already been taken by the time this line runs, and this is
+  // where it gets written down.
+  if (shape.name === 'phone') {
+    setMode('oneClickApply');
+  }
+
   if (!shape.forced) {
     await initExperiments();
 

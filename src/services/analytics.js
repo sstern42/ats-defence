@@ -329,9 +329,23 @@ export function trackKofiClicked({ fromScreen, finalWave }) {
  * That is the `experiment_viewed` shape of argument rather than the
  * `feedback_given` one. It records something that cannot be recovered any other
  * way rather than something a player said.
+ *
+ * **`track` rather than `send`, and it was `send` for four releases.** The two
+ * take different arguments: `track` takes a name and the event's own properties,
+ * builds the envelope, attaches the seven globals and hands the result to
+ * `send`, which takes that one built object. Called with a name, `send` posted
+ * the string, dropped the properties and had the collector refuse a body with no
+ * event on it. The fifteenth event recorded nothing at all from the day it
+ * landed until a phone was checked against the store.
+ *
+ * What made it invisible is that `record` lives in `track` too, so the event
+ * never reached `window.requisita.events` either, and the in-browser log that
+ * every other event can be checked against showed the same nothing the database
+ * did. There is no test here to add against that. What there is instead is that
+ * every one of the fifteen goes through `track`, which is now true.
  */
 export function trackUpgradeOffered({ taken, refused }) {
-  send('upgrade_offered', { taken, refused });
+  track('upgrade_offered', { taken, refused });
 }
 
 export function trackFeedbackGiven({ question, answer, finalWave }) {
