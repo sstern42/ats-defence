@@ -28,6 +28,7 @@ Read these before writing anything.
 | Ground and furniture | Drawn by `tools/make-textures.mjs`, committed as PNG |
 | Applicant introductions | Drawn by `tools/make-intros.mjs`, committed as sprite strips |
 | Tab icon | Drawn by `tools/make-favicon.mjs`, committed as SVG and PNG |
+| Install | Hand written manifest and service worker in `public/`, no plugin |
 | Sound | Synthesised by `tools/make-sounds.mjs`, committed as WAV |
 | Music | Scheduled on the audio clock from `config/music.js`, no file |
 | Backend | Supabase (leaderboard and analytics, both behind Netlify functions) |
@@ -155,8 +156,11 @@ src/
     leaderboard.js     Score submission and top ten
     feedback.js        Asks the one question once a session, and sends the answer
     nameInput.js       The invisible field a touchscreen types a name into
+    pwa.js             Registers the worker, and the two things the manifest does not say
   content/
     copy.js            All user-facing strings
+public/manifest.webmanifest  What the installed app is called and drawn with
+public/sw.js           What happens when the installed app is opened with no signal
 netlify/functions/     collect, health, leaderboard, submit-score, and their lib
 supabase/migrations/   Tables, RLS policies and later columns
 tools/check-mode-list.mjs  Checks the modes the game plays against the ones the leaderboard will take
@@ -164,7 +168,7 @@ tools/simulate-mobile.mjs  Plays the phone board thousands of times without a br
 tools/make-sounds.mjs  Draws the sound effects, run by hand
 tools/make-textures.mjs  Draws the ground and the furniture, run by hand
 tools/make-intros.mjs  Draws the applicant introductions, run by hand
-tools/make-favicon.mjs  Draws the tab icon, run by hand
+tools/make-favicon.mjs  Draws the tab icon and the installed app's icons, run by hand
 docs/                  Analysis notes, their queries and the fixtures
 netlify.toml           Build command, publish directory, Node version
 vite.config.js         Puts the package.json version into the build
@@ -540,11 +544,50 @@ flagship card the worst in the pool. Fixing it means editing `Tower.js` or
 `applicants.js`, which is the sentence above about classic, so it was measured,
 written down and left.
 
+Installing it came off this list last, and it is the smallest thing on it by
+some distance. A manifest, a service worker and one call from `main.js`, and
+the interesting part is how little of the game had to be true for it to work:
+nothing in a run has ever needed the network. The art, the sounds, the waves,
+the card pool and the music, which has no file at all, are already in the
+build, so a worker that holds the page and its assets is the whole of offline
+play. Nothing was written to make the game work without a signal, and that is
+the point.
+
+It qualified on the terms sound and the touch controls did. No dependency: a
+plugin would generate a precache manifest and buy one thing the eighty hand
+written lines do not have, which is an asset cached before anybody has asked
+for it. Nothing already working moved. And it is off in development, so the one
+genuinely unpleasant failure a worker has, a stale module served from a cache
+after the file behind it changed, cannot happen where the game is worked on.
+
+What it cost is mostly a rule about what is never cached. The four functions
+are about right now, so the leaderboard, the collector and the health check go
+to the network every time. What follows from that is the honest cost: an
+offline run is a real run that no board and no query will ever hear about. All
+three network paths already fail quietly, so nothing breaks, and the events are
+dropped rather than queued. Queuing them was considered and refused on the same
+grounds the text box was: a store of unsent events on a public collector is a
+different thing to defend, and no question in the spec is answered better by a
+run that arrives a day late.
+
+Two things the manifest deliberately does not say are in `services/pwa.js`
+rather than here, because a JSON file has nowhere to write them down. The
+shorter one is that it sets no orientation: the board a screen gets is decided
+by its size, so locking an installed app to portrait would take the landscape
+board off a tablet that had cleared the gate.
+
 ### Still true whatever gets built
 
 - Deploy is not a late step, and a red deploy preview is a failed step.
 - Balance lives in data. A post-MVP feature that puts a number in the game loop
   is the wrong shape.
+- **Nothing in a run needs the network.** It was true by accident until the game
+  became installable and it is a rule now. Every wave, tower, applicant, card,
+  sound and chord is in the build, and the four things that do go out, the
+  collector, the leaderboard, the health check and GrowthBook, all sit outside
+  a run or fail quietly inside one. A feature that asks the network a question
+  the game then waits on has broken offline play and will not be noticed by
+  anyone testing on a desk.
 - The event list stays at fifteen unless there is a question that needs a
   sixteenth. All three of the last ones cleared the same bar, and the bar is
   that the question cannot be answered any other way. The thirteenth was added

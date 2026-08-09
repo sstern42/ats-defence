@@ -20,6 +20,22 @@
     <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
+    <!-- The game can be installed, and this is the half of it that is markup.
+         The manifest carries the name, the icons and the colours a home screen
+         and a splash screen are drawn with. The service worker is registered by
+         the game rather than from here, in src/services/pwa.js, which is also
+         where the two things the manifest deliberately does not say are
+         written down.
+
+         The two apple meta tags are for a version of iOS that reads neither the
+         manifest's display mode nor its theme colour. A current one takes both
+         from the manifest and ignores these, which is why the values match. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="ATS Defence" />
+
     <!-- The launch happens on LinkedIn, so the card preview is the first thing
          most people will see of this. Absolute URLs, because a relative one is
          not resolved by the scrapers. -->

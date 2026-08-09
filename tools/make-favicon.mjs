@@ -37,6 +37,14 @@
  * add to a home screen. It is drawn square and full bleed rather than with the
  * rounded corners of the other two, because iOS puts its own mask over it and
  * a rounded mark inside a rounded mask reads as a mistake.
+ *
+ * Three more arrived with the web app manifest, and they are the same mark at
+ * the sizes an installed app is listed at. `icon-192.png` and `icon-512.png`
+ * are rounded like the favicon and are what a browser shows in an install
+ * prompt. `icon-maskable-512.png` is the one that needed a change rather than
+ * a size: a maskable icon is cropped to whatever shape the platform likes, so
+ * the tile goes full bleed and everything on it is pulled in to the safe
+ * circle, which is the only reason `mark` takes a scale.
  */
 
 import { writeFileSync } from 'node:fs';
@@ -87,8 +95,26 @@ const REJECT = '#b5553f';
  * The stroke runs past the page on both sides on purpose. Kept inside it, it
  * reads as something printed on the document. Carried over the edges, it reads
  * as something done to it afterwards by somebody else.
+ *
+ * `scale` pulls everything except the tile in towards the middle, and it is
+ * one for every icon but the maskable one. The tile is left alone deliberately:
+ * a maskable icon is cropped by the platform, so the background has to reach
+ * every corner while the mark on it stays inside the circle that survives.
  */
-function mark(cornerRadius) {
+function mark(cornerRadius, scale = 1) {
+  const centre = VIEW / 2;
+
+  /* Pulled in about the middle of the square, which is also the centre the
+     rotation below is applied about, so a turned shape needs nothing special. */
+  const inwards = (shape) => ({
+    ...shape,
+    left: centre + (shape.left - centre) * scale,
+    top: centre + (shape.top - centre) * scale,
+    width: shape.width * scale,
+    height: shape.height * scale,
+    radius: shape.radius * scale
+  });
+
   return [
     {
       left: 0,
@@ -98,19 +124,21 @@ function mark(cornerRadius) {
       radius: cornerRadius,
       colour: CARPET
     },
-    { left: 8, top: 4.5, width: 16, height: 23, radius: 1.5, colour: PAPER },
-    { left: 10.5, top: 9, width: 11, height: 2, radius: 1, colour: RULE },
-    { left: 10.5, top: 14, width: 11, height: 2, radius: 1, colour: RULE },
-    { left: 10.5, top: 19, width: 6.5, height: 2, radius: 1, colour: RULE },
-    {
-      left: 4,
-      top: 13.8,
-      width: 24,
-      height: 4.4,
-      radius: 2.2,
-      colour: REJECT,
-      rotate: -30
-    }
+    ...[
+      { left: 8, top: 4.5, width: 16, height: 23, radius: 1.5, colour: PAPER },
+      { left: 10.5, top: 9, width: 11, height: 2, radius: 1, colour: RULE },
+      { left: 10.5, top: 14, width: 11, height: 2, radius: 1, colour: RULE },
+      { left: 10.5, top: 19, width: 6.5, height: 2, radius: 1, colour: RULE },
+      {
+        left: 4,
+        top: 13.8,
+        width: 24,
+        height: 4.4,
+        radius: 2.2,
+        colour: REJECT,
+        rotate: -30
+      }
+    ].map(inwards)
   ];
 }
 
@@ -247,10 +275,10 @@ function reduce(canvas, size) {
   return rgba;
 }
 
-function drawPng(size, cornerRadius) {
+function drawPng(size, cornerRadius, scale = 1) {
   const canvas = createCanvas(size);
 
-  mark(cornerRadius).forEach((shape) => draw(canvas, shape));
+  mark(cornerRadius, scale).forEach((shape) => draw(canvas, shape));
 
   return encodePng(size, size, reduce(canvas, size));
 }
@@ -352,13 +380,29 @@ function encodePng(width, height, rgba) {
 
 /* -------------------------------------------------------------------------- */
 
-/** The corner on the two the browser draws itself. iOS rounds its own. */
+/** The corner on the ones the browser draws itself. iOS rounds its own. */
 const CORNER_RADIUS = 7;
+
+/**
+ * How far in the mark is pulled on the maskable icon.
+ *
+ * The guarantee a maskable icon has to make is that everything meant to be seen
+ * is inside the circle of forty per cent of the width, since a platform may
+ * crop to it. The furthest corner of the page sits fourteen units out from the
+ * middle of a thirty two unit square, and the circle is twelve point eight, so
+ * at full size the page loses its corners to a round mask. Four fifths brings
+ * it to eleven point two and leaves a margin, which is worth having because the
+ * exact crop is the platform's business rather than ours.
+ */
+const SAFE_SCALE = 0.8;
 
 const OUTPUT = {
   'favicon.svg': drawSvg(CORNER_RADIUS),
   'favicon.png': drawPng(32, CORNER_RADIUS),
-  'apple-touch-icon.png': drawPng(180, 0)
+  'apple-touch-icon.png': drawPng(180, 0),
+  'icon-192.png': drawPng(192, CORNER_RADIUS),
+  'icon-512.png': drawPng(512, CORNER_RADIUS),
+  'icon-maskable-512.png': drawPng(512, 0, SAFE_SCALE)
 };
 
 Object.entries(OUTPUT).forEach(([name, contents]) => {
