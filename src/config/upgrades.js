@@ -117,6 +117,12 @@ export const UPGRADES = [
     once: true
   },
   {
+    // The third card the board did not show properly, and the only one it drew
+    // in the wrong place: the splash was marked out by a ring around the desk,
+    // which is where a splash never happens. It is drawn at the hit now, on
+    // every shot rather than only the ones that catch somebody, and the
+    // reasoning is in config/mobile.js at MOBILE_BURST. Nothing about the
+    // number moved, so the 29.4% above still stands.
     id: 'panelReview',
     stat: 'splashRadius',
     add: 28,
@@ -131,16 +137,23 @@ export const UPGRADES = [
     weight: 1
   },
   {
+    // The other card the board did not show, and the worse of the two, since a
+    // shorter reload can at least be counted and a bigger number per shot
+    // cannot be seen at all. A shot is drawn wider and warmer per raise now,
+    // and the reasoning is in config/mobile.js at MOBILE_TRACER. Nothing about
+    // the number moved: it is what a shot looks like, not what it does, so the
+    // 7.5% above still stands.
     id: 'higherBar',
     stat: 'damage',
     add: 6,
     weight: 1
   },
   {
-    // The one card here whose effect the board did not show. It is drawn now,
-    // as one tracer per screening running at once, and the reasoning is in
-    // config/mobile.js at MOBILE_TRACER. Nothing about the number moved: it is
-    // what a shot looks like, not what it does, so the 13.5% above still stands.
+    // One of the two cards here whose effect the board did not show. It is
+    // drawn now, as one tracer per screening running at once, and the reasoning
+    // is in config/mobile.js at MOBILE_TRACER. Nothing about the number moved:
+    // it is what a shot looks like, not what it does, so the 13.5% above still
+    // stands.
     id: 'parallelScreening',
     stat: 'fireIntervalMs',
     add: -32,

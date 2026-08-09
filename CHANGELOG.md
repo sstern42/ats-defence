@@ -7,6 +7,47 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.11.2 - 2026-08-09
+
+- Convene a panel shows where it lands. Every shot on the phone board now draws
+  the area it caught, around whoever was hit, for a fifth of a second. It was
+  the worst drawn of the six cards rather than merely the least visible: a
+  bystander's health bar dropped with nothing on the board saying why, which on
+  a crowded intake looks like a turret the player has not got.
+- The ring it used to draw around the desk has gone, and the removal is most of
+  the fix. A splash happens at the far end of the shot, so a circle in the
+  middle of the board marked out the one place it never happens, and sat next to
+  a ring that genuinely does mean range it read as a second, smaller range,
+  which is a different card.
+- Drawn on every shot rather than only the ones that catch somebody. An area
+  that appears only when it works cannot be aimed, and watching it miss is how
+  a player learns what it is for.
+- It does not open out or fade, unlike the desktop board's, because nothing on
+  this board is said by movement alone. Same size, same weight, for as long as
+  it is there.
+- Cosmetic. The radius drawn is the radius the hit is resolved against, so the
+  ring is the answer rather than a picture of it, and the simulator sees nothing.
+
+## 1.11.1 - 2026-08-09
+
+- Raise the bar now shows itself on the phone board. Each one taken draws a shot
+  wider and warmer, from the turret's pale blue through to the orange the
+  desktop board gives the screening that rejects outright. It was the last card
+  in the pool whose effect a player could not see: a shorter reload could at
+  least be counted, but a bigger number per shot leaves nothing behind except
+  health bars emptying in fewer hits, which nobody holds in their head from one
+  intake to the next.
+- Two readings rather than one, because the board is drawn at 720 by 1280 and
+  then scaled down to whatever phone is holding it. A pixel of extra width on
+  its own is a rounding error at that size. The colour is what survives it.
+- The width stops at four, which is the gap between parallel lines minus enough
+  to still see it. A wider line would close it and merge the parallel screenings
+  back into the single beam they were drawn to stop being, so one card's signal
+  cannot eat the other's.
+- Cosmetic and only cosmetic. The damage, the target and the reload are what
+  they were, nothing in the simulator can see it, and a run that takes the card
+  is the same run it measured at.
+
 ## 1.11.0 - 2026-08-09
 
 - Salary Expectations reaches the phone board, which is the sixth screening

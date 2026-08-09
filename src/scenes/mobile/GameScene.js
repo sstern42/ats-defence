@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { COPY } from '../../content/copy.js';
 import { APPLICANTS } from '../../config/applicants.js';
 import {
+  MOBILE_BURST,
   MOBILE_RUN,
   MOBILE_SUPERWEAPON,
   MOBILE_TOWER,
@@ -153,6 +154,11 @@ export default class MobileGameScene extends Phaser.Scene {
     this.applicants = [];
     this.shots = [];
 
+    // Where the shots landed, once there is a panel to land them on. Kept apart
+    // from the shots because it outlives them: a circle takes longer to read
+    // than a line does. See MOBILE_BURST.
+    this.bursts = [];
+
     // Per run rather than per session, so a restart introduces everybody again.
     this.seenTypes = new Set();
     this.introCard = null;
@@ -221,6 +227,13 @@ export default class MobileGameScene extends Phaser.Scene {
     // find anything in. The reasoning for the card needing this at all is in
     // config/mobile.js at MOBILE_TRACER.
     this.screenings = 1;
+
+    // How many times the bar has been raised, which is what a shot's width and
+    // colour are drawn from. Another drawing number for the same reason, and
+    // the reasoning for the card needing one is at MOBILE_TRACER too: damage is
+    // the other card whose effect the board never showed, and the worse of the
+    // two, because a shorter reload can at least be counted.
+    this.raises = 0;
 
     const definition = this.stats;
 
@@ -911,6 +924,13 @@ export default class MobileGameScene extends Phaser.Scene {
       this.screenings = Math.min(this.screenings + 1, MOBILE_TRACER.maxLines);
     }
 
+    // Raise the bar is the other one the board did not show, and it is keyed on
+    // the stat for the same reason: a card added later that buys the same
+    // damage is the same card as far as a shot looks.
+    if (card.stat === 'damage') {
+      this.raises += 1;
+    }
+
     this.drawRange();
   }
 
@@ -1399,6 +1419,12 @@ export default class MobileGameScene extends Phaser.Scene {
     const damage = this.tower.rollDamage();
     const { splashRadius } = this.stats;
 
+    // Drawn whether or not it catches anybody, which is the point of it. See
+    // MOBILE_BURST: an area that only appears when it works cannot be aimed.
+    if (splashRadius > 0) {
+      this.recordBurst(target, splashRadius, time);
+    }
+
     // Snapshotted before anybody is hit, because resolving a hit can take the
     // person hit off this list and iterating it while it shrinks would skip
     // whoever moved up into the gap.
@@ -1563,22 +1589,73 @@ export default class MobileGameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ drawing
 
   recordShot(target, time) {
+    const { width, colour } = this.tracerLook();
+
     this.shots.push({
       x: target.x,
       y: target.y,
       until: time + this.tower.definition.tracerDurationMs,
 
-      // Carried on the shot rather than read off the scene when it is drawn.
-      // Cards are taken between intakes with the board held, so nothing is in
-      // flight when the count changes and the two can never differ today. It is
-      // still the right field: a tracer is a record of a shot that has already
-      // happened, and what it looked like is a fact about that shot.
-      lines: this.screenings
+      // All three carried on the shot rather than read off the scene when it is
+      // drawn. Cards are taken between intakes with the board held, so nothing
+      // is in flight when any of them change and they can never differ today. It
+      // is still the right place: a tracer is a record of a shot that has
+      // already happened, and what it looked like is a fact about that shot.
+      lines: this.screenings,
+      width,
+      colour
+    });
+  }
+
+  /**
+   * What a shot is drawn with, given how many times the bar has been raised.
+   *
+   * Nought raises is the tower's own colour at the base width, so a run that
+   * never takes the card draws exactly what it drew before. Past that it widens
+   * a step at a time to a cap tied to the spacing between parallel lines, and
+   * warms a stop at a time to the end of the ramp. Both caps and the reasoning
+   * for having two readings rather than one are in config/mobile.js.
+   */
+  tracerLook() {
+    const { width, widthStep, maxWidth, heat } = MOBILE_TRACER;
+
+    return {
+      width: Math.min(width + this.raises * widthStep, maxWidth),
+      colour:
+        this.raises === 0
+          ? this.stats.tracerColour
+          : heat[Math.min(this.raises, heat.length) - 1]
+    };
+  }
+
+  /**
+   * The panel sitting down, wherever the shot landed.
+   *
+   * The centre is taken at the moment of the hit rather than followed, because
+   * the hit happened there: an applicant who walks on out of the ring was still
+   * caught, and one who walks into it after the fact was not. Everything about
+   * why it is drawn at all is in config/mobile.js at MOBILE_BURST.
+   */
+  recordBurst(target, radius, time) {
+    this.bursts.push({
+      x: target.x,
+      y: target.y,
+      radius,
+      until: time + MOBILE_BURST.durationMs,
+
+      // On the burst for the reason the width and the count are on the shot: it
+      // is a record of something that has already happened, and how wide the
+      // panel was when it sat down is a fact about that.
+      colour: this.stats.tracerColour
     });
   }
 
   drawTracers(time) {
     this.tracers.clear();
+
+    // Under the tracers rather than over them, so the line that caused the ring
+    // is still the brightest thing in it.
+    this.drawBursts(time);
 
     // Walked backwards so an expired tracer can be spliced out without the loop
     // skipping the one after it, and so nothing allocates a filtered copy of
@@ -1597,7 +1674,32 @@ export default class MobileGameScene extends Phaser.Scene {
   }
 
   /**
-   * One shot, drawn as one line per screening running at once.
+   * The area each recent shot caught, drawn the same size and the same weight
+   * for as long as it is there. The expiry walk is the tracers' one.
+   */
+  drawBursts(time) {
+    const { fillAlpha, lineAlpha, lineWidth } = MOBILE_BURST;
+
+    for (let index = this.bursts.length - 1; index >= 0; index -= 1) {
+      const burst = this.bursts[index];
+
+      if (time >= burst.until) {
+        this.bursts.splice(index, 1);
+
+        continue;
+      }
+
+      this.tracers.fillStyle(burst.colour, fillAlpha);
+      this.tracers.fillCircle(burst.x, burst.y, burst.radius);
+
+      this.tracers.lineStyle(lineWidth, burst.colour, lineAlpha);
+      this.tracers.strokeCircle(burst.x, burst.y, burst.radius);
+    }
+  }
+
+  /**
+   * One shot, drawn as one line per screening running at once, as wide and as
+   * warm as the bar has been raised.
    *
    * The lines are genuinely parallel rather than a fan, offset by the same
    * amount at both ends, because a fan converging on the target is one screening
@@ -1606,17 +1708,19 @@ export default class MobileGameScene extends Phaser.Scene {
    * unupgraded run draws exactly what it drew before: at one line the offset is
    * nought and this is the old lineBetween with arithmetic in front of it.
    *
-   * It says nothing by movement, which is the rule on this board. The count is
-   * there for as long as the tracer is, it is the same count on every shot, and a
-   * player who has asked their system for less motion sees the same four lines as
-   * everybody else. Compare the floating damage numbers argument at buildHud:
-   * this is legible for the same reason those were not.
+   * It says nothing by movement, which is the rule on this board. The count, the
+   * width and the colour are there for as long as the tracer is, they are the
+   * same on every shot, and a player who has asked their system for less motion
+   * sees what everybody else sees. Compare the floating damage numbers argument
+   * at buildHud: this is legible for the same reason those were not.
    */
   drawShot(shot) {
     const { x: fromX, y: fromY } = this.tower;
     const lines = shot.lines ?? 1;
+    const width = shot.width ?? MOBILE_TRACER.width;
+    const colour = shot.colour ?? this.tower.definition.tracerColour;
 
-    this.tracers.lineStyle(2, this.tower.definition.tracerColour, 0.8);
+    this.tracers.lineStyle(width, colour, 0.8);
 
     if (lines === 1) {
       this.tracers.lineBetween(fromX, fromY, shot.x, shot.y);
@@ -1703,18 +1807,23 @@ export default class MobileGameScene extends Phaser.Scene {
     });
   }
 
-  /** Redrawn rather than drawn once, since a card can widen it mid run. */
+  /**
+   * The reach, redrawn rather than drawn once, since a card can widen it mid
+   * run.
+   *
+   * The splash radius used to be drawn here too, as a second ring around the
+   * desk. It has gone, and the removal is the substance of the change rather
+   * than tidying up after it: a splash lands where the shot lands, so a circle
+   * at the middle of the board marked out the one place it never happens, and
+   * next to a ring that genuinely does mean range it read as a smaller range.
+   * It is drawn at the hit now, by drawBursts.
+   */
   drawRange() {
     const { centre } = RADIAL_BOARD;
 
     this.range.clear();
     this.range.lineStyle(1, this.stats.tracerColour, 0.18);
     this.range.strokeCircle(centre.x, centre.y, this.stats.range);
-
-    if (this.stats.splashRadius > 0) {
-      this.range.lineStyle(1, this.stats.tracerColour, 0.1);
-      this.range.strokeCircle(centre.x, centre.y, this.stats.splashRadius);
-    }
   }
 
   /** The one bar the design asks for, under the thing it belongs to. */
