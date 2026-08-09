@@ -30,7 +30,14 @@ export const INTRO_KEYS = [
   'intro-overqualified',
   'intro-keywordStuffer',
   'intro-referral',
-  'intro-boomerang'
+  'intro-boomerang',
+
+  // The seventh. Only the phone board ever sends this type, so only the phone
+  // board ever draws this card, and the desktop boot scene fetches four
+  // kilobytes it will not use. That is cheaper than a second list saying which
+  // board a strip belongs to, which is a list that would have to be kept in
+  // step with this one.
+  'intro-internalCandidate'
 ];
 
 /**

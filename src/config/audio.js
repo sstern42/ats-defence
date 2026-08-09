@@ -24,7 +24,11 @@ export const SOUNDS = {
   leak: { volume: 0.7, minGapMs: 120 },
   'wave-open': { volume: 0.5, minGapMs: 0 },
   'wave-clear': { volume: 0.5, minGapMs: 0 },
-  denied: { volume: 0.45, minGapMs: 250 }
+  denied: { volume: 0.45, minGapMs: 250 },
+  // The seventh, and the only one that fires at most three times in a run, so
+  // it is allowed to be the longest and the loudest thing here. The gap is
+  // nominal: the cooldown on the button is already longer than the clip.
+  'bulk-reject': { volume: 0.75, minGapMs: 300 }
 };
 
 /**

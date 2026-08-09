@@ -104,6 +104,89 @@ export const MOBILE_RUN = {
   prepMs: 2200
 };
 
+/**
+ * The bulk reject: the one thing a player of this board does during an intake.
+ *
+ * ## What it broke to exist
+ *
+ * `CLAUDE.md` described this mode as taking no input at all during an intake,
+ * and that was not a description, it was load bearing. It is the reason the idle
+ * abandonment clock is switched off here, it is two thirds of the argument for
+ * this board being a scene set of its own, and it is why the whole of the
+ * player's agency was a card between intakes. A button on the board during a
+ * wave is that sentence being overturned rather than worked around, and it was
+ * asked for.
+ *
+ * The one thing that does not move with it is the idle clock, and the reason is
+ * unchanged rather than merely convenient. Three charges over a nine intake run
+ * is a player who touches the screen three times in about four minutes, so idle
+ * would still count somebody watching as an empty chair, and since
+ * `run_abandoned` fires once per run their real exit would still be the one that
+ * went unrecorded. The rule was never "there is input", it was "input is not how
+ * you tell whether anybody is there".
+ *
+ * ## Why it is damage rather than a clearance
+ *
+ * The obvious version rejects everybody on the board outright, and it is the
+ * version to avoid, because the boss intake is the reason this exists and a
+ * clearance deletes a boss as readily as it deletes a Graduate. One number that
+ * kills everything with less than 800 health does the same job on the crowd, is
+ * one code path rather than a rule with an exception carved into it for one
+ * applicant type, and leaves the question of how much of a 2,000 health arrival
+ * one charge is worth as a thing to tune here rather than a thing to special
+ * case in the loop.
+ *
+ * ## The three numbers
+ *
+ * `charges` is a run's whole allowance and nothing gives one back. Three,
+ * because two makes the boss intake a straight test of whether both were saved
+ * and turns the other eight into intakes a careful player must sit on their
+ * hands through, and four is enough to answer the boss and still have one spare.
+ * Three is two for the boss and one to spend, or one for the boss and a run that
+ * was easier on the way there.
+ *
+ * `cooldownMs` exists for the fat finger rather than for balance. Two taps
+ * inside a second on a phone is one intended press, and spending two thirds of a
+ * run's allowance on it is not a decision anybody made.
+ *
+ * ## What it measures at
+ *
+ * `tools/simulate-mobile.mjs --bulk <policy>`, 10,000 runs each, vacancies held:
+ *
+ *                    none   greedy   saving   hoard
+ *   sensible cards    0.3%    16.2%    31.6%   47.6%
+ *   random cards      0.1%     1.0%     2.4%    5.0%
+ *   careless cards    0.1%     1.1%     1.1%    2.5%
+ *
+ * `hoard` spends nothing before the ninth intake, `saving` breaks that to
+ * rescue a run about to end anyway, and `greedy` fires at the first crowd worth
+ * firing at. The policies are described where they are implemented.
+ *
+ * Three things worth reading off it. The button is close to mandatory, since
+ * `none` holds the vacancy in one run in three hundred at best. When to spend it
+ * is worth about three times the run, which makes it a real second decision
+ * rather than a button that is always right to press. And it is worth far less
+ * than the cards are, which is as it should be: `sensible` beats `careless` by
+ * about nineteen times on the same bulk policy, so the thing the design calls
+ * its decision is still the decision.
+ *
+ * **The honest cost is the shape of the curve, and it is the 1.7.0 complaint
+ * arriving through a different door.** A player who keeps the charges has an
+ * eighth intake that 58% of runs survive and a ninth that 47% do, which is the
+ * two step shape the tuning pass was after. A player who spends one to get out
+ * of trouble takes the eighth to 94% and the ninth to 30%, and the run then ends
+ * in the ninth or not at all. That is one intake deciding everything, which is
+ * exactly what the tuning pass took out of this list. What is different is that
+ * it is now a consequence of something the player chose rather than a property
+ * of the numbers, and the player who declines it gets the curve back. That is
+ * the best available answer and it is not a complete one.
+ */
+export const MOBILE_SUPERWEAPON = {
+  charges: 3,
+  damage: 800,
+  cooldownMs: 800
+};
+
 /*
  * A NOTE, NOT A DEFINITION. Something the first run of this board threw up,
  * kept here because it is the sort of thing that gets rediscovered expensively

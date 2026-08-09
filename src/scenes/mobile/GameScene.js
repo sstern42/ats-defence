@@ -4,6 +4,7 @@ import { COPY } from '../../content/copy.js';
 import { APPLICANTS } from '../../config/applicants.js';
 import {
   MOBILE_RUN,
+  MOBILE_SUPERWEAPON,
   MOBILE_TOWER,
   MOBILE_TOWER_KEY,
   MOBILE_LEAK_SHAKE,
@@ -96,6 +97,24 @@ const CARD_EDGE = 0x39566b;
 const CARD_HOLD_MS = 2600;
 const CARD_FADE_MS = 240;
 
+/**
+ * The bulk reject button, in the band between the spawn ring and the switches.
+ *
+ * Everybody arrives on a ring 320 from the middle, so nothing is ever drawn
+ * below y 960, and the two switches sit at the very bottom. What is between them
+ * is the only part of this board that is guaranteed empty and reachable by a
+ * thumb, which is the whole of why the one control this mode has goes here.
+ */
+const BULK_Y = 1056;
+const BULK_WIDTH = 380;
+const BULK_HEIGHT = 84;
+const BULK_NOTE_Y = 1120;
+const BULK_RADIUS = 14;
+const BULK_FILL = 0x2b3b47;
+const BULK_FILL_SPENT = 0x1e2229;
+const BULK_EDGE = 0x5f8ba6;
+const BULK_EDGE_SPENT = 0x2f363f;
+
 export default class MobileGameScene extends Phaser.Scene {
   constructor() {
     super('MobileGameScene');
@@ -137,6 +156,13 @@ export default class MobileGameScene extends Phaser.Scene {
     this.rejected = 0;
     this.arrived = 0;
     this.over = false;
+
+    // The run's allowance of bulk rejects, and when the next one may be sent.
+    // Nothing gives a charge back, which is what makes spending one a decision
+    // rather than a rhythm.
+    this.charges = MOBILE_SUPERWEAPON.charges;
+    this.bulkUsed = 0;
+    this.nextBulkAt = 0;
 
     this.waveIndex = 0;
     this.spawnsRemaining = 0;
@@ -206,6 +232,7 @@ export default class MobileGameScene extends Phaser.Scene {
     this.drawTracers(time);
     this.drawHealthBars();
     this.drawBar();
+    this.watchBulkReject();
   }
 
   /**
@@ -282,7 +309,184 @@ export default class MobileGameScene extends Phaser.Scene {
       .setDepth(100);
 
     this.showIntake();
+    this.buildBulkReject();
     this.buildSwitches();
+  }
+
+  /**
+   * The one control this board has during an intake, and the sentence in
+   * `CLAUDE.md` about this mode taking no input that had to be overturned to put
+   * it here. The reasoning, and the one part of that sentence that did not move,
+   * are in config/mobile.js at MOBILE_SUPERWEAPON.
+   *
+   * A drawn panel with the text over it rather than a padded Text like the two
+   * switches, because a switch is a thing you find once a run and this is a
+   * thing you look for while a wave is coming in. The tap target is the whole
+   * panel rather than the glyphs, which is what the Zone below is for.
+   *
+   * The note underneath is permanent rather than shown once. Nothing else on
+   * this board explains a control, there being no other control, and a player
+   * arrives here having been told what six applicant types do and nothing at all
+   * about the only button on the screen.
+   */
+  buildBulkReject() {
+    const { width } = RADIAL_BOARD.board;
+
+    // The button is drawn by a Graphics and pressed through a Zone, which is
+    // two objects for one control and is the cheaper of the two ways round.
+    // Phaser's Rectangle has no corner radius, and every other panel on this
+    // board is rounded, so a square one reads as something unfinished.
+    this.bulkShape = this.add.graphics().setDepth(100);
+
+    this.bulkPanel = this.add
+      .zone(width / 2, BULK_Y, BULK_WIDTH, BULK_HEIGHT)
+      .setInteractive({ useHandCursor: true });
+
+    this.bulkLabel = this.add
+      .text(width / 2, BULK_Y, '', {
+        fontFamily: FONT,
+        fontSize: '32px',
+        color: '#e6ebf0'
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(101);
+
+    this.add
+      .text(width / 2, BULK_NOTE_Y, COPY.hud.bulkRejectNote, {
+        fontFamily: FONT,
+        fontSize: '20px',
+        color: '#6f7d8c'
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(100);
+
+    this.bulkPanel.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      nudge(this.bulkLabel, 0, FEEL.pressDrop);
+      this.bulkReject();
+    });
+
+    this.refreshBulkReject();
+  }
+
+  /**
+   * What the button says and whether it looks pressable.
+   *
+   * State rather than movement, which is the rule this board is drawn by: the
+   * count is a number a player can read at any moment rather than something that
+   * happened while they were looking elsewhere, and it survives a reduced motion
+   * preference without a special case.
+   *
+   * Note that it greys while the board is between intakes as well as when the
+   * charges are gone. There is nobody on the board then, so a charge spent in
+   * the gap would buy nothing at all, and a control that can be wasted on
+   * nothing is worse than one that is briefly unavailable.
+   */
+  refreshBulkReject() {
+    const spent = this.charges === 0;
+    const usable = this.bulkAvailable();
+    const left = BULK_WIDTH / -2;
+
+    // Kept in step here rather than only in the watcher, so a push and a poll
+    // cannot disagree about what is currently drawn.
+    this.bulkWasUsable = usable;
+
+    this.bulkShape.clear();
+    this.bulkShape.fillStyle(spent ? BULK_FILL_SPENT : BULK_FILL, 1);
+    this.bulkShape.fillRoundedRect(
+      this.bulkPanel.x + left,
+      BULK_Y - BULK_HEIGHT / 2,
+      BULK_WIDTH,
+      BULK_HEIGHT,
+      BULK_RADIUS
+    );
+    this.bulkShape.lineStyle(2, spent ? BULK_EDGE_SPENT : BULK_EDGE, 1);
+    this.bulkShape.strokeRoundedRect(
+      this.bulkPanel.x + left,
+      BULK_Y - BULK_HEIGHT / 2,
+      BULK_WIDTH,
+      BULK_HEIGHT,
+      BULK_RADIUS
+    );
+
+    this.bulkLabel.setText(
+      spent
+        ? COPY.hud.bulkRejectSpent
+        : `${COPY.hud.bulkReject} ${this.charges}`
+    );
+    this.bulkLabel.setColor(usable ? '#e6ebf0' : '#6f7d8c');
+  }
+
+  /**
+   * Redraws the button when, and only when, whether it can be pressed has
+   * changed.
+   *
+   * Two of the three things `bulkAvailable` reads change on an event and could
+   * be pushed. The third is the cooldown running out, which happens because time
+   * passed and nothing calls anything when time passes, so it is watched here
+   * instead of being given a timer of its own. Guarded on the state actually
+   * changing, because the alternative is rebuilding a Graphics and re-rendering
+   * a Text every frame to say what they already said.
+   */
+  watchBulkReject() {
+    const usable = this.bulkAvailable();
+
+    if (usable !== this.bulkWasUsable) {
+      this.bulkWasUsable = usable;
+      this.refreshBulkReject();
+    }
+  }
+
+  /** Whether pressing it now would do anything. */
+  bulkAvailable() {
+    return (
+      !this.over &&
+      this.phase === 'running' &&
+      this.charges > 0 &&
+      this.time.now >= this.nextBulkAt
+    );
+  }
+
+  /**
+   * Everybody currently applying gets the same email.
+   *
+   * It is damage rather than a clearance, and it goes through `hit` rather than
+   * round it, which is what makes one code path serve a Graduate and a 2,600
+   * health arrival. The boss survives a charge and is worn down by three, and
+   * nothing here knows which of those it is looking at.
+   *
+   * It also ignores who is immune to what, deliberately and by having nothing to
+   * do with `Tower.canTarget`. Immunity is a property of an applicant against a
+   * named tower type, The Keyword Stuffer's names the Keyword Filter, and a mail
+   * merge is not the Keyword Filter. That is the one thing on this board it
+   * cannot walk through.
+   *
+   * The list is copied before anybody is hit, for the same reason splash copies
+   * it: resolving a hit takes the person hit off `this.applicants`, and walking
+   * a list while it shrinks skips whoever moved up into the gap.
+   */
+  bulkReject() {
+    if (!this.bulkAvailable()) {
+      playSound('denied');
+
+      return;
+    }
+
+    this.charges -= 1;
+    this.bulkUsed += 1;
+    this.nextBulkAt = this.time.now + MOBILE_SUPERWEAPON.cooldownMs;
+
+    [...this.applicants].forEach((who) =>
+      this.hit(who, MOBILE_SUPERWEAPON.damage)
+    );
+
+    playSound('bulk-reject');
+    shake(
+      this,
+      MOBILE_LEAK_SHAKE.durationMs,
+      MOBILE_LEAK_SHAKE.intensity * 1.4
+    );
+
+    this.refreshBulkReject();
   }
 
   /**
@@ -812,7 +1016,15 @@ export default class MobileGameScene extends Phaser.Scene {
     trackApplicantLeaked(applicant.typeKey);
 
     this.arrived += 1;
-    this.health = Math.max(0, this.health - MOBILE_RUN.arrivalCost);
+
+    // What this one costs, where the type says, and the flat rate otherwise.
+    // Only the boss carries its own, and it carries one because an arrival that
+    // took a whole intake to walk in cannot cost the same as a Graduate.
+    this.health = Math.max(
+      0,
+      this.health -
+        (applicant.definition.arrivalCost ?? MOBILE_RUN.arrivalCost)
+    );
 
     // The one moment on this board with no other signal. A rejection has a
     // tracer and a body fading out; somebody getting in has nothing but a bar
@@ -921,7 +1133,17 @@ export default class MobileGameScene extends Phaser.Scene {
 
     stopMusic();
 
-    trackGameOver({ finalWave: this.waveNumber(), score: this.score() });
+    // The charges are reported here rather than on a sixteenth event, and the
+    // argument is the one the analytics spec makes for `mode` being a property:
+    // this is a fact about the run every other event is already reporting rather
+    // than a thing that happens. Question 4 asks which things are dead weight,
+    // and a run that ended with three unspent charges is the only way to find
+    // out whether anybody presses the only button on the board.
+    trackGameOver({
+      finalWave: this.waveNumber(),
+      score: this.score(),
+      bulkRejectsUsed: this.bulkUsed
+    });
 
     if (outcome === 'filled') {
       this.tower.base.setAlpha(0.3);
@@ -1031,7 +1253,14 @@ export default class MobileGameScene extends Phaser.Scene {
     this.healthBars.clear();
 
     this.applicants.forEach((applicant) => {
-      if (!applicant.active || applicant.health >= applicant.maxHealth) {
+      // Hurt, or one of the types that carries its bar from the moment it turns
+      // up. The second is one type and the reasoning is in applicants.js beside
+      // the flag; the first is the rule and stays the rule.
+      if (
+        !applicant.active ||
+        (applicant.health >= applicant.maxHealth &&
+          !applicant.definition.showHealth)
+      ) {
         return;
       }
 

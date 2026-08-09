@@ -48,6 +48,20 @@ export const COPY = {
     boomerang: {
       name: 'The Boomerang',
       trait: 'Applies again at the end of the intake. Every time.'
+    },
+    /**
+     * The seventh, and the only one the desktop boards never send, so it has no
+     * `traitRadial`: the radial board is the only board it is ever introduced
+     * on and the first line is already written for it.
+     *
+     * The joke is at the process's expense rather than at this applicant's,
+     * which is the rule for all seven. Requisita is about to screen somebody
+     * whose start date is already in a calendar, and it is going to do it
+     * thoroughly.
+     */
+    internalCandidate: {
+      name: 'The Internal Candidate',
+      trait: 'Already has the job. This intake is a formality, and a long one.'
     }
   },
   towers: {
@@ -229,7 +243,20 @@ export const COPY = {
     soundOffTouch: 'Sound off',
     musicOnTouch: 'Music on',
     musicOffTouch: 'Music off',
-    pauseTouch: 'Pause'
+    pauseTouch: 'Pause',
+    /**
+     * The phone board's one control during an intake. The count is added on
+     * after, for the same reason `trapWaiting` has the seconds added on after:
+     * how many are left is the whole of what the player needs off it, and a
+     * number is a better way to say it than a word.
+     *
+     * The note under it is there because nothing else on that board ever
+     * explains a control, there being no other control to explain, and a button
+     * whose effect is invisible until it is pressed is a button nobody presses.
+     */
+    bulkReject: 'Bulk reject',
+    bulkRejectSpent: 'No bulk rejects left',
+    bulkRejectNote: 'Everyone currently applying gets the same email.'
   },
   pause: {
     title: 'Screening on hold',
