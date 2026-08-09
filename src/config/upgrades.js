@@ -30,12 +30,48 @@
  * closest, and there is no second tower to cover. Two of the six types are
  * therefore guaranteed arrivals: the Keyword Stuffer, which this tower cannot
  * touch at all, and the Career Changer, which it cannot kill in the time it has.
- * Between them they account for 85 of the tower's 200 before anything is
- * overwhelmed.
+ * Between them they account for something like a third of the tower's 240
+ * before anything is overwhelmed.
  *
  * So the pool is two cards that change what the tower can do and four that
- * change how well it does it. The first two are decisions. The other four are a
- * slider, and they are here to be the thing a decision is measured against.
+ * change how well it does it. The first two were meant to be the decisions. The
+ * other four were meant to be a slider, and to be the thing a decision is
+ * measured against.
+ *
+ * ## That premise was measured in 1.7.0 and it is wrong
+ *
+ * Nothing here changed as a result, deliberately, and this is the note saying
+ * why rather than a note saying it is fine.
+ *
+ * `tools/simulate-mobile.mjs --policy prefer:<id>` plays a few thousand runs
+ * taking one named card whenever it is offered. Against a random baseline
+ * holding the vacancy 7.9% of the time, the six come out:
+ *
+ *   panelReview        29.4%     the auto-take
+ *   parallelScreening  13.5%
+ *   higherBar           7.5%
+ *   extendedDeadline    7.4%
+ *   widerCriteria       3.4%     worse than not choosing
+ *   keywordListUpdate   2.9%     worse than not choosing
+ *
+ * The two cards this file calls the decisions are the best card and the worst
+ * card in the pool, and the worst one is worse than picking at random. Taking
+ * the immunity off The Keyword Stuffer does not buy a kill, it moves the turret
+ * onto a 120 health target ahead of the 40 health ones queueing behind it, which
+ * is the note above arriving somewhere nobody thought to look for it. Widen the
+ * criteria is weak for a duller reason: the ring is at 320 and the range starts
+ * at 240, so the third one of these is bought and never used.
+ *
+ * Why it is being left alone. Every fix worth having is outside this file. The
+ * card is bad because of what `findTarget` does, and that lives in `Tower.js`,
+ * which three tuned modes depend on and which this mode has still never touched.
+ * Making the stuffer cheaper to kill means editing `applicants.js`, which every
+ * mode reads. Both are the "classic does not move" argument, and neither is a
+ * thing to spend in passing on the release that opens the board.
+ *
+ * What can be done here is a redesign of what the two structural cards do, and
+ * that is a design decision rather than a tuning one. It wants deciding on
+ * purpose, with the numbers above in front of whoever decides it.
  *
  * ## Why they are weighted
  *

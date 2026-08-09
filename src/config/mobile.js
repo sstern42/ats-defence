@@ -2,10 +2,23 @@
  * The phone game's numbers, for issue #47. Plain data, no logic, so this board
  * can be tuned without going anywhere near the loop that plays it.
  *
- * **First pass, with no tuning behind it.** Everything here was picked to make
- * the board legible on a preview: roughly half of the six types die on the
- * approach and roughly half get in. `CLAUDE.md` says tuning is the longest phase
- * of this project and none of it has happened yet.
+ * **Tuned once, against the simulator, in 1.7.0.** What was here before was
+ * picked to make the board legible on a preview and had no measurement behind
+ * it at all. The two numbers below that moved are the tolerance and what an
+ * arrival costs, and they moved together: a run absorbs sixty applicants where
+ * it used to absorb forty.
+ *
+ * That is not a softening, it is room. The old list leaked nothing at all for
+ * seven intakes and then decided the whole game in the eighth, so the entire
+ * budget was spent in one place and it did not matter how large it was. The new
+ * list takes something from the third intake onwards, which only works if there
+ * is enough to take.
+ *
+ * One thing this pass did not fix, and it should be read before the card pool is
+ * touched. Update the keyword list is the worst card in the pool, measurably, and
+ * it is the card the design considered its flagship decision. The reason is the
+ * note further down this file arriving somewhere nobody looked for it. See
+ * `tools/simulate-mobile.mjs` at SENSIBLE_ORDER for the measurement.
  *
  * ## Why there is a tower here rather than a reference to the one in towers.js
  *
@@ -80,8 +93,8 @@ export const MOBILE_TOWER = {
  * there.
  */
 export const MOBILE_RUN = {
-  towerHealth: 200,
-  arrivalCost: 5,
+  towerHealth: 240,
+  arrivalCost: 4,
 
   // The pause between intakes, and a longer one before the first. It is
   // currently dead time, because there is nothing in it: it exists because it
@@ -134,11 +147,11 @@ export const MOBILE_LEAK_SHAKE = { durationMs: 180, intensity: 0.005 };
  * patience was left at the end. What differs is the weights, and they differ for
  * a reason worth writing down rather than by taste.
  *
- * A classic run rejects something like seventy applicants. A run here rejects a
- * hundred and thirty and would reject far more once the wave list grows. At
- * classic's ten a rejection the rejection term would swamp the other two and the
- * score would become a count of how long the run lasted. Four keeps it a term
- * rather than the whole formula.
+ * A classic run rejects something like seventy applicants. A run here rejects
+ * around a hundred and forty, and a run that holds the vacancy rejects most of
+ * the 235 the list sends. At classic's ten a rejection the rejection term would
+ * swamp the other two and the score would become a count of how long the run
+ * lasted. Four keeps it a term rather than the whole formula.
  *
  * ## Why the keys are classic's words and not this board's
  *
@@ -151,10 +164,14 @@ export const MOBILE_LEAK_SHAKE = { durationMs: 180, intensity: 0.005 };
  * other field on a mode already has.
  *
  * So `perLifeRemaining` is reinterpreted rather than renamed: a life on this
- * board is a point of tower integrity, of which a run starts with two hundred
- * rather than ten. The weight is two rather than forty for exactly that reason,
- * and the two boards end up valuing an untouched defence at the same four
- * hundred, which is a coincidence worth keeping.
+ * board is a point of tower integrity, of which a run starts with 240 rather
+ * than ten. The weight is two rather than forty for exactly that reason. The two
+ * boards used to value an untouched defence at the same four hundred, which was
+ * a coincidence and was noted here as one worth keeping; the tuning pass moved
+ * the tolerance to 240 and it is 480 now. Nothing was lost with it, which is
+ * what a coincidence being only a coincidence means. The term is still about a
+ * fifth of a perfect run either way, and that proportion is the thing that
+ * matters.
  *
  * It is scored against what is left rather than against a fraction of the
  * maximum, because Extend the deadline raises the maximum. A fraction would

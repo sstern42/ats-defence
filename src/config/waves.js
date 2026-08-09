@@ -397,6 +397,50 @@ export const BACK_CHANNEL_WAVES = [
  * play: not hard, unwinnable. It had been called "lost with the finish in sight"
  * on the strength of two browser runs.
  *
+ * ## The tuning pass, 1.7.0, and what it found
+ *
+ * **Everything two paragraphs above was true and was measuring one number.** The
+ * hold rate was right and the curve underneath it was not a curve. The simulator
+ * only reported means, and the mean it reported was the same mean a good list
+ * and this one would produce, so nobody looked. Given a survival curve it says:
+ *
+ *   intake         1    2    3    4    5    6    7    8
+ *   survived     100  100  100  100  100  100  100   13   (random play, before)
+ *
+ * Seven intakes nobody could lose followed by one that decided everything. On a
+ * board with no input during an intake that is seven intakes of watching a
+ * turret win, and it makes the two questions the analytics spec cares about
+ * unanswerable: every run ends in the same place, so where a run ended says
+ * nothing, and a difficulty curve with one step in it is not a curve.
+ *
+ * The list now reads, on the same instrument:
+ *
+ *   intake         1    2    3    4    5    6    7    8
+ *   survived     100  100  100  100  100  100   84    8   (random play)
+ *   integrity    100  100   99   88   72   43   15        (of the survivors)
+ *
+ * Every intake from the third costs something, the decline is steady rather
+ * than absent, and two intakes are places a run can actually end. What has not
+ * been fixed is that the first six are still survivable by anybody: every build
+ * is nearly the same build until the cards have had time to stack, so an early
+ * intake heavy enough to end a bad run ends every run. That is a property of
+ * the design rather than of these numbers, and it is the honest limit of this
+ * pass.
+ *
+ * ## The card that was upside down
+ *
+ * The pass also found that the pool was inverted, and the wave list is not where
+ * that gets fixed. Playing the cards well and playing them badly came out at 13%
+ * and 27% of vacancies held, in that order. Reading the cards made the game
+ * worse, because the card the design considered its flagship was the worst in
+ * the pool. `tools/simulate-mobile.mjs` at SENSIBLE_ORDER has the measurement
+ * and the cause.
+ *
+ * With the policies the right way round the same list gives 4% careless, 8%
+ * random and 58% sensible, so the one decision in this game is now worth about
+ * fourteen times the run rather than four. The numbers below were tuned against
+ * the corrected player, which is the only one worth tuning against.
+ *
  * **The lesson is about the instrument, not the numbers.** Three passes were
  * decided by one or two runs of a script that declines the answer to its own
  * problem half the times it is offered, and two of the three diagnosed the wrong
@@ -417,31 +461,40 @@ export const MOBILE_WAVES = [
     groups: [{ applicant: 'graduate', count: 6, intervalMs: 1500, delayMs: 0 }]
   },
   {
-    groups: [{ applicant: 'graduate', count: 12, intervalMs: 1000, delayMs: 0 }]
+    groups: [{ applicant: 'graduate', count: 14, intervalMs: 900, delayMs: 0 }]
   },
 
   // The Boomerang, met on its own before it turns up in company, which is the
   // rule the classic list introduced types by.
   {
     groups: [
-      { applicant: 'boomerang', count: 1, intervalMs: 1000, delayMs: 0 },
-      { applicant: 'graduate', count: 13, intervalMs: 850, delayMs: 4000 }
+      { applicant: 'boomerang', count: 2, intervalMs: 1000, delayMs: 0 },
+      { applicant: 'graduate', count: 16, intervalMs: 760, delayMs: 4000 }
     ]
   },
+
+  // The Overqualified, and the first intake that costs anybody anything. The
+  // volume behind it is at about what the turret clears, so the four seconds it
+  // spends elsewhere is four seconds it does not get back.
   {
     groups: [
-      { applicant: 'graduate', count: 18, intervalMs: 750, delayMs: 0 },
-      { applicant: 'overqualified', count: 4, intervalMs: 1600, delayMs: 5000 }
+      { applicant: 'graduate', count: 22, intervalMs: 600, delayMs: 0 },
+      { applicant: 'overqualified', count: 6, intervalMs: 1300, delayMs: 4500 }
     ]
   },
 
   // One Career Changer, alone, with nothing else on the board. On this design
   // that is not a courtesy, it is the only way to see what it does to the
   // tower: everything the turret has goes into it for four seconds.
+  //
+  // The volume arrives while it is still walking rather than after it has gone,
+  // which is the difference between a demonstration and a lesson.
   {
     groups: [
       { applicant: 'careerChanger', count: 1, intervalMs: 1000, delayMs: 0 },
-      { applicant: 'graduate', count: 16, intervalMs: 700, delayMs: 6000 }
+      { applicant: 'graduate', count: 24, intervalMs: 540, delayMs: 3500 },
+      { applicant: 'overqualified', count: 4, intervalMs: 1400, delayMs: 11000 },
+      { applicant: 'boomerang', count: 3, intervalMs: 1300, delayMs: 14000 }
     ]
   },
 
@@ -451,17 +504,19 @@ export const MOBILE_WAVES = [
   // by graduates; a player without them is out-thrown by both.
   {
     groups: [
-      { applicant: 'keywordStuffer', count: 4, intervalMs: 1600, delayMs: 0 },
-      { applicant: 'graduate', count: 19, intervalMs: 560, delayMs: 3000 },
-      { applicant: 'boomerang', count: 3, intervalMs: 1300, delayMs: 9000 }
+      { applicant: 'keywordStuffer', count: 5, intervalMs: 1500, delayMs: 0 },
+      { applicant: 'graduate', count: 25, intervalMs: 490, delayMs: 3000 },
+      { applicant: 'boomerang', count: 5, intervalMs: 1250, delayMs: 9000 },
+      { applicant: 'careerChanger', count: 1, intervalMs: 1000, delayMs: 14000 }
     ]
   },
   {
     groups: [
-      { applicant: 'referral', count: 4, intervalMs: 1200, delayMs: 0 },
-      { applicant: 'graduate', count: 22, intervalMs: 520, delayMs: 2500 },
+      { applicant: 'referral', count: 5, intervalMs: 1200, delayMs: 0 },
+      { applicant: 'graduate', count: 27, intervalMs: 450, delayMs: 2500 },
       { applicant: 'careerChanger', count: 2, intervalMs: 2200, delayMs: 6000 },
-      { applicant: 'overqualified', count: 5, intervalMs: 1000, delayMs: 8000 }
+      { applicant: 'overqualified', count: 6, intervalMs: 950, delayMs: 8000 },
+      { applicant: 'keywordStuffer', count: 4, intervalMs: 1400, delayMs: 13000 }
     ]
   },
 
@@ -471,11 +526,11 @@ export const MOBILE_WAVES = [
   {
     groups: [
       { applicant: 'careerChanger', count: 2, intervalMs: 1800, delayMs: 0 },
-      { applicant: 'graduate', count: 28, intervalMs: 470, delayMs: 2000 },
-      { applicant: 'keywordStuffer', count: 6, intervalMs: 1200, delayMs: 4000 },
+      { applicant: 'graduate', count: 24, intervalMs: 490, delayMs: 2000 },
+      { applicant: 'keywordStuffer', count: 4, intervalMs: 1300, delayMs: 4000 },
       { applicant: 'boomerang', count: 5, intervalMs: 1100, delayMs: 7000 },
       { applicant: 'overqualified', count: 6, intervalMs: 900, delayMs: 10000 },
-      { applicant: 'careerChanger', count: 2, intervalMs: 1900, delayMs: 15000 }
+      { applicant: 'careerChanger', count: 1, intervalMs: 1900, delayMs: 15000 }
     ]
   }
 ];

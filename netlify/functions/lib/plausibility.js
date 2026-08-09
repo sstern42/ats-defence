@@ -78,15 +78,21 @@ export function maximumScore(finalWave, modeKey) {
   // The weights used to be read globally, from the one mode that had any. That
   // was correct while every board was scored the same way and became silently
   // wrong the moment one was not. The phone board pays four a rejection over
-  // 188 of them and forty times less for what is left of the defence; measured
-  // at classic's weights it came out at 3240 against a perfect run's 2352, so
-  // there was 888 points of room to invent a score in and still be waved
-  // through. The check was still running and had stopped being a check.
+  // 235 of them and forty times less for each of the 240 points of tolerance it
+  // starts with; measured at classic's weights the ceiling comes out at 12,910
+  // against a perfect run's 2,620, so there were ten thousand points of room to
+  // invent a score in and still be waved through. The check was still running
+  // and had stopped being a check.
   //
-  // Read off the mode it now comes out at 2352 exactly, which is a perfect run
-  // and nothing above one. That is tighter than the other three boards sit and
-  // it is not a problem: the comparison is `>`, so the perfect run passes, and
-  // this board has no experimental first wave to leave slack for.
+  // Read off the mode it comes out at 2,620 exactly, which is a perfect run and
+  // nothing above one. That is tighter than the other three boards sit and it is
+  // not a problem: the comparison is `>`, so the perfect run passes, and this
+  // board has no experimental first wave to leave slack for.
+  //
+  // Both figures move whenever the phone wave list or its tolerance moves, since
+  // both are computed from the same data the game plays from. They are quoted
+  // here as of the tuning pass in 1.7.0 to show the size of the gap, not as
+  // constants to keep in step.
   //
   // The three desktop modes point at the same GAME object they always did, so
   // this reads the identical numbers for them and no existing score changes
