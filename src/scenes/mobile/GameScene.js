@@ -10,6 +10,7 @@ import {
   MOBILE_SCORING,
   MOBILE_TOWER_KEY_UPDATED
 } from '../../config/mobile.js';
+import { introKeyFor } from '../../config/intros.js';
 import { RADIAL_BOARD } from '../../config/path.js';
 import { MOBILE_WAVES } from '../../config/waves.js';
 import {
@@ -39,7 +40,7 @@ import {
   stopMusic,
   toggleMusic
 } from '../../services/music.js';
-import { FEEL, nudge, shake } from '../../services/feel.js';
+import { FEEL, fadeOut, landing, nudge, shake } from '../../services/feel.js';
 import Applicant from '../../entities/Applicant.js';
 import Tower from '../../entities/Tower.js';
 
@@ -58,15 +59,42 @@ import Tower from '../../entities/Tower.js';
  * So the strongest form of "classic does not move" is available and taken: the
  * file three tuned modes depend on is not touched at all.
  *
- * What this is not, yet: no leaderboard, and no floating damage numbers. The
- * second of those is unsettled rather than unbuilt, and the reason is at
- * buildHud below.
+ * What this is not: floating damage numbers. They are unsettled rather than
+ * unbuilt, and the reason is at buildHud below.
  */
 
 /** Tall enough to survive the board being scaled down onto a phone screen. */
 const HEALTH_BAR_HEIGHT = 7;
 
 const FONT = 'system-ui, sans-serif';
+
+/**
+ * The card a new type is introduced on.
+ *
+ * It sits under the intake counter, in the one band of this board that is
+ * guaranteed to be empty. Everybody spawns on a ring 320 from the middle and
+ * walks inwards, so nothing is ever drawn above y 320 and a card finishing well
+ * short of that cannot be stood behind. The desktop card has to be placed
+ * against the highest leg of the path for the same reason and gets no such
+ * guarantee.
+ *
+ * Larger than the desktop's in every direction, because the board it is drawn
+ * on is 720 wide and shown on something held at arm's length. The proportions
+ * are the desktop's: art on the left at the height of the card, name and trait
+ * to the right of it.
+ */
+const CARD_WIDTH = 620;
+const CARD_HEIGHT = 148;
+const CARD_TOP = 122;
+const CARD_PADDING = 14;
+const CARD_ART_SIZE = 120;
+const CARD_RADIUS = 14;
+const CARD_FILL = 0x1a1f26;
+const CARD_EDGE = 0x39566b;
+
+/** How long the card is up for, and how long it takes to go. */
+const CARD_HOLD_MS = 2600;
+const CARD_FADE_MS = 240;
 
 export default class MobileGameScene extends Phaser.Scene {
   constructor() {
@@ -91,6 +119,11 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.applicants = [];
     this.shots = [];
+
+    // Per run rather than per session, so a restart introduces everybody again.
+    this.seenTypes = new Set();
+    this.introCard = null;
+    this.introTimer = null;
 
     // The tower's tolerance is held here rather than on `Tower.integrity`,
     // which already exists and is close to the right shape. Integrity carries
@@ -611,6 +644,131 @@ export default class MobileGameScene extends Phaser.Scene {
     applicant.walk((who) => this.arrive(who));
 
     this.applicants.push(applicant);
+
+    this.introduceType(typeKey);
+  }
+
+  /**
+   * The first time a type turns up, it is named, its one awkward habit is said
+   * out loud, and it gets a moment to itself on a card. After that the player is
+   * on their own.
+   *
+   * Held per run rather than per session, which is the desktop's arrangement and
+   * matters more here: the board is restarted from the game over screen far more
+   * often than the desktop's is, and a player who has just watched the Keyword
+   * Stuffer walk through their filter untouched is the player most likely to
+   * want telling why.
+   */
+  introduceType(typeKey) {
+    if (this.seenTypes.has(typeKey)) {
+      return;
+    }
+
+    this.seenTypes.add(typeKey);
+
+    const applicant = COPY.applicants[typeKey];
+
+    if (applicant) {
+      // The trait written for this board where there is one, and the shared one
+      // otherwise. Two of the six name something that is not here: a path, and a
+      // Knockout Question. The reasoning is in copy.js beside the lines.
+      this.showIntroCard(
+        typeKey,
+        applicant.name,
+        applicant.traitRadial ?? applicant.trait
+      );
+    }
+  }
+
+  /**
+   * The card itself, tinted with the applicant's own colour so the animation and
+   * the thing now walking towards the tower are recognisably the same person.
+   *
+   * It does not hold the board. A type turns up in the middle of an intake and
+   * stopping everything to introduce it would be worse than not introducing it,
+   * which is the desktop's reasoning and applies here twice over: this board
+   * takes no input, so a pause would be a pause in a thing the player is only
+   * watching.
+   *
+   * A type with nothing drawn for it still gets a card, with the text across the
+   * whole of it. `introKeyFor` returning null is a real answer rather than a
+   * fault, and it is what the board did before any of these existed.
+   */
+  showIntroCard(typeKey, name, trait) {
+    const { width } = RADIAL_BOARD.board;
+    const artKey = introKeyFor(typeKey);
+    const left = -CARD_WIDTH / 2;
+    const textLeft = artKey
+      ? CARD_PADDING * 2 + CARD_ART_SIZE
+      : CARD_PADDING * 2;
+
+    // Two types can arrive together in a later intake, and two cards in the
+    // same place is one card nobody can read.
+    this.clearIntroCard();
+
+    const card = this.add.container(width / 2, CARD_TOP);
+    const panel = this.add.graphics();
+
+    panel.fillStyle(CARD_FILL, 0.94);
+    panel.fillRoundedRect(left, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
+    panel.lineStyle(2, CARD_EDGE, 0.8);
+    panel.strokeRoundedRect(left, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
+
+    card.add(panel);
+
+    if (artKey) {
+      const art = this.add
+        .sprite(left + CARD_PADDING + CARD_ART_SIZE / 2, CARD_HEIGHT / 2, artKey)
+        .setDisplaySize(CARD_ART_SIZE, CARD_ART_SIZE)
+        .setTint(APPLICANTS[typeKey].colour);
+
+      art.play(artKey);
+      card.add(art);
+    }
+
+    card.add(
+      this.add
+        .text(left + textLeft, 46, name, {
+          fontFamily: FONT,
+          fontSize: '30px',
+          color: '#e6ebf0'
+        })
+        .setOrigin(0, 0.5)
+    );
+
+    card.add(
+      this.add.text(left + textLeft, 66, trait, {
+        fontFamily: FONT,
+        fontSize: '21px',
+        color: '#8b98a6',
+        lineSpacing: 5,
+        wordWrap: { width: CARD_WIDTH - textLeft - CARD_PADDING * 2 }
+      })
+    );
+
+    card.setDepth(100);
+
+    this.introCard = card;
+
+    // Drawn where it belongs and at full alpha rather than faded up, so it is
+    // legible the instant it exists and every bit of movement is decoration on
+    // top of that. `landing` and `fadeOut` are what decide whether there is any,
+    // which is why neither the arrival nor the departure is a tween written out
+    // here: a player who has asked for less motion gets the card, gets the same
+    // time to read it, and gets it taken away again without any of it moving.
+    landing(card);
+
+    this.introTimer = this.time.delayedCall(CARD_HOLD_MS, () =>
+      fadeOut(card, CARD_FADE_MS, () => this.clearIntroCard())
+    );
+  }
+
+  clearIntroCard() {
+    this.introTimer?.remove();
+    this.introTimer = null;
+
+    this.introCard?.destroy();
+    this.introCard = null;
   }
 
   /**
@@ -742,6 +900,7 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.prepTimer?.remove();
     this.clearWaveTimers();
+    this.clearIntroCard();
 
     stopMusic();
 
