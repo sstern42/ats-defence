@@ -34,6 +34,12 @@ The joke it tells is the one the other three cannot. The other boards are a syst
 
 The four modes keep separate leaderboards. They send different numbers of applicants at boards of a different shape, so a rating from one is not a rating from the others.
 
+## Installing it
+
+It is installable. A browser that offers it will put it on a home screen or in an app list, where it opens on its own without the browser chrome around it, which is worth most on the phone board.
+
+It also plays with no signal, because nothing in a run has ever needed the network: the art, the sounds, the waves, the cards and the music are all in the build. What does need a connection is the leaderboard, and it says so rather than hanging. A run played offline is a real run that no board will ever hear about.
+
 ## Running it
 
 ```bash

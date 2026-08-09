@@ -7,6 +7,37 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.8.0 - 2026-08-09
+
+- The game can be installed. A browser that offers it will now put it on a home
+  screen or in an app list, where it opens without the browser chrome around it
+  and with its own icon and splash screen. It matters most on the phone board,
+  which is a portrait game with no address bar worth keeping, and it costs the
+  other three nothing.
+- It works with no signal, which is the more useful half. Everything the game is
+  made of is already in the build: the art, the sounds, the waves, the card pool
+  and the music, which has no file at all. Nothing about playing a run has ever
+  needed the network, so a service worker holding the page and its assets is
+  enough to make a whole run possible offline.
+- What does need the network is the leaderboard, the analytics and the
+  experiment, and none of them are cached. All three already fail quietly: the
+  board says it could not be reached, events are dropped, and a run that never
+  reached GrowthBook plays the control arm and is reported as unassigned rather
+  than counted as a control player. An offline run is therefore a real run that
+  no leaderboard and no query will ever hear about, and that is the honest cost
+  of this rather than a defect to fix.
+- A navigation goes to the network first and falls back to the cached page, so
+  a deploy is picked up as soon as the game is opened online. Assets come out of
+  the cache first, and the cache is named for the version, so a release brings a
+  cache of its own and the old one is deleted.
+- An update waits for every tab on the game to close before it takes over, so a
+  run in progress keeps the code it started with. The version travels on the
+  worker's own query string, which is what makes the browser notice a release,
+  and means `package.json` is still the only place the number is written.
+- Three more icons from `tools/make-favicon.mjs`, at the sizes an installed app
+  is listed at, one of them drawn full bleed with the mark pulled in because a
+  maskable icon is cropped to whatever shape the platform prefers.
+
 ## 1.7.2 - 2026-08-09
 
 - The game has a tab icon. It had none, so every tab open on it carried

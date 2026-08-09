@@ -10,6 +10,7 @@ import UIScene from './scenes/UIScene.js';
 import { initAnalytics } from './services/analytics.js';
 import { initExperiments } from './services/experiments.js';
 import { setMode } from './services/mode.js';
+import { registerServiceWorker } from './services/pwa.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -146,6 +147,17 @@ async function boot() {
 
     return;
   }
+
+  // Everything the game does about being installable, and it is one call
+  // because the manifest and the worker are files rather than code.
+  //
+  // After the bench and before everything else. After, because a profiling run
+  // is measuring how long the board takes to load and a cache sat in front of
+  // the network would be measuring something else. Before, because every route
+  // below this line ends at something worth having offline, the two refusals
+  // included: a browser that cannot draw the board is still better off being
+  // told so with no signal than being shown nothing at all.
+  registerServiceWorker();
 
   const shape = resolveShape();
 
