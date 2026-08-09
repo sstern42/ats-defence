@@ -19,16 +19,23 @@
 --
 --   >>> and mode = 'classic'
 --
--- marked `-- mode`, once per base CTE. To ask the same questions of the other
+-- marked `-- mode`, once per base CTE. To ask the same questions of another
 -- mode, change the value in every query you run.
 --
 -- It is a filter rather than a `group by mode` because the answers are not
 -- comparable and putting them in one table invites reading them as though they
--- were. A tower covers a corridor in one mode and a slice of an open field in
--- the other, the wave lists are different lengths of a different size, and
--- query 5 is about where on the board things get built when the two modes do
--- not share a buildable area. Dead weight in one is not dead weight in the
--- other, and the honest way to say so is two runs of the same query.
+-- were. A tower covers a corridor in one mode, a slice of an open field in the
+-- second and a patch of expensive ground in the third, the wave lists are
+-- different lengths of a different size, and query 5 is about where on the
+-- board things get built when the three do not share a buildable area. Dead
+-- weight in one is not dead weight in another, and the honest way to say so is
+-- three runs of the same query.
+--
+-- Three rather than four, because the fourth mode places nothing. The phone
+-- board has one tower, fixed in the middle, and no placement at all, so it
+-- emits no `tower_placed` and every query here would return an empty result for
+-- it. The question it does not answer there is asked in upgrade-cards.sql
+-- instead, against the cards, which are what that board has a player decide.
 --
 -- Rows written before the mode column existed were backfilled as classic,
 -- which is what they are, so the default loses nothing that was here before.

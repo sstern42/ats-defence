@@ -46,7 +46,7 @@
 -- The mode
 -- --------
 --
--- There are two modes now and they are not comparable. Wave five means a
+-- There are four modes now and no two of them are comparable. Wave five means a
 -- different intake in each, the boards are separate, and a run of one says
 -- nothing about the other. So every query below reads one mode, and reads
 -- classic unless told otherwise:
@@ -68,10 +68,16 @@
 -- session begins before the player has chosen anything and a session is
 -- therefore not in a mode. The consequence is worth stating plainly rather than
 -- hiding: in query 2 the top of the funnel is every session and the steps below
--- it are classic runs, so a player who only ever played open advert counts as a
--- session that never started a run. Until open advert has traffic that
--- difference is nil. Once it does, the session step is the one to read as
--- "arrived" rather than as "arrived and did not play".
+-- it are classic runs, so a player who only ever played one of the other three
+-- counts as a session that never started a run.
+--
+-- That was a rounding error while the alternatives were two desktop modes
+-- somebody had to choose off the home screen. The phone board changed the size
+-- of it, because nobody chooses that one: every session on a phone is routed to
+-- it by the size of the screen, so an entire device class now arrives at the
+-- top of that funnel and never appears in a step below it. Read the session
+-- step as "arrived" rather than as "arrived and did not play", and split by
+-- `device_type` before drawing any conclusion about drop off.
 --
 --
 -- The bots
