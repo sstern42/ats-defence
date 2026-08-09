@@ -47,13 +47,14 @@ The player is Requisita, an applicant tracking system. Applicants advance along 
 
 ### Modes
 
-Three, chosen on the home screen, and they share every tower, every applicant type and the whole game loop. What differs is data in `config/modes.js`.
+Four. The first three are chosen on the home screen and share every tower, every applicant type and the whole game loop, and what differs between them is data in `config/modes.js`. The fourth is not chosen at all: a phone is routed to it by the size of its screen, and it is the one that does not share the loop.
 
 | Mode | What it is |
 | --- | --- |
 | Classic intake | The game as it shipped. One corridor, walked in single file, towers beside it. Every number in it is the number it already had. |
 | Open advert | No corridor. Applicants arrive across the whole left edge and converge on the desk, fanning out and squeezing according to the `spread` on each waypoint. Towers go anywhere off the HUD and the desk, traps go wherever they are put, and applicants push back. |
 | Back channel | No route at all. A floor, a desk in the corner of it, and applicants who work out their own way across. Every tower makes the ground it covers expensive rather than impassable, and how far out of their way they will go to avoid it is a property of the applicant type. |
+| One-click apply | The phone board, and the only one nobody picks. Portrait, no route, no placement and no input at all during an intake: one screening process fixed dead centre, applicants converging on it from every direction, and a turret that turns to whoever has least walking left. Everything the player decides happens between intakes, where the process is offered two improvements and can have one. |
 
 **The crowd is still not pathfinding.** Open advert is waypoints, same as the path always was. Each applicant walks its own copy of the spine, displaced by its share of the spread at every point and tapering to zero at the vacancy so everybody converges on the one desk. Applicant.js did not change to allow it and should not have to.
 
@@ -64,6 +65,12 @@ Three, chosen on the home screen, and they share every tower, every applicant ty
 Applicant.js did change for this one, in two places, and both were already wrong before it: what a tower targets is now distance left to the desk rather than a fraction of a path, which is the same applicant in classic and stops being the same applicant the moment two people are on routes of different lengths; and a walk can be restarted from where somebody is standing, which is the whole of what a re-route is.
 
 **Pushing back is open advert only.** Applicants near a tower wear its `integrity` down; a tower worn to nothing is suspended pending review for a few seconds and comes back at full integrity. Recovery is applied against incoming pressure rather than after it, which is what makes one applicant harmless and a crowd a problem. Suspension rather than destruction, because losing a tower outright to a crowd whose edges you cannot see is a punishment rather than a decision. That is one number in `modes.js` if it should ever become the other.
+
+**One-click apply is a second scene set rather than a fourth mode inside `GameScene`, and that is the whole of what makes it possible.** The first three modes are the same loop handed different data. This one is not: roughly two thirds of `GameScene` exists to serve a walked route and a player placing things beside it, and a board with neither has no counterpart for any of it. No route, no placement, no currency and no input during an intake are four inversions of things classic is built on, so the choice was a second set of scenes sharing the services layer, or four more branches through the file classic is played by. `main.js` picks the set and dynamically imports the phone one, so a desktop player downloads none of it.
+
+**What it shares is everything under the scenes.** `services/`, `content/copy.js`, `entities/`, the config conventions, the Netlify functions and the build, all as they stand. `entities/Applicant.js` in particular was not touched: a straight line inwards is a path with one segment, so the file three tuned modes depend on carries a fourth with no fork, no subclass and no edit. Its board data is a centre, a ring to arrive on and a radius to arrive at, and its numbers are `config/mobile.js` and `config/upgrades.js`.
+
+**The one thing to read before touching its card pool.** Two of the six cards are measurably worse than choosing at random, and one of them is the card the design calls its flagship decision. The measurement is recorded in `config/upgrades.js` and reproducible with `tools/simulate-mobile.mjs --policy prefer:`. It has deliberately not been fixed, because the fixes live in `Tower.js` and `applicants.js`, which the three tuned modes read. Fixing it is a decision to take on purpose, with the rule below about classic in front of you, rather than a tidy-up.
 
 ### Towers
 
@@ -93,15 +100,25 @@ Names and flavour text are content, not code. Keep all strings in a single `src/
 
 ```
 src/
-  main.js              Phaser config, support check and boot
+  main.js              Phaser config, the two honest refusals, and which scene set boots
+  mobile/
+    index.js           The phone build's entry, imported only once the gate has said phone
   scenes/
     BootScene.js       Asset loading, art and sound
     HomeScene.js       The page the game opens on
     GameScene.js       Core loop
     UIScene.js         HUD, overlaid on GameScene
+    PauseScene.js      A run held mid intake, and the ways out of it
     GameOverScene.js   Score, leaderboard, restart
     LeaderboardPanel.js  Top ten, shared by home and game over
     backdrop.js        The office floor, shared by home and board
+    mobile/            The phone build's scenes, sharing every folder below this one
+      BootScene.js       What the phone board draws, and nothing the desktop needs
+      HomeScene.js       The page the phone build opens on
+      GameScene.js       The phone loop, with no placement and no input during an intake
+      UpgradeScene.js    Two cards between intakes, one taken, over the held board
+      GameOverScene.js   Score, board, tip jar and the question, in portrait
+      LeaderboardScene.js  Top ten, over whichever screen opened it
   entities/
     Applicant.js
     Tower.js
@@ -112,6 +129,8 @@ src/
     applicants.js      Applicant stats as data
     game.js            Lives, budget, prep times, scoring
     modes.js           What each mode changes, as data
+    mobile.js          The phone board's tower, run and scoring numbers
+    upgrades.js        The card pool, on stable ids the collector checks against
     path.js            Waypoint coordinates per mode, and the two boards that have none instead
     version.js         The version the build was cut from
     art.js             Sprite manifest
@@ -128,6 +147,7 @@ src/
     music.js           Books the next bar or two onto the audio clock
     feel.js            The small movements, and the one place that knows to sit still
     experiments.js     GrowthBook wrapper
+    device.js          What the player is holding, to the extent the browser will say
     mode.js            Which mode the current run is
     routing.js         The cost field, and the routes read out of it
     radial.js          The spawn ring, and the straight line in from it
@@ -149,9 +169,9 @@ vite.config.js         Puts the package.json version into the build
 CHANGELOG.md           One entry per version, newest first
 ```
 
-**Balance lives in data, not code.** `waves.js`, `towers.js` and `applicants.js` must be plain exported objects with no logic. Tuning is the longest phase of this project and it must not require touching game logic.
+**Balance lives in data, not code.** `waves.js`, `towers.js`, `applicants.js`, `mobile.js` and `upgrades.js` must be plain exported objects with no logic. Tuning is the longest phase of this project and it must not require touching game logic.
 
-**Two of the three boards are hardcoded waypoints.** An array of coordinates in `config/path.js`, and that is still the default answer for anything new. The third is a field in the same file, and it took a reason to get there rather than a preference.
+**Two of the four boards are hardcoded waypoints.** An array of coordinates in `config/path.js`, and that is still the default answer for anything new. The third is a field in the same file, and it took a reason to get there rather than a preference. The fourth is neither, and is the shortest board data in the project: a centre, a ring to arrive on and a radius to arrive at.
 
 ## Build order
 
@@ -196,7 +216,9 @@ Attached to every event without exception:
 
 `session_id`, `run_id`, `wave_number`, `variant_assignments`, `device_type`, `referrer`, `mode`
 
-`mode` is the seventh and arrived with the second game mode. It is a property rather than an event of its own because it is not a thing that happens: it is a fact about the run every other event is already reporting, and without it all six questions above have one answer per mode with no way to tell them apart. A third mode cost it nothing, which is the point of having put it on a property. It is on `session_started` too, where it records the setting rather than a decision, since nothing has been played yet.
+`mode` is the seventh and arrived with the second game mode. It is a property rather than an event of its own because it is not a thing that happens: it is a fact about the run every other event is already reporting, and without it all six questions above have one answer per mode with no way to tell them apart. A third mode cost it nothing, and so did a fourth on a scene set of its own, which is the point of having put it on a property. It is on `session_started` too, where it records the setting rather than a decision, since nothing has been played yet.
+
+The fourth mode is the one to watch when reading any funnel, and it is a reporting problem rather than an instrumentation one. Nobody chooses it, so a whole device class arrives at the top of a query and never appears in a step below it, and a filter written for three modes will quietly drop them. The queries in `docs/` were corrected for this in 1.7.0.
 
 The queries in `docs/` read one mode, and read classic unless told otherwise. The filter is marked `-- mode`, on the same terms as the cutoff line next to it: it goes on the `game_started` CTE that defines a run and on any read of the board, and if it moves, move all of them. Three places deliberately do without it, and all three are session level rather than run level: the two coverage queries, which split by mode because a census should say what is in the table, and the exposure cross-check, because bucketing happens before a mode is chosen and filtering it would break the sample ratio check it exists to perform.
 
@@ -218,6 +240,34 @@ The queries in `docs/` read one mode, and read classic unless told otherwise. Th
 | `kofi_clicked` | from_screen, final_wave |
 | `experiment_viewed` | experiment_key, variation_id, arm |
 | `feedback_given` | question, answer, final_wave |
+| `upgrade_offered` | taken, refused |
+
+`upgrade_offered` is the fifteenth, and the only one recording something a player
+declined as well as something they did. Two cards are offered between intakes on
+the phone board and one is taken, which is the whole of what a player of that
+design decides.
+
+It clears the bar on question 4. `tower_placed` records what was taken and has no
+slot for what was refused, because on the desktop boards everything is always on
+offer and the question of dead weight is answerable by counting. A two of six
+draw is not: a card rarely taken may simply be rarely offered, so the answer is
+take rate against offer rate and nothing in the fourteen can express the offer.
+That is the `experiment_viewed` shape of argument rather than the
+`feedback_given` one, since it records something that cannot be recovered any
+other way rather than something a player said.
+
+Folding it into `tower_placed` was considered and fails on its own terms. Three
+of that event's five properties are meaningless in a one tower game, and its
+histogram would mix card ids into a tower count everywhere the `docs/` queries
+read it.
+
+The card ids are a closed set in `config/upgrades.js`, read by the game to draw
+the cards and by the collector to check one before storing it. Third instance of
+a pattern already running twice, after the mode list and the answer list, and it
+is the reason the pool has to be data with stable ids rather than something the
+modal invents. Renaming one later is a migration of sorts, since the events
+already written will still be spelling the old one. No migration otherwise: the
+globals it wants are already columns. The queries are `docs/upgrade-cards.sql`.
 
 `feedback_given` is the fourteenth, and the only one of them carrying something
 a player said rather than something they did. It is the answer to one question,
@@ -259,6 +309,8 @@ Two more reasons arrived with the pause screen, which gave a run in progress a w
 
 The delay on hidden and the `reason` property were both added after launch preparation, because firing the instant the tab was hidden meant the event recorded the first time somebody glanced away, and since it only fires once, their real exit was never recorded at all. A player abandoned at wave five and went on to reach wave eight.
 
+The idle reason is off on the phone board, and the reason it is off is a rule rather than a preference. A mode that takes no input during an intake makes idle mean the opposite of what it was written to mean: a run would be recorded as abandoned against somebody sat watching it, and since the event fires once, their real exit would then never be recorded at all. That is precisely the failure the `reason` property was added to fix, arriving again through a different door. Backgrounding the app is what leaving looks like on a phone and `hidden` already catches it, so `unload`, `hidden`, `restart` and `quit` cover the mode between them. Anything added later that takes the input away has to make the same decision.
+
 It will still be lossy. A tab closed from a background window may never run the handler, and a player watching a long wave without moving the mouse is counted as idle. That is expected and will be stated in the write-up rather than hidden.
 
 Send every event. No sampling at this traffic level.
@@ -290,8 +342,10 @@ Free tier Supabase projects pause after seven days of inactivity. Add a GitHub A
 
 ## Accessibility and platform
 
-- Desktop first. If mobile is not properly supported at launch, show an honest "desktop only" message rather than a broken layout. It was not, and it did. Tablets came in afterwards, once a finger had a way to see a tower's range before committing to it, and the message is now shown to phones only. The rule is unchanged for whatever is next: an honest refusal beats a broken layout.
-- Test in Chrome, Safari and Firefox before announcing.
+- Desktop first. If mobile is not properly supported at launch, show an honest "desktop only" message rather than a broken layout. It was not, and it did. Tablets came in afterwards, once a finger had a way to see a tower's range before committing to it, and phones came in after that, with a board of their own rather than the landscape one shrunk to fit. The message that used to refuse them has gone with the refusal, because a refusal nothing can reach reads as a live promise that the game turns people away, and the next person to edit that file would keep it in step for nothing. The rule is unchanged for whatever is next: an honest refusal beats a broken layout, and beats a board built for a shape nobody is holding.
+- **The gate is the size of the screen and nothing else.** 900 by 600, in `main.js`, and what is on the other side of it is a scene set rather than a message. `?shape=phone` and `?shape=desktop` override it in both directions, which is how either board gets reviewed on a deploy preview from whatever is to hand, and neither override opens a session, so a review is not filed as a run played on a device it was not on.
+- **Two honest refusals are left and neither is about size.** A browser that cannot give the board a WebGL context is told so, which is the price of the phone build forcing `Phaser.WEBGL` rather than falling back to a canvas that was never going to carry it. And a phone held sideways is told so, as a veil over the page rather than a screen instead of it, so the run is still there when it is turned back.
+- Test in Chrome, Safari and Firefox before announcing, and on a real handset as well as a narrow window. A desktop browser at phone dimensions gets the phone board and tells you nothing about the frame rate, the soft keyboard over the name field, or whether anything is emitted from that route at all.
 - **Nothing is said by movement alone.** A player who has asked their system for
   less motion is given the state without the animation, screen shake included,
   and every colour, readout and label still changes. Anything added that moves
@@ -396,7 +450,8 @@ mouse does before it commits to a tower, so the two halves became pressing and
 lifting: the preview follows a drag and the tower lands where the finger comes
 off. That removed the only reason the support gate asked for a fine pointer, so
 the gate is the size of the screen alone now and tablets are in. Phones still
-get the message.
+got the message at that point, and the entry further down is what became of
+that.
 
 It qualified on the same terms sound did. Both routes end in the placement code
 the mouse already used, so there is no second way to place a tower to keep in
@@ -443,24 +498,68 @@ rejection followed by a survey nobody reads is the artefact the whole game is
 parodying, so the question is in character for the system rather than bolted to
 the outside of it.
 
+The phone board is the largest thing to come off this list, and it is the first
+one that did not fit round a rule or overturn one. It went past both. Everything
+before it was a fourth thing inside the existing game: a mode is data in
+`modes.js`, sound is a service and a toggle, the touch controls end in the
+placement code the mouse already used. A phone version is a second game loop,
+and the whole point of the previous entries is that there is one loop to keep in
+step.
+
+It qualified because the alternative was worse. Two thirds of `GameScene` serves
+a walked route and a player placing things beside it, and a design with neither
+has no counterpart for any of it, so the choice was a second scene set or a
+fourth branch through the file classic is played by. **Classic does not move** is
+the older rule and it wins. The seam is that the split is at the scenes and
+nowhere else: `services/`, `content/copy.js`, `entities/`, the config
+conventions, the Netlify functions and the build are shared as they stand, and
+`entities/Applicant.js`, the file this project has twice congratulated itself on
+not editing, was not edited for this either.
+
+What it cost is more than everything above it put together. A fourth wave list
+and a card pool, both tuned against a simulator rather than against play, because
+a design whose difficulty lives in the interaction between a pool and a curve
+cannot be tuned by one person playing it twice. A fifteenth event, argued in the
+analytics spec. A migration, which this time was written when the mode was rather
+than after a player found it. A fourth board on the leaderboard. Two honest
+refusals where there used to be one message. A second scoring weight set, since
+the third term is tower integrity here rather than lives and the rejection term
+had to come down or the plausibility ceiling would have stopped excluding
+anything. And the queries in `docs/`, which now have a mode in them that nobody
+chooses and that therefore arrives at the top of every funnel and appears in no
+step below it.
+
+Two things it deliberately did not buy, both recorded in the files rather than
+here. Floating damage numbers were designed, argued and dropped: they are either
+decoration or information carried by an animation on the one board that says
+nothing may be said by movement alone, and the health bars already carry what
+they would have said. And the card pool is upside down, measurably, with the
+flagship card the worst in the pool. Fixing it means editing `Tower.js` or
+`applicants.js`, which is the sentence above about classic, so it was measured,
+written down and left.
+
 ### Still true whatever gets built
 
 - Deploy is not a late step, and a red deploy preview is a failed step.
 - Balance lives in data. A post-MVP feature that puts a number in the game loop
   is the wrong shape.
-- The event list stays at fourteen unless there is a question that needs a
-  fifteenth. Both of the last two cleared the same bar. The thirteenth was added
-  because an exposure could not be recorded any other way. The fourteenth was
+- The event list stays at fifteen unless there is a question that needs a
+  sixteenth. All three of the last ones cleared the same bar, and the bar is
+  that the question cannot be answered any other way. The thirteenth was added
+  because an exposure could not be recorded anywhere else. The fourteenth was
   added because question 2 asks whether the difficulty curve is right and no
   amount of counting where runs ended says whether losing there felt earned,
-  which is a different fix from a wave being too heavy. A feature existing is
-  not a reason on its own. Sound shipped without one, and so did the whole of
-  the second mode: towers going offline is the most eventful thing in it and it
-  emits nothing, because no question in the spec asks how often that happens.
-  A property is not an event, which is the seam `mode` went through. The third
-  mode emits nothing new either: applicants choosing a different way in is the
-  most eventful thing in it and no question in the spec asks how often they do
-  it.
+  which is a different fix from a wave being too heavy. The fifteenth was added
+  because question 4 asks which things are dead weight and a card offered and
+  refused leaves no trace at all, so counting what was taken cannot recover it.
+  A feature existing is not a reason on its own. Sound shipped without one, and
+  so did the whole of the second mode: towers going offline is the most eventful
+  thing in it and it emits nothing, because no question in the spec asks how
+  often that happens. A property is not an event, which is the seam `mode` went
+  through. The third mode emits nothing new either: applicants choosing a
+  different way in is the most eventful thing in it and no question in the spec
+  asks how often they do it. Nor does the fourth mode emit anything for being a
+  phone, since `device_type` has been a global property since launch.
 - **Qualitative stays closed.** The one question the game asks has four fixed
   answers and it is not a way in for a text box later. An open field on a public
   unauthenticated collector is a different thing to defend, needs the name rules
