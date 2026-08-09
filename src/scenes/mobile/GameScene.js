@@ -10,7 +10,9 @@ import {
   MOBILE_LEAK_SHAKE,
   MOBILE_SCORING,
   MOBILE_TOWER_KEY_UPDATED,
-  MOBILE_TRACER
+  MOBILE_TRACER,
+  MOBILE_TRAP,
+  MOBILE_TRAP_KEY
 } from '../../config/mobile.js';
 import { introKeyFor } from '../../config/intros.js';
 import { RADIAL_BOARD } from '../../config/path.js';
@@ -31,6 +33,7 @@ import {
   trackApplicantLeaked,
   trackGameOver,
   trackGameStarted,
+  trackTowerPlaced,
   trackUpgradeOffered,
   trackWaveCompleted,
   trackWaveStarted
@@ -45,6 +48,7 @@ import {
 import { FEEL, fadeOut, landing, nudge, shake } from '../../services/feel.js';
 import Applicant from '../../entities/Applicant.js';
 import Tower from '../../entities/Tower.js';
+import Trap from '../../entities/Trap.js';
 
 /**
  * The phone game's loop, for issue #47. One tower in the middle, applicants
@@ -116,6 +120,15 @@ const BULK_FILL_SPENT = 0x1e2229;
 const BULK_EDGE = 0x5f8ba6;
 const BULK_EDGE_SPENT = 0x2f363f;
 
+/**
+ * The pad's line, under the button's. It is the only thing on this board that
+ * explains where a tap goes, and it is permanent for the reason the bulk
+ * reject's note is: a control nothing explains is a control nobody uses, and
+ * this one asks the player to touch a part of the screen that has never done
+ * anything before.
+ */
+const TRAP_NOTE_Y = 1160;
+
 export default class MobileGameScene extends Phaser.Scene {
   constructor() {
     super('MobileGameScene');
@@ -164,6 +177,12 @@ export default class MobileGameScene extends Phaser.Scene {
     this.charges = MOBILE_SUPERWEAPON.charges;
     this.bulkUsed = 0;
     this.nextBulkAt = 0;
+
+    // The pad on the floor, when another may be laid, and when this one goes
+    // unanswered. All three are cleared and re-cleared per intake by openTrap.
+    this.trap = null;
+    this.nextTrapAt = 0;
+    this.trapStaleAt = 0;
 
     this.waveIndex = 0;
     this.spawnsRemaining = 0;
@@ -236,6 +255,7 @@ export default class MobileGameScene extends Phaser.Scene {
   update(time) {
     if (!this.over) {
       this.fire(time);
+      this.checkTrap(time);
       this.checkWaveComplete();
     }
 
@@ -243,6 +263,7 @@ export default class MobileGameScene extends Phaser.Scene {
     this.drawHealthBars();
     this.drawBar();
     this.watchBulkReject();
+    this.watchTrapNote();
     this.showRating();
   }
 
@@ -323,6 +344,7 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.showIntake();
     this.buildBulkReject();
+    this.buildTrapNote();
     this.buildSwitches();
   }
 
@@ -651,6 +673,7 @@ export default class MobileGameScene extends Phaser.Scene {
     const wave = MOBILE_WAVES[this.waveIndex];
 
     this.phase = 'running';
+    this.openTrap();
     this.showIntake();
     this.waveStartedAt = this.time.now;
     this.healthAtWaveStart = this.health;
@@ -1113,6 +1136,255 @@ export default class MobileGameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * The pad's line, and the tap that lays one.
+   *
+   * The tap is taken on the scene rather than on a zone, because the target is
+   * most of the board and a zone that size would sit over the switches and the
+   * button. `trapSpot` is what decides whether a tap meant anything, and it does
+   * it by asking where on the floor the tap was rather than what it was over,
+   * which is the cheaper of the two ways round and cannot fall out of step with
+   * a control being moved.
+   *
+   * On pointer up rather than down, which is the rule the desktop board settled
+   * on for a finger: a preview follows the drag and the thing lands where the
+   * finger comes off. There is no preview here, since a pad is a single tap on a
+   * board with nothing to line it up against, and lifting is still where a tap
+   * is committed on a touchscreen.
+   */
+  buildTrapNote() {
+    const { width } = RADIAL_BOARD.board;
+
+    this.trapNote = this.add
+      .text(width / 2, TRAP_NOTE_Y, '', {
+        fontFamily: FONT,
+        fontSize: '20px',
+        color: '#6f7d8c'
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(100);
+
+    this.trapNoteShown = null;
+    this.refreshTrapNote();
+
+    this.input.on(Phaser.Input.Events.POINTER_UP, (pointer) => {
+      this.layTrap(pointer.worldX, pointer.worldY);
+    });
+  }
+
+  /**
+   * What the line says: how to lay one, or how long until there is one to lay.
+   *
+   * Three states rather than two, because "there is a pad on the floor" and
+   * "there is no pad and none coming yet" are the same silence to a player and
+   * are opposite instructions. State rather than movement, as everything else on
+   * this board is.
+   */
+  refreshTrapNote() {
+    const waiting = Math.max(0, this.nextTrapAt - this.time.now);
+
+    let line = COPY.hud.trapReady;
+
+    if (this.trap !== null) {
+      line = COPY.hud.trapLaid;
+    } else if (waiting > 0) {
+      line = `${COPY.hud.trapAsking} ${Math.ceil(waiting / 1000)}s`;
+    }
+
+    if (line === this.trapNoteShown) {
+      return;
+    }
+
+    this.trapNoteShown = line;
+    this.trapNote.setText(line);
+    this.trapNote.setColor(this.trapReady() ? '#8b98a6' : '#6f7d8c');
+  }
+
+  /**
+   * Polled, because the only thing that changes most of the time is the number
+   * of seconds left, and nothing happens when a second passes. The comparison in
+   * `refreshTrapNote` is what keeps this from re-rendering a Text every frame,
+   * which is the same arrangement the bulk reject and the rating use.
+   */
+  watchTrapNote() {
+    this.refreshTrapNote();
+  }
+
+  // ---------------------------------------------------------------------- pad
+
+  /**
+   * Salary expectations: the second thing a player of this board does during an
+   * intake, and the first that is a question of where rather than of when.
+   *
+   * The numbers, and the measurement they came out of, are in config/mobile.js
+   * at MOBILE_TRAP. What is here is only the three things a scene has to own:
+   * where a tap is allowed to land, when the pad goes off, and when it goes
+   * stale.
+   *
+   * `entities/Trap.js` is used exactly as the other three boards use it. It
+   * knows how big it is, when it has been trodden on and how to take itself off
+   * the board, and what that costs an applicant is the scene's business, which
+   * is the same seam a tower is resolved through.
+   */
+  layTrap(x, y) {
+    const spot = this.trapSpot(x, y);
+
+    // A tap on the HUD, on the desk or out on the floor nobody crosses. Silent
+    // rather than refused out loud, since most taps that land here are a thumb
+    // resting on the screen rather than somebody asking for a pad.
+    if (!spot) {
+      return;
+    }
+
+    if (!this.trapReady()) {
+      playSound('denied');
+
+      return;
+    }
+
+    this.trap = new Trap(
+      this,
+      spot.x,
+      spot.y,
+      MOBILE_TRAP_KEY,
+      MOBILE_TRAP,
+      MOBILE_TRAP.sprite.base
+    );
+
+    // Painted on the carpet rather than stood on it, so anybody walking over one
+    // walks over it rather than behind it. Under the applicants at depth 5 and
+    // over the floor.
+    this.trap.setDepth(2);
+
+    this.nextTrapAt = this.time.now + MOBILE_TRAP.rearmDelayMs;
+    this.trapStaleAt = this.time.now + MOBILE_TRAP.staleMs;
+
+    playSound('place');
+
+    // The event the desktop already sends for a trap, with the same type on it,
+    // so this board's pads land in the same row of the same query rather than
+    // in a fourth one nothing is looking at. There is no grid here and no
+    // budget: the position is the board pixel it went down on, rounded, and the
+    // currency is null rather than a nought that would read as a player who had
+    // spent everything.
+    trackTowerPlaced({
+      towerType: MOBILE_TRAP_KEY,
+      currencyBefore: null,
+      gridX: Math.round(spot.x),
+      gridY: Math.round(spot.y)
+    });
+
+    this.refreshTrapNote();
+  }
+
+  /**
+   * Where a tap is allowed to put a pad, or null for nowhere.
+   *
+   * The rule is one ring test and it does the work of three. Everybody arrives
+   * on the spawn ring and walks straight in to the desk, so ground outside that
+   * ring is ground nobody crosses and ground inside the desk is under the tower.
+   * The band between them is exactly the part of the board a pad can do anything
+   * on, and it also happens to exclude every piece of HUD on this screen: the
+   * intake counter, the rating, the bulk reject and both switches all sit
+   * further from the middle than the ring is, so nothing needs to know about
+   * them by name.
+   */
+  trapSpot(x, y) {
+    const { centre, spawnRadius, arrivalRadius } = RADIAL_BOARD;
+    const out = Phaser.Math.Distance.Between(centre.x, centre.y, x, y);
+
+    if (out > spawnRadius || out < arrivalRadius + MOBILE_TRAP.triggerRadius) {
+      return null;
+    }
+
+    return { x, y };
+  }
+
+  /** Whether a tap right now would put a pad down. */
+  trapReady() {
+    return (
+      !this.over &&
+      this.phase === 'running' &&
+      this.trap === null &&
+      this.time.now >= this.nextTrapAt
+    );
+  }
+
+  /**
+   * The pad, once a tick: sprung by whoever has walked onto it, or gone if
+   * nobody has.
+   *
+   * Springing hits everybody inside the radius rather than only whoever set it
+   * off, which is what makes where it went down worth thinking about, and it
+   * goes through `hit` rather than round it so a Keyword Stuffer is caught by it
+   * like anybody else. Immunity is a property of an applicant against a named
+   * tower type and a question about money is not the keyword filter, which is
+   * the same reasoning the bulk reject is built on.
+   */
+  checkTrap(time) {
+    if (this.trap === null) {
+      return;
+    }
+
+    if (time >= this.trapStaleAt) {
+      this.clearTrap();
+
+      return;
+    }
+
+    if (!this.applicants.some((who) => who.active && this.trap.catches(who))) {
+      return;
+    }
+
+    // Copied before anybody is hit, for the reason splash copies it: resolving a
+    // hit takes the person hit off `this.applicants`, and walking a list while
+    // it shrinks skips whoever moved up into the gap.
+    const caught = this.applicants.filter(
+      (who) => who.active && this.trap.catches(who)
+    );
+
+    const pad = this.trap;
+
+    this.trap = null;
+
+    caught.forEach((who) => this.hit(who, pad.rollDamage()));
+
+    pad.spring();
+    playSound('reject');
+    this.refreshTrapNote();
+  }
+
+  /**
+   * A pad nobody answered. It fades rather than bursting, because bursting is
+   * what going off looks like and these two must not read the same: one of them
+   * cost somebody a walk and the other cost the player a placement.
+   */
+  clearTrap() {
+    const pad = this.trap;
+
+    this.trap = null;
+
+    fadeOut(pad, 260, () => pad.destroy());
+    this.refreshTrapNote();
+  }
+
+  /**
+   * The clock and the pad, at the start of every intake.
+   *
+   * The rearm starts again as each intake opens, so the first pad of each is
+   * always there to be laid rather than owed to the one before. Anything still
+   * on the floor goes with it, since the board it was laid to catch has gone
+   * home.
+   */
+  openTrap() {
+    if (this.trap) {
+      this.clearTrap();
+    }
+
+    this.nextTrapAt = 0;
+    this.trapStaleAt = 0;
+  }
+
   // -------------------------------------------------------------------- firing
 
   fire(time) {
@@ -1206,6 +1478,10 @@ export default class MobileGameScene extends Phaser.Scene {
     this.prepTimer?.remove();
     this.clearWaveTimers();
     this.clearIntroCard();
+
+    if (this.trap) {
+      this.clearTrap();
+    }
 
     stopMusic();
 

@@ -56,7 +56,7 @@ Four. The first three are chosen on the home screen and share every tower, every
 | Classic intake | The game as it shipped. One corridor, walked in single file, towers beside it. Every number in it is the number it already had. |
 | Open advert | No corridor. Applicants arrive across the whole left edge and converge on the desk, fanning out and squeezing according to the `spread` on each waypoint. Towers go anywhere off the HUD and the desk, traps go wherever they are put, and applicants push back. |
 | Back channel | No route at all. A floor, a desk in the corner of it, and applicants who work out their own way across. Every tower makes the ground it covers expensive rather than impassable, and how far out of their way they will go to avoid it is a property of the applicant type. |
-| One-click apply | The phone board, and the only one nobody picks. Portrait, no route and no placement: one screening process fixed dead centre, applicants converging on it from every direction, and a turret that turns to whoever has least walking left. Most of what the player decides happens between intakes, where the process is offered two improvements and can have one. The rest is three bulk rejects, spent during an intake or not at all, and a ninth intake that is one arrival the turret cannot answer. |
+| One-click apply | The phone board, and the only one nobody picks. Portrait and routeless: one screening process fixed dead centre, applicants converging on it from every direction, and a turret that turns to whoever has least walking left. Most of what the player decides happens between intakes, where the process is offered two improvements and can have one. During one, there are three bulk rejects and a pad laid by tapping the floor, which is the only thing on this board that is put somewhere rather than pressed. The ninth intake is one arrival the turret cannot answer. |
 
 **The crowd is still not pathfinding.** Open advert is waypoints, same as the path always was. Each applicant walks its own copy of the spine, displaced by its share of the spread at every point and tapering to zero at the vacancy so everybody converges on the one desk. Applicant.js did not change to allow it and should not have to.
 
@@ -69,6 +69,8 @@ Applicant.js did change for this one, in two places, and both were already wrong
 **Pushing back is open advert only.** Applicants near a tower wear its `integrity` down; a tower worn to nothing is suspended pending review for a few seconds and comes back at full integrity. Recovery is applied against incoming pressure rather than after it, which is what makes one applicant harmless and a crowd a problem. Suspension rather than destruction, because losing a tower outright to a crowd whose edges you cannot see is a punishment rather than a decision. That is one number in `modes.js` if it should ever become the other.
 
 **One-click apply is a second scene set rather than a fourth mode inside `GameScene`, and that is the whole of what makes it possible.** The first three modes are the same loop handed different data. This one is not: roughly two thirds of `GameScene` exists to serve a walked route and a player placing things beside it, and a board with neither has no counterpart for any of it. No route, no placement, no currency and, at the time, no input during an intake were four inversions of things classic is built on, so the choice was a second set of scenes sharing the services layer, or four more branches through the file classic is played by. `main.js` picks the set and dynamically imports the phone one, so a desktop player downloads none of it.
+
+**Two of those four inversions have gone now and the argument survives both.** 1.10.0 took "no input during an intake" and 1.11.0 took "no placement", the second because Salary Expectations is a spatial decision and stripping the spatial part of it leaves something the bulk reject already is. What is left is still worth a scene set on its own: there is no route and there is no currency, which between them are what the two thirds of `GameScene` referred to above actually serve. One free pad laid by tapping the floor is not a six button palette with a budget behind it, and the desktop's placement code, its ghost, its grid, its clearance rules and its affordability checks are all still on the other side of the split, untouched and unused here. What has to be said honestly is that the sentence "no placement" can no longer be quoted about this mode, and anything that reads placement as absent has to be checked against `MOBILE_TRAP`.
 
 **The fourth of those inversions has gone and the argument survives it.** In 1.10.0 the board grew one control during an intake, the bulk reject, and the sentence above is written in the past tense for that reason. Three of the four are untouched and each is still worth a scene set on its own, so nothing about the split changes. What does change is that "no input during an intake" can no longer be quoted as a property of this mode: it is one button, three times a run, and anything that reads the absence of input as meaning something has to be checked against that. There is exactly one such thing, the idle abandonment clock, and it is dealt with under the analytics spec.
 
@@ -122,7 +124,7 @@ src/
     mobile/            The phone build's scenes, sharing every folder below this one
       BootScene.js       What the phone board draws, and nothing the desktop needs
       HomeScene.js       The page the phone build opens on
-      GameScene.js       The phone loop, with no placement and no input during an intake
+      GameScene.js       The phone loop, with no route and no currency
       UpgradeScene.js    Two cards between intakes, one taken, over the held board
       GameOverScene.js   Score, board, tip jar and the question, in portrait
       LeaderboardScene.js  Top ten, over whichever screen opened it
@@ -136,7 +138,7 @@ src/
     applicants.js      Applicant stats as data
     game.js            Lives, budget, prep times, scoring
     modes.js           What each mode changes, as data
-    mobile.js          The phone board's tower, run, superweapon and scoring numbers
+    mobile.js          The phone board's tower, run, superweapon, pad and scoring numbers
     upgrades.js        The card pool, on stable ids the collector checks against
     path.js            Waypoint coordinates per mode, and the two boards that have none instead
     version.js         The version the build was cut from
@@ -654,6 +656,40 @@ behaviour in `Tower.js`: what makes it a boss is that the turret targets whoever
 is closest to the desk and this one is the slowest thing on the board, so it is
 ignored until it is too late. That is the note in `config/mobile.js` about the
 Career Changer, used on purpose rather than tripped over.
+
+Salary expectations on the phone board came off this list next, on request, and
+it is the first thing here that had to overturn a rule in order to be itself
+rather than in order to fit. That mode had no placement, deliberately, and a
+trap is a spatial decision: free, laid somewhere, sprung by whoever walks onto
+it. Take the somewhere away and what is left is not a weaker trap, it is a free
+burst of damage on a crowd decided only by when it is pressed, and that is the
+bulk reject, which already exists and already has ten thousand runs behind it.
+So it either became a placement or it did not come.
+
+It qualified on everything else. Every number is data in `config/mobile.js`.
+`entities/Trap.js` is used exactly as it stands, which makes it the fifth feature
+running that edits no entity. Laying a pad on open ground rather than on a line
+is not new either, since `trapSnapDistance` has been zero in open advert and back
+channel since they shipped. And `tower_placed` already fires for traps, so the
+event list is still at fifteen.
+
+What it cost is three things. The rule above, rewritten rather than worked
+around, and what survives it is that this board still has no route and no
+currency, which is what the scene split was really about. A fourth policy
+dimension in the simulator, because a control whose value depends on where it
+goes cannot be tuned by playing the board twice. And a ceiling that has moved:
+the best measured player now holds the vacancy 60.1% of the time against 47.4%
+before it, which is what a free renewable control does and is written down next
+to the lever that would pull it back.
+
+The interesting part is the number that made it a decision at all. A pad that
+waits until somebody treads on it is not a placement on this board, because
+everybody walks a straight line to the same desk and a pad dropped anywhere is on
+somebody's route: measured, tapping at random did as well as aiming, and better
+than thinking about it. A pad that goes stale in six seconds if nobody answers it
+is a placement, because half of the random player's are then wasted. That rule
+came out of the measurement rather than out of the design, and it is the whole
+difference between this and a button.
 
 ### Still true whatever gets built
 

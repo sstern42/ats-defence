@@ -9,6 +9,23 @@ analysis notes, tooling and CI changes do not.
 
 ## 1.11.0 - 2026-08-09
 
+- Salary Expectations reaches the phone board, which is the sixth screening
+  mechanism arriving on the fourth board and the first thing that mode has ever
+  asked a player to put somewhere. Tap the floor during an intake and a pad goes
+  down: free, one at a time, sixteen seconds before the next, and it catches
+  everybody standing on it rather than only whoever set it off. Nobody is immune
+  to a question about money.
+- A pad nobody walks into is gone in six seconds, and that rule is the reason
+  this is a placement rather than a button. Without it, tapping at random
+  measured as well as aiming, because everybody on that board walks a straight
+  line to the same desk and a pad dropped anywhere is on somebody's route.
+- Measured over 5,000 runs a side: the pad is worth about ten points of a run to
+  somebody using it properly, six of which come from looking at the board before
+  tapping. It rescues nobody from a bad draw. The table, and the lever to pull it
+  back, are in `config/mobile.js`.
+- The obvious placement beats the clever one. Dropping it just ahead of whoever
+  is closest to the desk beats hunting for a crowd further out, because that is
+  where all the lines are nearest together.
 - The phone board's HUD carries the rating as it stands, beside the intake
   counter. It is the number the summary and the leaderboard will say, so it
   falls when somebody gets in: two of its three terms are earned and the third

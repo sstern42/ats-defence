@@ -215,6 +215,145 @@ export const MOBILE_SUPERWEAPON = {
   cooldownMs: 800
 };
 
+/**
+ * Salary expectations, the sixth screening mechanism, on the board that had no
+ * way to hold one.
+ *
+ * ## What had to give for it to be here
+ *
+ * A trap is a spatial decision. Free, laid somewhere, sprung by whoever walks
+ * onto it, and take the somewhere away and what is left is not a weaker trap, it
+ * is a different object. That different object also already exists: a free burst
+ * of damage on a crowd, decided only by when it is pressed, is the bulk reject
+ * above, which has ten thousand runs a policy behind it. So this either becomes
+ * a placement on a board with no placement, or it does not come.
+ *
+ * It became a placement, and `CLAUDE.md` is rewritten for it rather than around
+ * it. That is the second of the four inversions this scene set was argued from,
+ * after "no input during an intake" went in 1.10.0. The other two are untouched
+ * and each is still worth a scene set on its own: there is no route, and there
+ * is no currency, which is most of what the other two thirds of the desktop
+ * `GameScene` is for.
+ *
+ * ## What is not new
+ *
+ * `entities/Trap.js` is used exactly as it stands, which makes it the fifth
+ * feature running that edits no entity. Laying a pad on ground rather than on a
+ * line is not new either: `trapSnapDistance` is already zero in open advert and
+ * back channel, where a trap goes where it is put and choosing a busy patch of
+ * floor is the player's problem. And `tower_placed` already fires for traps, so
+ * there is no sixteenth event in here.
+ *
+ * ## Why the numbers are not the ones in towers.js
+ *
+ * Same reason the tower's are not, and more sharply. Classic's pad does 140,
+ * which on this board kills every applicant type except the Career Changer and
+ * the boss, free, every four seconds. That is not a screening mechanism, it is a
+ * second turret, and the coupling would run the wrong way afterwards: a tuning
+ * pass on classic's trap would silently retune a phone board nobody was thinking
+ * about.
+ *
+ * `damage` is therefore its own, and it is the number this whole thing turns on.
+ * `triggerRadius` is classic's, since a pad's reach is about how big a pad is
+ * rather than about which board it is on. `rearmDelayMs` is measured from laying
+ * rather than from springing, which is classic's rule and caps how often the
+ * question can be asked however the player taps.
+ *
+ * ## `staleMs`, which is the only reason any of this is a decision
+ *
+ * A pad nobody has trodden on is gone in six seconds. That rule was not in the
+ * design, it came out of the measurement, and it is the whole difference between
+ * a placement and a button.
+ *
+ * Without it, a pad sits until somebody walks onto it, and on this board
+ * somebody always eventually does: every applicant walks a straight line to the
+ * same desk, so a pad dropped anywhere at all is on somebody's route. Measured,
+ * a policy that tapped a uniformly random spot without looking did as well as
+ * one that aimed, and both did better than a policy that waited for a good spot,
+ * because waiting only ever costs you the next pad. That is a tap-as-often-as-
+ * you-can button wearing a pad's clothes, which is the thing this was not
+ * supposed to become.
+ *
+ * With expiry, a pad put where nobody is going is simply wasted, and half of the
+ * blind player's are. The board did not have to change and the fiction did not
+ * have to stretch: a question nobody was asked is a question nobody answers.
+ *
+ * ## The other two rules
+ *
+ * One pad at a time, and it can only be laid while an intake is running. The
+ * first is classic's `maxArmed: 1` and is what stops the floor being paved. The
+ * second is the bulk reject's rule for a different reason: a pad laid during the
+ * countdown would be a spot chosen before anybody has an angle, so it would be a
+ * coin flip that is always worth taking, which is a chore rather than a decision.
+ *
+ * The rearm clock starts again when an intake opens, so the first pad of each is
+ * always there to be laid. Nine intakes, roughly a pad and a half in each.
+ *
+ * ## What it measures at
+ *
+ * `tools/simulate-mobile.mjs --trap <policy>`, 5,000 runs each, sensible cards
+ * and saving charges throughout, vacancies held:
+ *
+ *                    none    blind    front   cluster
+ *   sensible cards   30.3%    34.5%    40.7%     36.2%
+ *
+ * `blind` taps somewhere a person could walk without looking at where anybody
+ * is, `front` lays it just in front of whoever is nearest the desk, and
+ * `cluster` holds out for a spot that catches two. The policies are described
+ * where they are implemented.
+ *
+ * Three things to read off it. The pad is worth about ten points of a run to
+ * somebody using it properly, which is a third of what the charges are worth and
+ * a small fraction of what the cards are, and that ordering is the one this
+ * design wants: the thing it calls its decision is still the decision. Looking
+ * at the board before tapping is worth six of those ten, which is what makes it a
+ * placement. And it rescues nobody from a bad draw: a player taking cards at
+ * random goes from 1.7% to 4.6% with it, so it is a help rather than an answer.
+ *
+ * The honest cost is at the top. A player who hoards the charges and lays the pad
+ * well holds the vacancy 60.1% of the time against 47.4% before it, so the
+ * ceiling on this board has gone up by more than the middle has. That is what a
+ * free renewable control does, and the lever if it wants pulling back is
+ * `rearmDelayMs` rather than `damage`: at 12,000 the same player is at 47%, and
+ * at 24,000 the pad is worth nothing at all to anybody.
+ *
+ * **`front` beating `cluster` is the finding worth keeping.** The obvious play,
+ * dropping it just ahead of the leader, beats the clever-looking one that goes
+ * hunting for a crowd. Every applicant walks a straight line to the same desk, so
+ * the ground in front of whoever is closest is where those lines are nearest
+ * together, and a heuristic that looks for a crowd further out has gone looking
+ * in the thin part of the board.
+ */
+export const MOBILE_TRAP = {
+  behaviour: 'trap',
+  damage: 60,
+  triggerRadius: 40,
+  rearmDelayMs: 16000,
+  staleMs: 6000,
+
+  // Not classic's 30, and it is a drawing number rather than a balance one.
+  // `Trap` scales the pad to `footprint * TRAP_SPRITE_SCALE`, so 57 puts the
+  // edge of the drawn pad exactly on the edge of the 40 it actually catches
+  // people within. Classic's is smaller than its reach and gets away with it,
+  // because a trap there is snapped onto a path the player can see; here the pad
+  // is the only thing saying where the question was asked.
+  footprint: 57,
+  sprite: { base: 'trap-pad' },
+  bodyTint: 0xd9cf6a,
+  fieldColour: 0xd9cf6a,
+  burstDurationMs: 320
+};
+
+/**
+ * The key it is laid under, which is the key classic lays it under.
+ *
+ * It is not plumbing the way `MOBILE_TOWER_KEY` is, since nobody is immune to a
+ * pad, but `tower_placed` carries a `tower_type` and a board reporting its trap
+ * under a name of its own would split one mechanism into two rows in every
+ * query in `docs/` that counts what gets used.
+ */
+export const MOBILE_TRAP_KEY = 'salaryExpectations';
+
 /*
  * A NOTE, NOT A DEFINITION. Something the first run of this board threw up,
  * kept here because it is the sort of thing that gets rediscovered expensively
