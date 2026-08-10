@@ -223,7 +223,8 @@ export const MOBILE_RUN = {
 };
 
 /**
- * The bulk reject: the one thing a player of this board does during an intake.
+ * The bulk reject: the first thing a player of this board ever did during an
+ * intake, and one of three now. The pad is below and the hold is between them.
  *
  * ## What it broke to exist
  *
@@ -302,6 +303,140 @@ export const MOBILE_RUN = {
 export const MOBILE_SUPERWEAPON = {
   charges: 3,
   damage: 800,
+  cooldownMs: 800
+};
+
+/**
+ * Hold for review: the second superweapon, and the first control on any board
+ * that buys time rather than spending it.
+ *
+ * ## Why there is a second one at all
+ *
+ * The board was too hard, and it was too hard in a way one more of the first
+ * button could not have fixed. Measured before this, the best play anybody has
+ * modelled, best card on offer every time, charges saved for the boss, pad laid
+ * in front of the leader, held the vacancy 37.5% of the time and lost 63% of the
+ * runs that reached the ninth intake. A player taking cards at random is at
+ * 3.9%. So the ninth was deciding the run, which is the 1.7.0 complaint again,
+ * and every lever already on the board pushes on the same place.
+ *
+ * A fourth charge of the bulk reject would have been the cheap answer and it is
+ * the wrong one twice over. It would settle the boss intake by arithmetic, since
+ * four charges is 3,200 damage against 2,600 of health and there is then nothing
+ * left to decide, and it would do nothing at all about the intakes the run
+ * actually bleeds out in, where the problem is not that the crowd is too tough
+ * but that one turret cannot get round it in the time the walk allows.
+ *
+ * ## What it does, and why it is a slow rather than a stop
+ *
+ * Everybody applying is told the process is ongoing, and for `durationMs` they
+ * walk at `slowMultiplier` of their speed. The turret does not change: it fires
+ * at the same rate, for the same damage, at whoever has least walking left. What
+ * changes is how many times it gets to do that before the board arrives, so a
+ * hold is the tower's whole output multiplied by the length of the queue rather
+ * than a lump of damage laid on top of it.
+ *
+ * That makes it a genuinely different question from the bulk reject rather than
+ * a second helping of it. A charge is worth most against a crowd of low health
+ * arrivals, where 800 clears the lot. A hold is worth most when the turret is
+ * saturated and the thing in front of it is expensive, which is precisely the
+ * Career Changer note at the bottom of this file and precisely the ninth intake.
+ * Two buttons that answer opposite problems is two decisions; two buttons that
+ * both answer a crowd is one decision pressed twice.
+ *
+ * A stop was considered and refused, and not only because a tween running at no
+ * speed at all is a thing to be careful with. A board where nobody is moving
+ * reads as a game that has frozen, which is the one impression a phone build can
+ * least afford, and the fiction is better served by the crawl anyway: an
+ * application under further review is not cancelled, it is going nowhere slowly.
+ *
+ * ## What it costs, and what it does not
+ *
+ * `entities/Applicant.js` is not edited, which is now six features running.
+ * `setSpeedMultiplier` has been on it since the Take-Home Task, it scales the
+ * tween the walk already is, and a slow field on the desktop board and a button
+ * on this one want exactly the same thing from it.
+ *
+ * The leaderboard is untouched. The ceiling in `netlify/functions/lib/
+ * plausibility.js` is built from how many applicants a list sends and what the
+ * weights are, and a hold changes neither: the same 235 arrive and the most
+ * anybody can reject is still all of them.
+ *
+ * What it does cost is a second count on `game_over`, on the same terms
+ * `bulk_rejects_used` is one, and a fourth policy dimension in the simulator.
+ * Both are in the changelog and the second is `--hold`.
+ *
+ * ## The four numbers
+ *
+ * `charges` is two rather than three, and the asymmetry is the point. The bulk
+ * reject is the headline and should stay it, and a run holding three of each
+ * would have six presses to find room for in nine intakes, which is a rhythm
+ * rather than a decision. Two is one for the intake that goes wrong and one for
+ * the ninth, or both spent on the ninth by somebody who has decided the ninth is
+ * the run.
+ *
+ * `durationMs` and `slowMultiplier` are one lever between them, since what the
+ * turret gets is the time the two of them add to the walk, and they are split
+ * this way round because they are read differently. Four seconds is about as
+ * long as a player will believe a button is still doing something without a
+ * clock on it, and a quarter speed is visibly a crawl rather than a stumble.
+ * The Take-Home Task's field is 0.4 and this is heavier deliberately: that one
+ * runs constantly over a patch of floor and this one is spent twice a run.
+ *
+ * `cooldownMs` is the bulk reject's, for the bulk reject's reason. Two taps
+ * inside a second on a phone is one intended press, and it is the fat finger
+ * rather than the balance that wants stopping. Pressing again while a hold is
+ * already running is allowed and simply restarts the clock, which is a charge
+ * spent on the tail of one already paid for, so it is a mistake the board lets
+ * you make rather than a way to stack the two into one long hold.
+ *
+ * ## What it measures at
+ *
+ * `tools/simulate-mobile.mjs --hold <policy>`, 4,000 runs each, charges saved
+ * and the pad laid in front of the leader throughout, vacancies held:
+ *
+ *                     none    late   crowd   panic
+ *   sensible cards    37.5%   52.9%   61.4%   52.3%
+ *   random cards       3.9%    7.0%   10.1%    7.4%
+ *
+ * `late` holds the ninth intake and nothing else, `crowd` spends one whenever
+ * six are inside the tower's reach, and `panic` waits until the run is nearly
+ * over. The policies are described where they are implemented.
+ *
+ * Three things to read off it. The board is beatable now by somebody playing it
+ * well, which is the whole of what this was for: 61% against 37% on identical
+ * cards, and a ceiling that has gone from 60.1% to 76.4% for the best play
+ * anybody has modelled. When to spend them is worth eight points between the
+ * best policy and the worst, so it is a second real decision rather than a
+ * button that is always right to press. And it rescues nobody from a bad draw:
+ * a player taking cards at random goes from 3.9% to 10.1%, which is two and a
+ * half times better and still nine losses in ten, so the pool is still the thing
+ * this design calls its decision.
+ *
+ * **`crowd` beating `late` is the finding worth keeping, and it is the second
+ * time this board has said the same thing.** The design intends these for the
+ * ninth intake, the same way it intends the charges for it, and a player who
+ * holds them back for it does eight points worse than one who spends them on
+ * whatever crowd is in front of them. Two reasons, and both are about what a
+ * hold is. It buys shots rather than damage, so it is worth most where the
+ * turret is already saturated, and the turret is saturated in the sixth and
+ * seventh long before the boss turns up. And a charge saved for an intake the
+ * run does not reach is worth nothing at all: `late` spends 1.54 of its two on
+ * average against `crowd`'s 2.00, which is a fair part of the gap. That is
+ * `front` beating `cluster` again, arriving at a button rather than at a pad.
+ *
+ * The honest cost is that the ninth intake is still the whole run, and this does
+ * not fix that. What it does is move where the run is decided rather than
+ * flatten the curve: the eighth used to end 3% of the runs that reached it and
+ * now ends none of them, and the ninth used to end 63% and now ends 39%. The
+ * levers if it wants pulling back are `durationMs` first and `charges` second,
+ * and both are close to linear. At 3,000 the same player is at 55.3% and at
+ * 2,000 at 50.6%; at one charge rather than two, 49.5%.
+ */
+export const MOBILE_HOLD = {
+  charges: 2,
+  durationMs: 4000,
+  slowMultiplier: 0.25,
   cooldownMs: 800
 };
 
