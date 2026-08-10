@@ -32,11 +32,17 @@ export const INTRO_KEYS = [
   'intro-referral',
   'intro-boomerang',
 
-  // The seventh. Only the phone board ever sends this type, so only the phone
-  // board ever draws this card, and the desktop boot scene fetches four
-  // kilobytes it will not use. That is cheaper than a second list saying which
-  // board a strip belongs to, which is a list that would have to be kept in
-  // step with this one.
+  // The seventh. It used to be sent by the phone board alone, and this list
+  // carried a note apologising for the four kilobytes the desktop boot scene
+  // fetched and never drew. The open advert and back channel lists send it now,
+  // so the card it was fetching turns up on those boards with no change to
+  // anything here: the strip was already loaded, the animation was already
+  // registered against it, and introduceType already looks a type up by name.
+  //
+  // Which is the argument against the second list that note was refusing, made
+  // for us. A list saying which board a strip belongs to would have had to be
+  // found and corrected before any of this drew, and forgetting it would have
+  // cost a card rather than an error.
   'intro-internalCandidate'
 ];
 

@@ -50,9 +50,21 @@ export const COPY = {
       trait: 'Applies again at the end of the intake. Every time.'
     },
     /**
-     * The seventh, and the only one the desktop boards never send, so it has no
-     * `traitRadial`: the radial board is the only board it is ever introduced
-     * on and the first line is already written for it.
+     * The seventh. It used to be the one type the desktop boards never sent, so
+     * it had no `traitRadial` and the single line was written for the phone. The
+     * open advert and back channel lists send it now, and the two boards want
+     * different sentences for the reason the Overqualified does.
+     *
+     * `trait` names the Knockout Question, because on a desktop board the
+     * immunity is the whole of what the player has to know and the only part
+     * they cannot see. The health is an orange slab with a bar over it from the
+     * moment it walks on and the speed is obvious within a second, so a line
+     * spent on either would be a line spent describing the picture.
+     *
+     * `traitRadial` is the sentence that was here, kept for the board that has
+     * no Knockout Question to be immune to. Naming one there would be exactly
+     * the Overqualified's problem above: a card describing a tower that board
+     * has never had.
      *
      * The joke is at the process's expense rather than at this applicant's,
      * which is the rule for all seven. Requisita is about to screen somebody
@@ -61,7 +73,9 @@ export const COPY = {
      */
     internalCandidate: {
       name: 'The Internal Candidate',
-      trait: 'Already has the job. This intake is a formality, and a long one.'
+      trait: 'Already has the job. The Knockout Question knows better than to ask.',
+      traitRadial:
+        'Already has the job. This intake is a formality, and a long one.'
     }
   },
   towers: {

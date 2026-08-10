@@ -223,9 +223,34 @@ export const OPEN_FIELD_WAVES = [
       { applicant: 'boomerang', count: 9, intervalMs: 1400, delayMs: 13000 }
     ]
   },
+  /**
+   * The tenth, and the first desktop intake built around one arrival.
+   *
+   * The Internal Candidate opens it and is not escorted in, because on this
+   * board it does not need to be: it walks on at the head of thirty Graduates
+   * and is overtaken by every one of them inside the first few seconds. Desktop
+   * towers target whoever has least walking left, so from that point on nothing
+   * on the board is aiming at it, and it crosses the whole spine while the
+   * player's screening is busy with the crowd that went past it. It arrives last
+   * because it left first, which is the same joke the phone board's ninth tells
+   * and reads better here, where there are thirty people to be overtaken by
+   * rather than fourteen.
+   *
+   * **The escort is the wave that was already here, unchanged.** No count and no
+   * interval below moved for this, on the same grounds the phone list kept
+   * intakes one to eight: this list is a first pass with no measurement behind
+   * it, but it is the first pass the mode has been played on, and folding a boss
+   * in by also rewriting the queue would leave no way to tell what the boss did
+   * from what the rewrite did.
+   *
+   * `reward` is untouched for the same reason. The boss pays its own bounty of
+   * 90 when it is rejected, which is the budget it is worth, and it arrives too
+   * late in the last intake of the run for the difference to buy anything.
+   */
   {
     reward: 100,
     groups: [
+      { applicant: 'internalCandidate', count: 1, intervalMs: 0, delayMs: 0 },
       { applicant: 'graduate', count: 30, intervalMs: 650, delayMs: 0 },
       { applicant: 'overqualified', count: 9, intervalMs: 1200, delayMs: 3000 },
       { applicant: 'keywordStuffer', count: 15, intervalMs: 1100, delayMs: 6000 },
@@ -329,9 +354,30 @@ export const BACK_CHANNEL_WAVES = [
       { applicant: 'boomerang', count: 7, intervalMs: 1500, delayMs: 13000 }
     ]
   },
+  /**
+   * The tenth, and the same one arrival the open advert list closes on. Its
+   * comment there covers why the escort is untouched and why the reward is, and
+   * neither reason is different here.
+   *
+   * What is different is what the boss is doing on a board with no route. Every
+   * other applicant reads the cost field and goes round the screening; this one
+   * has a `caution` of 0.4, so it takes very nearly the straight line and walks
+   * through whatever the player has built. That makes it the one arrival in this
+   * mode that cannot be answered by making the cheapest way in expensive, which
+   * is the only thing this mode asks the player to do. The rest of the intake
+   * still routes round, so the player is being asked two questions at once for
+   * about thirty seconds, and there is no arrangement of six towers that answers
+   * both.
+   *
+   * It also cannot be re-routed into a corner by a late placement, which is
+   * worth knowing rather than worth fixing. `reroute` restarts a walk from where
+   * somebody is standing, so a tower dropped in front of it moves it a little
+   * and costs it almost nothing at this caution.
+   */
   {
     reward: 95,
     groups: [
+      { applicant: 'internalCandidate', count: 1, intervalMs: 0, delayMs: 0 },
       { applicant: 'graduate', count: 26, intervalMs: 680, delayMs: 0 },
       { applicant: 'overqualified', count: 8, intervalMs: 1300, delayMs: 3000 },
       { applicant: 'keywordStuffer', count: 13, intervalMs: 1200, delayMs: 6000 },

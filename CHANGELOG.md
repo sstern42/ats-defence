@@ -7,6 +7,35 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.12.0 - 2026-08-10
+
+- The Internal Candidate closes the final intake of open advert and back
+  channel. It was the phone board's boss and it is two wave list entries away
+  from being everybody's, which is what putting it in the shared applicant table
+  bought and is the first time that decision has paid anything back.
+- It is immune to the Knockout Question. That tower takes whatever health is
+  left rather than doing damage, so without this every desktop board answers a
+  2,600 health arrival with one shot from a 140 cost turret and the number is
+  decoration. One field on the type, read by code that has handled immunity
+  since the Keyword Stuffer, and the phone board has no such tower to notice.
+- Its pressure came down from 30 to 14. Open advert reads that field and nothing
+  had ever read it on this type, so the figure sat there untuned. It is the
+  slowest thing in the table by a factor of three and therefore stands next to a
+  tower three times as long as anybody else, which at 30 suspended the Keyword
+  Filter, the Video Screen and the Take-Home Task on a single walk past. It now
+  leans harder than anything else on the board and switches nothing off.
+- Its health bar is up from the moment it walks on, on the desktop as it already
+  was on the phone. Towers shoot whoever is closest to the vacancy and this is
+  overtaken by everybody, so a bar that waited for the first hit would have
+  waited about thirty seconds.
+- Its introduction card says something different on the desktop, because the
+  line it had names a formality and the thing a desktop player needs to know is
+  which tower will not help them. The phone board keeps the old line, having no
+  Knockout Question to be told about.
+- Classic is untouched and stays that way. It has the balancing pass, the real
+  leaderboard scores and the live experiment on its wave one, and the other two
+  desktop lists are a first pass by their own admission.
+
 ## 1.11.4 - 2026-08-10
 
 - The upgrade cards answer back. The offer arrives rather than appearing, the
