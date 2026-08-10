@@ -7,6 +7,49 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.13.0 - 2026-08-10
+
+- A second superweapon on the phone board, Hold for review. Two charges a run,
+  and while one is running everybody applying walks at a quarter speed for four
+  seconds. The turret is not told about it: it fires at the same rate for the
+  same damage at whoever has least walking left, and simply gets to do it more
+  times before the board arrives.
+- It exists because that board was too hard, and a fourth bulk reject would not
+  have fixed it. Four charges is 3,200 damage against 2,600 of boss, which
+  settles the ninth intake by arithmetic, and it does nothing about the sixth
+  and seventh, where a run bleeds out because one turret cannot get round a
+  crowd in the time the walk allows. Damage answers a crowd of cheap arrivals,
+  time answers a saturated turret, and those are two different buttons.
+- Measured with `tools/simulate-mobile.mjs --hold`, 4,000 runs a policy. The
+  realistic player goes from 37.5% of vacancies held to 61.4% and the best play
+  anybody has modelled from 60.1% to 76.4%. A player taking cards at random goes
+  from 3.9% to 10.1%, so it is a help rather than a rescue and the card pool is
+  still the decision.
+- Spending them early beats saving them for the boss by eight points, which is
+  the opposite of what the design expected and the same lesson the pad taught.
+  A hold buys shots rather than damage, the turret is saturated in the sixth
+  long before the ninth, and a charge saved for an intake the run never reaches
+  is worth nothing.
+- The ninth intake still decides most runs, and this does not pretend otherwise.
+  The eighth used to end 3% of the runs that reached it and now ends none; the
+  ninth used to end 63% and now ends 39%.
+- The two buttons sit side by side under the board. The bulk reject gave up 44
+  pixels of width it was not using and nothing else moved.
+- An eighth sound, for the hold. The two flat notes a telephone system opens
+  with before it tells you your call is important, over a low hum that says
+  something has started rather than that something has happened.
+- `game_over` carries `holds_used` beside `bulk_rejects_used` on that board. A
+  count of one button says whether it gets pressed; the pair says which of two
+  buttons drawn the same way goes unpressed, and nothing else in the fifteen
+  events can express that. The queries in `docs/bulk-rejects.sql` read both.
+- The phone home page now says what a player can do during an intake. It listed
+  the cards and nothing else, which left three of the five things on that board
+  unmentioned.
+- `entities/Applicant.js` is untouched, six features running.
+  `setSpeedMultiplier` has been on it since the Take-Home Task and a slow field
+  on one board and a button on another want the same thing from it.
+- Nothing on the three desktop boards moves, classic least of all.
+
 ## 1.12.0 - 2026-08-10
 
 - The Internal Candidate closes the final intake of open advert and back

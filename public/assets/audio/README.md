@@ -1,6 +1,6 @@
 # Sound credit
 
-Nobody's. These six clips are drawn by `tools/make-sounds.mjs`, which is a
+Nobody's. These eight clips are drawn by `tools/make-sounds.mjs`, which is a
 hundred lines of sine waves and envelopes using Node built-ins and no
 dependency.
 
@@ -30,6 +30,8 @@ script and an entry in `src/config/audio.js`.
 | `wave-open.wav` | Applications open. Two notes up, the only optimistic sound in the game, and it is optimistic on behalf of the applicants. |
 | `wave-clear.wav` | The intake has been screened. Three notes down, settling. |
 | `denied.wav` | The budget will not stretch to it, or the salary expectations are already set. A dead thud, because nothing happened. |
+| `bulk-reject.wav` | Everyone applying gets the same email, on the phone board. The loudest thing here, and it fires at most three times in a run. |
+| `hold.wav` | Everyone applying is told the process is ongoing, on the phone board. The two flat notes a telephone system opens with, over a low hum that says something has started rather than finished. |
 
 ## Music
 
@@ -75,7 +77,7 @@ The honest ledger:
 - `src/services/music.js` lost 180 lines. The lookahead scheduler, the catch-up
   guard for throttled background tabs, the fade node and the hand rolled
   envelopes are all gone, because Phaser does the decoding, the looping and the
-  autoplay unlock and already did for the six clips above.
+  autoplay unlock and already did for the eight clips above.
 
 It has its own toggle in the HUD, on `N`, and it is off until somebody asks for
 it.

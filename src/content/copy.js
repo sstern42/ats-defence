@@ -202,9 +202,14 @@ export const COPY = {
      * rather than landing on it. Write them to read well and let them wrap.
      *
      * There is no `howToTouch`. The desktop keeps two lists because its lines
-     * name a click or a key, and none of these does: this board takes nothing
-     * from the player once an intake starts, so there is no gesture to describe
-     * either way.
+     * name a click or a key, and this board has no keys at all, so a second
+     * list would be the same four lines with the word tap left in.
+     *
+     * The third line used to be absent and the note here used to say this board
+     * took nothing from the player once an intake started. Both were true when
+     * they were written and neither is now: there are two buttons and a pad, and
+     * a player who is told about the cards and not about those arrives at the
+     * board with three of the five things they can do unmentioned.
      */
     oneClickApply: {
       name: 'One-click apply',
@@ -214,6 +219,7 @@ export const COPY = {
       howTo: [
         'One screening process, fixed in the middle, firing on its own.',
         'They arrive from every direction at once, never in a queue.',
+        'During an intake: three bulk rejects, two holds, and a pad laid by tapping the floor.',
         'Between intakes, two improvements are proposed. Take one.',
         'The vacancy holds until enough of them get through it.'
       ]
@@ -271,6 +277,24 @@ export const COPY = {
     bulkReject: 'Bulk reject',
     bulkRejectSpent: 'No bulk rejects left',
     bulkRejectNote: 'Everyone currently applying gets the same email.',
+    /**
+     * The second one, in four states rather than three, because a hold is the
+     * only control on any board that carries on doing something after it has
+     * been pressed and the player has to be able to tell that it is.
+     *
+     * `holdRunning` is that fourth state and it is deliberately not a countdown.
+     * The board's rule is that nothing is said by movement alone, and a number
+     * ticking down is the closest thing to movement a label can do; what somebody
+     * needs off this one is whether the thing is on, which is a word.
+     *
+     * The note is shorter than the bulk reject's and says what the player sees
+     * rather than what the system did, since a slow is legible on the board in a
+     * way an email is not, and the line only has to name it.
+     */
+    hold: 'Hold for review',
+    holdSpent: 'No holds left',
+    holdRunning: 'Under review',
+    holdNote: 'Nobody is rejected. Nobody gets very far either.',
     /**
      * The pad on the phone board, in its three states. `trapWaiting` above is
      * the desktop's line for the same thing and is deliberately not reused: that

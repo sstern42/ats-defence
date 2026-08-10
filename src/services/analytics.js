@@ -259,17 +259,23 @@ export function trackApplicantLeaked(applicantType) {
  * after this, so the idle timer comes off.
  */
 /**
- * `bulkRejectsUsed` is the phone board's only in-run decision and is absent
- * everywhere else, since the other three boards have no such thing to spend. It
- * is a property on an event that already fires rather than a sixteenth event,
- * which is the seam `mode` went through: how many of a run's charges were spent
- * is a fact about the run, not a thing that happens.
+ * `bulkRejectsUsed` and `holdsUsed` are the phone board's two in-run decisions
+ * and are absent everywhere else, since the other three boards have no such
+ * thing to spend. They are properties on an event that already fires rather than
+ * a sixteenth event, which is the seam `mode` went through: how many of a run's
+ * charges were spent is a fact about the run, not a thing that happens.
  *
- * Left off the bag entirely rather than sent as a null on the boards that have
+ * The second one arrived with the second superweapon and needs the first one
+ * beside it to say anything. A count of bulk rejects on its own answers whether
+ * a button gets pressed; the pair answers which of two buttons sat next to each
+ * other gets pressed, and a run that spends three of one and none of the other
+ * is the finding question 4 is actually after.
+ *
+ * Left off the bag entirely rather than sent as nulls on the boards that have
  * none. A column of nulls says the same as an absent key and costs three
  * quarters of the rows to say it.
  */
-export function trackGameOver({ finalWave, score, bulkRejectsUsed }) {
+export function trackGameOver({ finalWave, score, bulkRejectsUsed, holdsUsed }) {
   const runDurationMs = clock() - state.runStartedAt;
 
   state.runInProgress = false;
@@ -282,7 +288,8 @@ export function trackGameOver({ finalWave, score, bulkRejectsUsed }) {
     run_duration_ms: Math.round(runDurationMs),
     ...(bulkRejectsUsed === undefined
       ? {}
-      : { bulk_rejects_used: bulkRejectsUsed })
+      : { bulk_rejects_used: bulkRejectsUsed }),
+    ...(holdsUsed === undefined ? {} : { holds_used: holdsUsed })
   });
 }
 

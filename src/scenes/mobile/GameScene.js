@@ -4,6 +4,7 @@ import { COPY } from '../../content/copy.js';
 import { APPLICANTS } from '../../config/applicants.js';
 import {
   MOBILE_BURST,
+  MOBILE_HOLD,
   MOBILE_RUN,
   MOBILE_SUPERWEAPON,
   MOBILE_TOWER,
@@ -111,31 +112,57 @@ const CARD_HOLD_MS = 2600;
 const CARD_FADE_MS = 240;
 
 /**
- * The bulk reject button, in the band between the spawn ring and the switches.
+ * The two superweapon buttons, in the band between the spawn ring and the
+ * switches.
  *
  * Everybody arrives on a ring 320 from the middle, so nothing is ever drawn
  * below y 960, and the two switches sit at the very bottom. What is between them
  * is the only part of this board that is guaranteed empty and reachable by a
- * thumb, which is the whole of why the one control this mode has goes here.
+ * thumb, which is the whole of why the controls this mode has go here.
+ *
+ * They sit side by side rather than stacked, which is the second button
+ * deciding the geometry of the first. Stacking them would have cost 90 pixels of
+ * a band that also carries two notes, the pad's line and the switches, and it
+ * would have put one control further from the thumb than the other for no reason
+ * a player could see. Side by side, the bulk reject gave up 44 pixels of width
+ * it was not using and nothing else moved.
  */
-const BULK_Y = 1056;
-const BULK_WIDTH = 380;
-const BULK_HEIGHT = 84;
-const BULK_NOTE_Y = 1120;
-const BULK_RADIUS = 14;
-const BULK_FILL = 0x2b3b47;
-const BULK_FILL_SPENT = 0x1e2229;
-const BULK_EDGE = 0x5f8ba6;
-const BULK_EDGE_SPENT = 0x2f363f;
+const BUTTON_Y = 1040;
+const BUTTON_WIDTH = 336;
+const BUTTON_HEIGHT = 84;
+const BUTTON_RADIUS = 14;
+const BUTTON_FILL = 0x2b3b47;
+const BUTTON_FILL_SPENT = 0x1e2229;
+const BUTTON_EDGE = 0x5f8ba6;
+const BUTTON_EDGE_SPENT = 0x2f363f;
 
 /**
- * The pad's line, under the button's. It is the only thing on this board that
- * explains where a tap goes, and it is permanent for the reason the bulk
- * reject's note is: a control nothing explains is a control nobody uses, and
- * this one asks the player to touch a part of the screen that has never done
- * anything before.
+ * The edge of a hold that is running, which is the one state either button has
+ * that outlasts the press that caused it.
+ *
+ * The tower's own pale blue, because what a hold does is buy the tower time and
+ * the board should say so in the tower's colour. It is a colour and a word
+ * rather than a clock, on the rule this whole board is drawn by: nothing is said
+ * by movement alone, and a number counting down is the nearest a label gets to
+ * moving.
  */
-const TRAP_NOTE_Y = 1160;
+const BUTTON_EDGE_LIVE = 0x8fc4de;
+
+/** How far the two of them sit either side of the middle. */
+const BUTTON_OFFSET = 176;
+
+/**
+ * The notes under them, and the pad's line under those.
+ *
+ * Both notes are permanent for the same reason: nothing else on this board
+ * explains a control, and a button whose effect is invisible until it is pressed
+ * is a button nobody presses. They are wrapped to the width of the button they
+ * belong to and hang downwards from their line, so a two line note does not
+ * decide where anything else goes.
+ */
+const BUTTON_NOTE_Y = 1094;
+const BUTTON_NOTE_WIDTH = BUTTON_WIDTH - 16;
+const TRAP_NOTE_Y = 1166;
 
 export default class MobileGameScene extends Phaser.Scene {
   constructor() {
@@ -190,6 +217,16 @@ export default class MobileGameScene extends Phaser.Scene {
     this.charges = MOBILE_SUPERWEAPON.charges;
     this.bulkUsed = 0;
     this.nextBulkAt = 0;
+
+    // The second superweapon. `holdUntil` is when the current hold runs out and
+    // `holding` is whether one was running last frame, which is what tells
+    // `checkHold` that everybody needs putting back to walking pace. Nothing
+    // gives a hold back either.
+    this.holds = MOBILE_HOLD.charges;
+    this.holdsUsed = 0;
+    this.nextHoldAt = 0;
+    this.holdUntil = 0;
+    this.holding = false;
 
     // The pad on the floor, when another may be laid, and when this one goes
     // unanswered. All three are cleared and re-cleared per intake by openTrap.
@@ -274,6 +311,9 @@ export default class MobileGameScene extends Phaser.Scene {
 
   update(time) {
     if (!this.over) {
+      // Before the turret, because it decides what this tick's walking costs
+      // and the turret is not told about it either way.
+      this.checkHold(time);
       this.fire(time);
       this.checkTrap(time);
       this.checkWaveComplete();
@@ -283,6 +323,7 @@ export default class MobileGameScene extends Phaser.Scene {
     this.drawHealthBars();
     this.drawBar();
     this.watchBulkReject();
+    this.watchHold();
     this.watchTrapNote();
     this.showRating();
   }
@@ -364,6 +405,7 @@ export default class MobileGameScene extends Phaser.Scene {
 
     this.showIntake();
     this.buildBulkReject();
+    this.buildHold();
     this.buildTrapNote();
     this.buildSwitches();
   }
@@ -441,40 +483,107 @@ export default class MobileGameScene extends Phaser.Scene {
   buildBulkReject() {
     const { width } = RADIAL_BOARD.board;
 
-    // The button is drawn by a Graphics and pressed through a Zone, which is
-    // two objects for one control and is the cheaper of the two ways round.
-    // Phaser's Rectangle has no corner radius, and every other panel on this
-    // board is rounded, so a square one reads as something unfinished.
-    this.bulkShape = this.add.graphics().setDepth(100);
+    this.bulkButton = this.superweaponButton(
+      width / 2 - BUTTON_OFFSET,
+      COPY.hud.bulkRejectNote,
+      () => this.bulkReject()
+    );
 
-    this.bulkPanel = this.add
-      .zone(width / 2, BULK_Y, BULK_WIDTH, BULK_HEIGHT)
-      .setInteractive({ useHandCursor: true });
+    this.refreshBulkReject();
+  }
 
-    this.bulkLabel = this.add
-      .text(width / 2, BULK_Y, '', {
+  /**
+   * One superweapon button: the panel, the label over it, the note under it and
+   * the zone that takes the press.
+   *
+   * Shared by the two of them because they are the same object with different
+   * words on, and the alternative was the second button arriving as a copy of
+   * forty lines that would then have to be kept in step with the first. What is
+   * deliberately not shared is the state: each one owns its own charges, its own
+   * cooldown and its own answer to whether pressing it now would do anything,
+   * and the two of them agree about nothing except where they are drawn.
+   *
+   * The panel is a Graphics and the press is a Zone, which is two objects for
+   * one control and is the cheaper of the two ways round. Phaser's Rectangle has
+   * no corner radius, and every other panel on this board is rounded, so a
+   * square one reads as something unfinished.
+   */
+  superweaponButton(x, note, onPress) {
+    const shape = this.add.graphics().setDepth(100);
+
+    const label = this.add
+      .text(x, BUTTON_Y, '', {
         fontFamily: FONT,
-        fontSize: '32px',
+        fontSize: '30px',
         color: '#e6ebf0'
       })
       .setOrigin(0.5, 0.5)
       .setDepth(101);
 
+    // Hung from its line rather than centred on it, so a note that wraps to two
+    // lines grows downwards into the gap above the pad's line instead of
+    // upwards into the button.
     this.add
-      .text(width / 2, BULK_NOTE_Y, COPY.hud.bulkRejectNote, {
+      .text(x, BUTTON_NOTE_Y, note, {
         fontFamily: FONT,
-        fontSize: '20px',
-        color: '#6f7d8c'
+        fontSize: '18px',
+        color: '#6f7d8c',
+        align: 'center',
+        lineSpacing: 4,
+        wordWrap: { width: BUTTON_NOTE_WIDTH }
       })
-      .setOrigin(0.5, 0.5)
+      .setOrigin(0.5, 0)
       .setDepth(100);
 
-    this.bulkPanel.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
-      nudge(this.bulkLabel, 0, FEEL.pressDrop);
-      this.bulkReject();
+    const zone = this.add
+      .zone(x, BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT)
+      .setInteractive({ useHandCursor: true });
+
+    zone.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      // Down under the finger before anything is decided, since a control that
+      // moves says the tap arrived whether or not the state changes.
+      nudge(label, 0, FEEL.pressDrop);
+      onPress();
     });
 
-    this.refreshBulkReject();
+    return { x, shape, label, zone, wasUsable: null };
+  }
+
+  /**
+   * The panel behind a superweapon button, in whichever of its three states it
+   * is in: spent, live, or ordinary.
+   *
+   * `live` is only ever true of the hold, since it is the only one of the two
+   * that carries on doing something after the press. The bulk reject passes
+   * false and gets exactly the panel it always had.
+   */
+  drawButtonPanel(button, spent, live = false) {
+    const left = button.x - BUTTON_WIDTH / 2;
+    const top = BUTTON_Y - BUTTON_HEIGHT / 2;
+
+    let edge = spent ? BUTTON_EDGE_SPENT : BUTTON_EDGE;
+
+    if (live) {
+      edge = BUTTON_EDGE_LIVE;
+    }
+
+    button.shape.clear();
+    button.shape.fillStyle(spent ? BUTTON_FILL_SPENT : BUTTON_FILL, 1);
+    button.shape.fillRoundedRect(
+      left,
+      top,
+      BUTTON_WIDTH,
+      BUTTON_HEIGHT,
+      BUTTON_RADIUS
+    );
+    button.shape.lineStyle(2, edge, 1);
+    button.shape.strokeRoundedRect(
+      left,
+      top,
+      BUTTON_WIDTH,
+      BUTTON_HEIGHT,
+      BUTTON_RADIUS
+    );
   }
 
   /**
@@ -493,36 +602,19 @@ export default class MobileGameScene extends Phaser.Scene {
   refreshBulkReject() {
     const spent = this.charges === 0;
     const usable = this.bulkAvailable();
-    const left = BULK_WIDTH / -2;
 
     // Kept in step here rather than only in the watcher, so a push and a poll
     // cannot disagree about what is currently drawn.
-    this.bulkWasUsable = usable;
+    this.bulkButton.wasUsable = usable;
 
-    this.bulkShape.clear();
-    this.bulkShape.fillStyle(spent ? BULK_FILL_SPENT : BULK_FILL, 1);
-    this.bulkShape.fillRoundedRect(
-      this.bulkPanel.x + left,
-      BULK_Y - BULK_HEIGHT / 2,
-      BULK_WIDTH,
-      BULK_HEIGHT,
-      BULK_RADIUS
-    );
-    this.bulkShape.lineStyle(2, spent ? BULK_EDGE_SPENT : BULK_EDGE, 1);
-    this.bulkShape.strokeRoundedRect(
-      this.bulkPanel.x + left,
-      BULK_Y - BULK_HEIGHT / 2,
-      BULK_WIDTH,
-      BULK_HEIGHT,
-      BULK_RADIUS
-    );
+    this.drawButtonPanel(this.bulkButton, spent);
 
-    this.bulkLabel.setText(
+    this.bulkButton.label.setText(
       spent
         ? COPY.hud.bulkRejectSpent
         : `${COPY.hud.bulkReject} ${this.charges}`
     );
-    this.bulkLabel.setColor(usable ? '#e6ebf0' : '#6f7d8c');
+    this.bulkButton.label.setColor(usable ? '#e6ebf0' : '#6f7d8c');
   }
 
   /**
@@ -539,10 +631,10 @@ export default class MobileGameScene extends Phaser.Scene {
   watchBulkReject() {
     const usable = this.bulkAvailable();
 
-    if (usable !== this.bulkWasUsable) {
-      const returning = usable && this.bulkWasUsable === false;
+    if (usable !== this.bulkButton.wasUsable) {
+      const returning = usable && this.bulkButton.wasUsable === false;
 
-      this.bulkWasUsable = usable;
+      this.bulkButton.wasUsable = usable;
       this.refreshBulkReject();
 
       // Back up out of the press it went down into, which is what the desktop
@@ -552,7 +644,7 @@ export default class MobileGameScene extends Phaser.Scene {
       // and a button that comes back up is easier to catch out of the corner of
       // an eye than a grey that turns pale.
       if (returning) {
-        nudge(this.bulkLabel, 0, -FEEL.pressDrop);
+        nudge(this.bulkButton.label, 0, -FEEL.pressDrop);
       }
     }
   }
@@ -608,6 +700,173 @@ export default class MobileGameScene extends Phaser.Scene {
     );
 
     this.refreshBulkReject();
+  }
+
+  // --------------------------------------------------------------------- hold
+
+  /**
+   * Hold for review: the second superweapon, and the second thing this board
+   * takes during an intake that is a question of when.
+   *
+   * The numbers, and the measurement they came out of, are in config/mobile.js
+   * at MOBILE_HOLD. What is here is the three things a scene has to own: the
+   * button, what a press costs, and putting everybody back to walking pace when
+   * it runs out.
+   */
+  buildHold() {
+    const { width } = RADIAL_BOARD.board;
+
+    this.holdButton = this.superweaponButton(
+      width / 2 + BUTTON_OFFSET,
+      COPY.hud.holdNote,
+      () => this.holdForReview()
+    );
+
+    this.refreshHold();
+  }
+
+  /**
+   * What the button says, in the four states it has.
+   *
+   * Three of them are the bulk reject's and mean the same things. The fourth is
+   * a hold that is currently running, which no other control on any board has,
+   * and it says so in a word and an edge colour rather than in a countdown. The
+   * reasoning for that is in copy.js beside the line and it is the board's own
+   * rule: a number ticking down is the nearest a label gets to moving, and what
+   * a player needs off this one is whether the thing is on.
+   */
+  refreshHold() {
+    const spent = this.holds === 0;
+    const usable = this.holdAvailable();
+
+    this.holdButton.wasUsable = usable;
+
+    this.drawButtonPanel(this.holdButton, spent, this.holding);
+
+    let line = `${COPY.hud.hold} ${this.holds}`;
+
+    if (this.holding) {
+      line = COPY.hud.holdRunning;
+    } else if (spent) {
+      line = COPY.hud.holdSpent;
+    }
+
+    this.holdButton.label.setText(line);
+
+    // Lit while it is running as well as while it can be pressed, because a
+    // control doing something is not a control greyed out, and the two states
+    // are next to each other in time.
+    this.holdButton.label.setColor(
+      usable || this.holding ? '#e6ebf0' : '#6f7d8c'
+    );
+  }
+
+  /** The bulk reject's watcher, watching the other button. */
+  watchHold() {
+    const usable = this.holdAvailable();
+
+    if (usable !== this.holdButton.wasUsable) {
+      const returning = usable && this.holdButton.wasUsable === false;
+
+      this.holdButton.wasUsable = usable;
+      this.refreshHold();
+
+      if (returning) {
+        nudge(this.holdButton.label, 0, -FEEL.pressDrop);
+      }
+    }
+  }
+
+  /**
+   * Whether pressing it now would do anything.
+   *
+   * A hold already running is not one of the things that stops it, deliberately.
+   * The board lets a player restart the clock on one, which is worth less than
+   * saving the charge and is a mistake rather than a trick, and refusing the
+   * press would mean a button that looks pressable, is not, and cannot say why
+   * in a word.
+   */
+  holdAvailable() {
+    return (
+      !this.over &&
+      this.phase === 'running' &&
+      this.holds > 0 &&
+      this.time.now >= this.nextHoldAt
+    );
+  }
+
+  /**
+   * Everybody applying is told the process is ongoing.
+   *
+   * Nothing is resolved here. No damage, no rejection, nobody taken off the
+   * board: the whole of what a hold does is make the next few seconds of walking
+   * cost four times as much, which the turret is never told about and does not
+   * need to be. It fires at the same rate for the same damage at whoever has
+   * least walking left, and simply gets to do it more times before the board
+   * arrives.
+   */
+  holdForReview() {
+    if (!this.holdAvailable()) {
+      playSound('denied');
+
+      return;
+    }
+
+    this.holds -= 1;
+    this.holdsUsed += 1;
+    this.nextHoldAt = this.time.now + MOBILE_HOLD.cooldownMs;
+    this.holdUntil = this.time.now + MOBILE_HOLD.durationMs;
+
+    playSound('hold');
+
+    // No shake. The bulk reject earns one because something happened to
+    // everybody at once; this is the opposite of an event, and a board that
+    // jolted as everything on it slowed down would be saying two things.
+    this.checkHold(this.time.now);
+    this.refreshHold();
+  }
+
+  /**
+   * The hold, once a tick: everybody walking at a quarter pace while it runs,
+   * and everybody back to their own speed when it stops.
+   *
+   * Applied every frame rather than once at each end, which is what covers the
+   * people who turn up part way through one. `setSpeedMultiplier` returns
+   * immediately when the multiplier it is handed is the one already on, so the
+   * repetition costs a comparison per applicant and the pass that matters is the
+   * one where somebody has just spawned.
+   *
+   * The guard is what stops it running at all on a board with no hold on it,
+   * which is most of a run and all of a run where the player never presses it.
+   */
+  checkHold(time) {
+    const holding = time < this.holdUntil;
+
+    if (!holding && !this.holding) {
+      return;
+    }
+
+    const multiplier = holding ? MOBILE_HOLD.slowMultiplier : 1;
+
+    this.applicants.forEach((who) => who.setSpeedMultiplier(multiplier));
+
+    if (holding !== this.holding) {
+      this.holding = holding;
+      this.refreshHold();
+    }
+  }
+
+  /**
+   * The end of an intake ends any hold with it.
+   *
+   * A slow that carried into the gap between intakes would be spent on an empty
+   * board, and worse, it would still be running when the next lot walked in and
+   * slow people the player never paid to slow. The board is cleared by the time
+   * this is called, so the pass below is almost always over nobody.
+   */
+  endHold() {
+    this.holdUntil = 0;
+    this.checkHold(this.time.now);
   }
 
   /**
@@ -796,6 +1055,7 @@ export default class MobileGameScene extends Phaser.Scene {
 
   completeWave() {
     this.clearWaveTimers();
+    this.endHold();
 
     trackWaveCompleted({
       waveNumber: this.waveNumber(),
@@ -1555,6 +1815,7 @@ export default class MobileGameScene extends Phaser.Scene {
     this.prepTimer?.remove();
     this.clearWaveTimers();
     this.clearIntroCard();
+    this.endHold();
 
     if (this.trap) {
       this.clearTrap();
@@ -1567,11 +1828,17 @@ export default class MobileGameScene extends Phaser.Scene {
     // this is a fact about the run every other event is already reporting rather
     // than a thing that happens. Question 4 asks which things are dead weight,
     // and a run that ended with three unspent charges is the only way to find
-    // out whether anybody presses the only button on the board.
+    // out whether anybody presses the button.
+    //
+    // The holds ride along on the same argument, and they want it more than the
+    // charges did: there are now two buttons on a board that had none, they sit
+    // next to each other, and which of the two goes unpressed is a question
+    // nothing else in the data can answer.
     trackGameOver({
       finalWave: this.waveNumber(),
       score: this.score(),
-      bulkRejectsUsed: this.bulkUsed
+      bulkRejectsUsed: this.bulkUsed,
+      holdsUsed: this.holdsUsed
     });
 
     if (outcome === 'filled') {

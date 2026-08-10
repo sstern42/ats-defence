@@ -56,7 +56,7 @@ Four. The first three are chosen on the home screen and share every tower, every
 | Classic intake | The game as it shipped. One corridor, walked in single file, towers beside it. Every number in it is the number it already had. |
 | Open advert | No corridor. Applicants arrive across the whole left edge and converge on the desk, fanning out and squeezing according to the `spread` on each waypoint. Towers go anywhere off the HUD and the desk, traps go wherever they are put, and applicants push back. |
 | Back channel | No route at all. A floor, a desk in the corner of it, and applicants who work out their own way across. Every tower makes the ground it covers expensive rather than impassable, and how far out of their way they will go to avoid it is a property of the applicant type. |
-| One-click apply | The phone board, and the only one nobody picks. Portrait and routeless: one screening process fixed dead centre, applicants converging on it from every direction, and a turret that turns to whoever has least walking left. Most of what the player decides happens between intakes, where the process is offered two improvements and can have one. During one, there are three bulk rejects and a pad laid by tapping the floor, which is the only thing on this board that is put somewhere rather than pressed. The ninth intake is one arrival the turret cannot answer. |
+| One-click apply | The phone board, and the only one nobody picks. Portrait and routeless: one screening process fixed dead centre, applicants converging on it from every direction, and a turret that turns to whoever has least walking left. Most of what the player decides happens between intakes, where the process is offered two improvements and can have one. During one, there are three bulk rejects, two holds for review and a pad laid by tapping the floor, which is the only thing on this board that is put somewhere rather than pressed. The ninth intake is one arrival the turret cannot answer. |
 
 **The crowd is still not pathfinding.** Open advert is waypoints, same as the path always was. Each applicant walks its own copy of the spine, displaced by its share of the spread at every point and tapering to zero at the vacancy so everybody converges on the one desk. Applicant.js did not change to allow it and should not have to.
 
@@ -72,7 +72,7 @@ Applicant.js did change for this one, in two places, and both were already wrong
 
 **Two of those four inversions have gone now and the argument survives both.** 1.10.0 took "no input during an intake" and 1.11.0 took "no placement", the second because Salary Expectations is a spatial decision and stripping the spatial part of it leaves something the bulk reject already is. What is left is still worth a scene set on its own: there is no route and there is no currency, which between them are what the two thirds of `GameScene` referred to above actually serve. One free pad laid by tapping the floor is not a six button palette with a budget behind it, and the desktop's placement code, its ghost, its grid, its clearance rules and its affordability checks are all still on the other side of the split, untouched and unused here. What has to be said honestly is that the sentence "no placement" can no longer be quoted about this mode, and anything that reads placement as absent has to be checked against `MOBILE_TRAP`.
 
-**The fourth of those inversions has gone and the argument survives it.** In 1.10.0 the board grew one control during an intake, the bulk reject, and the sentence above is written in the past tense for that reason. Three of the four are untouched and each is still worth a scene set on its own, so nothing about the split changes. What does change is that "no input during an intake" can no longer be quoted as a property of this mode: it is one button, three times a run, and anything that reads the absence of input as meaning something has to be checked against that. There is exactly one such thing, the idle abandonment clock, and it is dealt with under the analytics spec.
+**The fourth of those inversions has gone and the argument survives it.** In 1.10.0 the board grew one control during an intake, the bulk reject, and the sentence above is written in the past tense for that reason. Three of the four are untouched and each is still worth a scene set on its own, so nothing about the split changes. What does change is that "no input during an intake" can no longer be quoted as a property of this mode: it was one button three times a run and it is two buttons five times a run since 1.13.0, and anything that reads the absence of input as meaning something has to be checked against that. There is exactly one such thing, the idle abandonment clock, and it is dealt with under the analytics spec.
 
 **What it shares is everything under the scenes.** `services/`, `content/copy.js`, `entities/`, the config conventions, the Netlify functions and the build, all as they stand. `entities/Applicant.js` in particular was not touched: a straight line inwards is a path with one segment, so the file three tuned modes depend on carries a fourth with no fork, no subclass and no edit. Its board data is a centre, a ring to arrive on and a radius to arrive at, and its numbers are `config/mobile.js` and `config/upgrades.js`.
 
@@ -261,15 +261,25 @@ The queries in `docs/` read one mode, and read classic unless told otherwise. Th
 | `feedback_given` | question, answer, final_wave |
 | `upgrade_offered` | taken, refused |
 
-`game_over` carries a sixteenth property on the phone board, `bulk_rejects_used`,
-and it is a property rather than a sixteenth event on the same terms `mode` is
-one: how many of a run's three charges were spent is a fact about the run, not a
-thing that happens. It clears the bar on question 4 the way the cards do, since
-a run ending with three unspent charges is the only record that the one button
-on that board went unpressed, and nothing else in the fifteen can express it. It
-is absent rather than null on the three boards that have no charges, and the
-queries are `docs/bulk-rejects.sql`. No collector change was needed: the property
-bag is stored whole.
+`game_over` carries two extra properties on the phone board,
+`bulk_rejects_used` and `holds_used`, and they are properties rather than events
+on the same terms `mode` is one: how many of a run's charges were spent is a fact
+about the run, not a thing that happens. They clear the bar on question 4 the way
+the cards do, since a run ending with its charges unspent is the only record that
+a button on that board went unpressed, and nothing else in the fifteen can
+express it. They are absent rather than null on the three boards that have no
+charges, and the queries are `docs/bulk-rejects.sql`. No collector change was
+needed for either: the property bag is stored whole.
+
+The second one arrived with the second superweapon in 1.13.0 and it is worth
+saying what it buys over the first, since a second property is not free just
+because the first one was argued for. On its own, a count of bulk rejects says
+whether a button gets pressed. The pair says which of two buttons drawn the same
+way and sat next to each other gets pressed, and a run that spends three of one
+and none of the other is a finding about the words on them that neither number
+states alone. Runs between 1.10.0 and 1.13.0 carry the first and not the second,
+so a query reading both tests for both and those runs drop out of exactly the
+questions they cannot answer.
 
 `upgrade_offered` is the fifteenth, and the only one recording something a player
 declined as well as something they did. Two cards are offered between intakes on
@@ -340,7 +350,7 @@ The delay on hidden and the `reason` property were both added after launch prepa
 
 The idle reason is off on the phone board, and the reason it is off is a rule rather than a preference. A mode that takes no input during an intake makes idle mean the opposite of what it was written to mean: a run would be recorded as abandoned against somebody sat watching it, and since the event fires once, their real exit would then never be recorded at all. That is precisely the failure the `reason` property was added to fix, arriving again through a different door. Backgrounding the app is what leaving looks like on a phone and `hidden` already catches it, so `unload`, `hidden`, `restart` and `quit` cover the mode between them. Anything added later that takes the input away has to make the same decision.
 
-**It stays off now that the board does take input, and the reason is the one written above rather than a convenience.** Three bulk rejects over a nine intake run is a player who touches the screen three times in about four minutes, so a minute of nothing still means somebody watching rather than an empty chair. The rule was never "there is no input", it was "input is not how you tell whether anybody is there", and that is still true of this board and would stop being true of one that asked for something every few seconds.
+**It stays off now that the board does take input, and the reason is the one written above rather than a convenience.** Three bulk rejects and two holds over a nine intake run is a player who touches the screen five times in about four minutes, so a minute of nothing still means somebody watching rather than an empty chair. The rule was never "there is no input", it was "input is not how you tell whether anybody is there", and that is still true of this board and would stop being true of one that asked for something every few seconds.
 
 It will still be lossy. A tab closed from a background window may never run the handler, and a player watching a long wave without moving the mouse is counted as idle. That is expected and will be stated in the write-up rather than hidden.
 
@@ -625,7 +635,8 @@ A boss intake and a superweapon came off this list last, on request, and
 together, because neither works without the other. They are the first thing here
 to overturn a rule about a mode rather than a rule about the project. This file
 said in three places that one-click apply takes no input during an intake, and
-now it takes one button three times a run.
+now it takes a button three times a run. A second button followed in 1.13.0 and
+is the entry below this one.
 
 They qualified on the terms everything above did, and the shape of it is the
 usual one. Every number is data: the boss is a seventh entry in `applicants.js`
@@ -697,6 +708,56 @@ is a placement, because half of the random player's are then wasted. That rule
 came out of the measurement rather than out of the design, and it is the whole
 difference between this and a button.
 
+A second superweapon on the phone board came off this list next, on request, and
+it is the first thing here that came off it because the game was too hard rather
+than because somebody wanted a feature. Measured, the best play anybody has
+modelled held the vacancy 37.5% of the time and lost 63% of the runs that reached
+the ninth intake, and a player taking cards at random held it 3.9% of the time.
+That is a board somebody can play well and lose, which is a different complaint
+from a board that is unfair and has a different answer.
+
+The cheap answer was a fourth bulk reject and it is the wrong one twice. Four
+charges is 3,200 damage against 2,600 of boss, which settles the ninth intake by
+arithmetic and leaves nothing to decide, and it does nothing at all about the
+sixth and seventh, where the run actually bleeds out because one turret cannot
+get round a crowd in the time the walk allows. So the second button buys time
+rather than damage: everybody applying is told the process is ongoing and walks
+at a quarter speed for four seconds, and the turret is never told about it.
+
+It qualified on everything the others did. Every number is data in
+`config/mobile.js`. `entities/Applicant.js` is untouched, which is now six
+features running, because `setSpeedMultiplier` has been on it since the Take-Home
+Task and a slow field on one board and a button on another want the same thing
+from it. The leaderboard is untouched, since the ceiling is built from how many
+applicants a list sends and this changes neither that nor the weights. And the
+event list is still at fifteen.
+
+What it cost is three things. A second extra property on `game_over`,
+`holds_used`, argued in the analytics spec, and the argument is not the first
+one's repeated:
+what the pair buys is which of two buttons drawn the same way gets pressed, which
+neither number states alone. A fifth policy dimension in the simulator, because a
+control whose value depends on when it is spent cannot be tuned by playing the
+board twice. And the ceiling has moved again, further than the pad moved it: the
+best measured player is at 76.4% against 60.1%, and the realistic one at 61.4%
+against 37.5%.
+
+**`crowd` beating `late` is the finding worth keeping, and it is the second time
+this board has taught the same lesson.** The design intends the holds for the
+ninth intake, the same way it intends the charges for it, and a player who saves
+them for it does eight points worse than one who spends them on whatever crowd is
+in front of them. A hold buys shots rather than damage, so it is worth most where
+the turret is already saturated, and it is saturated in the sixth long before the
+boss turns up; and a charge saved for an intake the run never reaches is worth
+nothing, which is `front` beating `cluster` arriving at a button rather than at a
+pad.
+
+The honest cost is that the ninth intake is still the whole run and this does not
+fix it. What it does is move where the run is decided: the eighth used to end 3%
+of the runs that reached it and now ends none, and the ninth used to end 63% and
+now ends 39%. That is a curve with a smaller step in it rather than no step, and
+the levers are written down next to the numbers.
+
 ### Still true whatever gets built
 
 - Deploy is not a late step, and a red deploy preview is a failed step.
@@ -722,6 +783,10 @@ difference between this and a button.
   without one: how many charges a run spent is a property on `game_over`, which
   is the seam `mode` went through, and a boss getting in is an
   `applicant_leaked` with a type on it that the event has always carried.
+  The second superweapon shipped in 1.13.0 without one either, on the same seam
+  and against the same bar: how many of a run's holds were spent is a fact about
+  the run, and the question the pair of counts answers, which of two buttons
+  goes unpressed, cannot be got at by counting anything else.
   A feature existing is not a reason on its own. Sound shipped without one, and
   so did the whole of the second mode: towers going offline is the most eventful
   thing in it and it emits nothing, because no question in the spec asks how

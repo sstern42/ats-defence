@@ -81,6 +81,7 @@
  */
 import { APPLICANTS } from '../src/config/applicants.js';
 import {
+  MOBILE_HOLD,
   MOBILE_RUN,
   MOBILE_SUPERWEAPON,
   MOBILE_TOWER,
@@ -457,7 +458,58 @@ function wantsBulk(run, policy, live, bossHere) {
   return run.health <= run.maxHealth * 0.25 && crowd >= 8;
 }
 
-function playRun(policy, bulkPolicy, trapPolicy) {
+/**
+ * When a player spends a hold, which is the fourth thing on this board with a
+ * policy rather than a number.
+ *
+ * The other three decide what a lump of damage lands on. This one decides when
+ * the board is worth slowing down, and that is a different question: a hold puts
+ * no damage on anybody, it buys the turret more shots before the walk runs out.
+ * So the policies bracket the two readings a player could have of it. `late`
+ * treats it as the answer to the intake that cannot be shot down in time, which
+ * is what the design intends. `crowd` treats it as a second bulk reject and
+ * spends it on whoever is standing about. `panic` treats it as a fire escape.
+ *
+ * `none` is the board before this existed, and is what every number recorded
+ * before 1.12.0 was measured on.
+ *
+ * Nothing here presses while a hold is already running. The board allows it and
+ * simply restarts the clock, which is a charge spent to buy the tail of one that
+ * was already paid for, and a policy that did it would be measuring a mistake
+ * rather than a strategy.
+ */
+function wantsHold(run, policy, live, bossHere) {
+  if (policy === 'none' || run.holds === 0) {
+    return false;
+  }
+
+  const crowd = live.filter((who) => who.radius <= run.stats.range).length;
+
+  // The intake the holds are for. It goes in when the boss is inside the reach,
+  // which is the same trigger the charges use and for the same reason: the
+  // slowest thing in the game is worth slowing further only once the turret can
+  // actually put shots into it.
+  if (policy === 'late') {
+    if (!bossHere) {
+      return false;
+    }
+
+    const boss = live.find((who) => who.definition.arrivalCost !== undefined);
+
+    return Boolean(boss && boss.radius <= run.stats.range);
+  }
+
+  // Six inside the reach, the same threshold `greedy` uses, so the two buttons
+  // are being spent on the same reading of the board and the difference in the
+  // output is the difference between the buttons.
+  if (policy === 'crowd') {
+    return crowd >= 6;
+  }
+
+  return run.health <= run.maxHealth * 0.3 && crowd >= 1;
+}
+
+function playRun(policy, bulkPolicy, trapPolicy, holdPolicy) {
   const run = {
     stats: { ...MOBILE_TOWER, splashRadius: 0 },
     beatsImmunity: false,
@@ -469,6 +521,9 @@ function playRun(policy, bulkPolicy, trapPolicy) {
 
     charges: MOBILE_SUPERWEAPON.charges,
     bulkUsed: 0,
+
+    holds: MOBILE_HOLD.charges,
+    holdsUsed: 0,
 
     // Pads laid over the run, and how many rejections went to them. The second
     // is what says whether the thing is pulling its weight, since a pad that
@@ -490,7 +545,13 @@ function playRun(policy, bulkPolicy, trapPolicy) {
       apply(run, pick(drawCards(run.taken), policy));
     }
 
-    const finished = playWave(run, MOBILE_WAVES[index], bulkPolicy, trapPolicy);
+    const finished = playWave(
+      run,
+      MOBILE_WAVES[index],
+      bulkPolicy,
+      trapPolicy,
+      holdPolicy
+    );
 
     if (!finished) {
       return { outcome: 'filled', cleared: index, ...totals(run) };
@@ -511,6 +572,7 @@ function totals(run) {
     left: run.left,
     taken: run.taken,
     bulkUsed: run.bulkUsed,
+    holdsUsed: run.holdsUsed,
     trapsLaid: run.trapsLaid,
     trapKills: run.trapKills,
     trapsStale: run.trapsStale,
@@ -520,7 +582,7 @@ function totals(run) {
 }
 
 /** One intake. Returns false if the tower ran out partway through it. */
-function playWave(run, wave, bulkPolicy, trapPolicy) {
+function playWave(run, wave, bulkPolicy, trapPolicy, holdPolicy) {
   const pending = [];
 
   wave.groups.forEach((group) => {
@@ -549,6 +611,12 @@ function playWave(run, wave, bulkPolicy, trapPolicy) {
   let nextBulkAt = 0;
   let released = false;
 
+  // The hold, and when another may be asked for. Both are per intake because
+  // the game clears the hold as an intake closes: a slow that carried into the
+  // gap would be spent on an empty board.
+  let holdUntil = 0;
+  let nextHoldAt = 0;
+
   // The pad, and when another may be laid. Both are per intake because the game
   // is: an unsprung pad is picked up when the intake ends, so a placement that
   // caught nobody costs the rest of that intake rather than the rest of the run.
@@ -560,11 +628,15 @@ function playWave(run, wave, bulkPolicy, trapPolicy) {
       live.push(spawn(pending.shift().typeKey, false));
     }
 
-    // Movement.
+    // Movement. Everybody walks at a quarter speed while a hold is running,
+    // which is the whole of what that button does: the turret below is not told
+    // about it and fires exactly as it would have done.
+    const pace = now < holdUntil ? MOBILE_HOLD.slowMultiplier : 1;
+
     for (let i = live.length - 1; i >= 0; i -= 1) {
       const who = live[i];
 
-      who.radius -= (who.definition.speed * TICK_MS) / 1000;
+      who.radius -= (who.definition.speed * pace * TICK_MS) / 1000;
 
       if (who.radius <= RADIAL_BOARD.arrivalRadius) {
         if (who.definition.returns && !who.hasReturned) {
@@ -634,6 +706,19 @@ function playWave(run, wave, bulkPolicy, trapPolicy) {
       }
 
       trap = null;
+    }
+
+    // The hold. Nothing is resolved by it, so it sits above the two things that
+    // are: it changes what the next tick's movement costs and nothing else.
+    if (
+      now >= holdUntil &&
+      now >= nextHoldAt &&
+      wantsHold(run, holdPolicy, live, bossHere)
+    ) {
+      run.holds -= 1;
+      run.holdsUsed += 1;
+      holdUntil = now + MOBILE_HOLD.durationMs;
+      nextHoldAt = now + MOBILE_HOLD.cooldownMs;
     }
 
     // The bulk reject, before the turret fires, so a charge spent this tick is
@@ -749,6 +834,11 @@ const bulkPolicy = validating ? 'none' : flag('bulk', 'saving');
 // checked against a game nobody played.
 const trapPolicy = validating ? 'none' : flag('trap', 'none');
 
+// And off for the third time for the third time's reason. The hold arrived in
+// 1.12.0 and those runs are from before it, so a model slowing the board down
+// would be checked against a game that could not.
+const holdPolicy = validating ? 'none' : flag('hold', 'none');
+
 // And the curve is cut short to match, since those runs never saw a ninth
 // intake and printing one under them would invite a comparison there is nothing
 // to compare against.
@@ -762,13 +852,16 @@ const policies = validating
 
 policies.forEach((policy) => {
   const results = Array.from({ length: runs }, () =>
-    playRun(policy, bulkPolicy, trapPolicy)
+    playRun(policy, bulkPolicy, trapPolicy, holdPolicy)
   );
   const held = results.filter((r) => r.outcome === 'held');
   const mean = (pick) =>
     results.reduce((sum, r) => sum + pick(r), 0) / results.length;
 
-  console.log(`\n${policy}, bulk ${bulkPolicy}, trap ${trapPolicy} (${runs} runs)`);
+  console.log(
+    `\n${policy}, bulk ${bulkPolicy}, trap ${trapPolicy}, hold ${holdPolicy}` +
+      ` (${runs} runs)`
+  );
   console.log(`  held the vacancy   ${((held.length / runs) * 100).toFixed(1)}%`);
   console.log(`  mean rejections    ${mean((r) => r.rejected).toFixed(0)}`);
   console.log(`  mean arrivals      ${mean((r) => r.arrived).toFixed(0)}`);
@@ -777,6 +870,7 @@ policies.forEach((policy) => {
     `  tower left on wins ${held.length ? (held.reduce((s, r) => s + r.health, 0) / held.length).toFixed(0) : 'n/a'}`
   );
   console.log(`  mean bulk rejects  ${mean((r) => r.bulkUsed).toFixed(2)} of ${MOBILE_SUPERWEAPON.charges}`);
+  console.log(`  mean holds         ${mean((r) => r.holdsUsed).toFixed(2)} of ${MOBILE_HOLD.charges}`);
   console.log(
     `  mean pads laid     ${mean((r) => r.trapsLaid).toFixed(1)}, ${mean((r) => r.trapsStale).toFixed(1)} of them stale`
   );
