@@ -46,7 +46,14 @@ import {
   stopMusic,
   toggleMusic
 } from '../../services/music.js';
-import { FEEL, fadeOut, landing, nudge, shake } from '../../services/feel.js';
+import {
+  FEEL,
+  fadeOut,
+  landing,
+  nudge,
+  pulse,
+  shake
+} from '../../services/feel.js';
 import Applicant from '../../entities/Applicant.js';
 import Tower from '../../entities/Tower.js';
 import Trap from '../../entities/Trap.js';
@@ -533,8 +540,20 @@ export default class MobileGameScene extends Phaser.Scene {
     const usable = this.bulkAvailable();
 
     if (usable !== this.bulkWasUsable) {
+      const returning = usable && this.bulkWasUsable === false;
+
       this.bulkWasUsable = usable;
       this.refreshBulkReject();
+
+      // Back up out of the press it went down into, which is what the desktop
+      // board's trap button does when its own wait is over. The colour has
+      // already said it and says it whether anything moves or not: this is the
+      // one control on this board a player is watching for rather than reading,
+      // and a button that comes back up is easier to catch out of the corner of
+      // an eye than a grey that turns pale.
+      if (returning) {
+        nudge(this.bulkLabel, 0, -FEEL.pressDrop);
+      }
     }
   }
 
@@ -688,6 +707,13 @@ export default class MobileGameScene extends Phaser.Scene {
     this.phase = 'running';
     this.openTrap();
     this.showIntake();
+
+    // The counter has just stopped saying the same thing it said for the whole
+    // gap, which is a quiet way for it to change given what is about to walk in.
+    // The same movement the desktop counter makes at the same moment, and the
+    // number is the whole of what it says either way.
+    pulse(this.intakeLabel);
+
     this.waveStartedAt = this.time.now;
     this.healthAtWaveStart = this.health;
 
@@ -1185,6 +1211,12 @@ export default class MobileGameScene extends Phaser.Scene {
       .setDepth(100);
 
     this.trapNoteShown = null;
+
+    // Null rather than false, so the first paint cannot be read as a pad that
+    // has just arrived. Nothing has happened yet: the line is being drawn for
+    // the first time and there is nothing for it to be reacting to.
+    this.trapNoteReady = null;
+
     this.refreshTrapNote();
 
     this.input.on(Phaser.Input.Events.POINTER_UP, (pointer) => {
@@ -1211,13 +1243,32 @@ export default class MobileGameScene extends Phaser.Scene {
       line = `${COPY.hud.trapAsking} ${Math.ceil(waiting / 1000)}s`;
     }
 
-    if (line === this.trapNoteShown) {
+    const ready = this.trapReady();
+
+    // Both, rather than only the wording. The line says the same thing between
+    // intakes as it does the moment one opens, and the guard used to be on the
+    // wording alone, so the note sat there in the greyed-out colour through an
+    // intake it was askable for. Two of the four things `trapReady` reads are
+    // not in the wording at all, which is how they came apart.
+    if (line === this.trapNoteShown && ready === this.trapNoteReady) {
       return;
     }
 
+    const arriving = ready && this.trapNoteReady === false;
+
     this.trapNoteShown = line;
+    this.trapNoteReady = ready;
     this.trapNote.setText(line);
-    this.trapNote.setColor(this.trapReady() ? '#8b98a6' : '#6f7d8c');
+    this.trapNote.setColor(ready ? '#8b98a6' : '#6f7d8c');
+
+    // Once, on the way from waiting to askable, and never on the countdown
+    // itself. A second passing is not an event and a line that twitched every
+    // second would be the opposite of the rule this board is drawn by; a pad
+    // becoming layable is the moment, and it is the only one here nothing else
+    // announces. The wording and the colour both change with or without it.
+    if (arriving) {
+      pulse(this.trapNote);
+    }
   }
 
   /**
