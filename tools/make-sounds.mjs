@@ -1,5 +1,5 @@
 /**
- * Draws the seven sound effects and writes them to public/assets/audio.
+ * Draws the eight sound effects and writes them to public/assets/audio.
  *
  * The art is Kenney's, and the sound was meant to be as well, but nothing in
  * this environment can reach kenney.nl to fetch a pack. Synthesising them here
@@ -169,7 +169,7 @@ function toWav(samples) {
 }
 
 /**
- * The seven clips. Keys are file names, and they are the same keys the game
+ * The eight clips. Keys are file names, and they are the same keys the game
  * loads by, so src/config/audio.js and this list have to agree.
  */
 const RECIPES = {
@@ -276,6 +276,51 @@ const RECIPES = {
       harmonics: [1, 0.38, 0.16],
       attack: 0.01,
       curve: 2
+    })
+  ],
+
+  /**
+   * The eighth, for the hold, and the only clip here that is a quotation.
+   *
+   * Two flat notes falling a fourth is what every telephone system in the world
+   * opens with before it tells you your call is important, and a board that
+   * slows everybody down while telling them the process is ongoing is doing
+   * exactly that. It is the one place the palette's rule about sounding like
+   * enterprise software rather than a video game costs nothing at all.
+   *
+   * Shallow curves on both notes, because the point of them is that they are
+   * flat and patient rather than struck. The low note underneath runs longer
+   * than either and glides down a little, which is the clip saying that
+   * something has started rather than that something has happened, and it is the
+   * whole difference between this and the bulk reject above.
+   */
+  hold: [
+    tone({
+      duration: 0.17,
+      freq: 466,
+      gain: 0.9,
+      harmonics: [1, 0.08],
+      attack: 0.012,
+      curve: 1.2
+    }),
+    tone({
+      start: 0.185,
+      duration: 0.36,
+      freq: 349,
+      gain: 0.9,
+      harmonics: [1, 0.1],
+      attack: 0.012,
+      curve: 1.1
+    }),
+    tone({
+      start: 0.02,
+      duration: 0.62,
+      freq: 116,
+      freqEnd: 108,
+      gain: 0.34,
+      harmonics: [1, 0.3],
+      attack: 0.02,
+      curve: 1.6
     })
   ]
 };

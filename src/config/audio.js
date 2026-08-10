@@ -28,7 +28,14 @@ export const SOUNDS = {
   // The seventh, and the only one that fires at most three times in a run, so
   // it is allowed to be the longest and the loudest thing here. The gap is
   // nominal: the cooldown on the button is already longer than the clip.
-  'bulk-reject': { volume: 0.75, minGapMs: 300 }
+  'bulk-reject': { volume: 0.75, minGapMs: 300 },
+  // The eighth, for the other button, and quieter than the one above it on
+  // purpose. That clip is a thing happening to everybody at once and this one is
+  // a thing starting, so it announces itself and then gets out of the way of the
+  // four seconds it opened. Longer than the cooldown, so the gap is the one
+  // place here it is doing real work: two presses inside a second would
+  // otherwise put the hold tone on top of itself.
+  hold: { volume: 0.6, minGapMs: 650 }
 };
 
 /**

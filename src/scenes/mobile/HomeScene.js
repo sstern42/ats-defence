@@ -103,9 +103,17 @@ export default class MobileHomeScene extends Phaser.Scene {
     this.createPitch();
     this.createStartButton();
     this.createBoardLink();
-    this.createHowTo();
-    this.createKofiLink();
-    this.createFooter();
+
+    // Everything below the how-to list is pushed down by however much the list
+    // overran the gap left for it, which is nought unless a line wrapped. The
+    // list already measures itself so a wrapped line does not land on the one
+    // below it; this is the same promise kept one step further down the page,
+    // and it was not kept until a fifth line arrived and put the tip jar
+    // through the last of them.
+    const shift = this.createHowTo();
+
+    this.createKofiLink(shift);
+    this.createFooter(shift);
   }
 
   /** The width everything on this page is wrapped to. */
@@ -215,7 +223,7 @@ export default class MobileHomeScene extends Phaser.Scene {
   }
 
   /**
-   * How the screening works, four lines of it.
+   * How the screening works, five lines of it.
    *
    * Laid out by measuring each line rather than on a fixed gap, which is where
    * this parts company with the desktop page. That one warns in copy.js that a
@@ -223,6 +231,9 @@ export default class MobileHomeScene extends Phaser.Scene {
    * width that warning would be doing real work every time somebody edited the
    * copy, so the layout is made to survive a wrapped line instead of the writer
    * being made to avoid one.
+   *
+   * Returns how far the rest of the page has to move down to stay clear of it,
+   * which is nought while the list fits the room it has always had.
    */
   createHowTo() {
     this.add.text(INSET, HOW_TO_HEADING_Y, COPY.home.howToHeading, {
@@ -244,12 +255,14 @@ export default class MobileHomeScene extends Phaser.Scene {
 
       y = text.y + text.height + HOW_TO_GAP;
     });
+
+    return Math.max(0, y - KOFI_Y);
   }
 
   /** The tip jar, in the same muted grey it wears on the desktop page. */
-  createKofiLink() {
+  createKofiLink(shift) {
     const link = this.add
-      .text(INSET, KOFI_Y, COPY.kofi.link, {
+      .text(INSET, KOFI_Y + shift, COPY.kofi.link, {
         fontFamily: FONT,
         fontSize: '20px',
         color: LINK_COLOUR,
@@ -283,9 +296,9 @@ export default class MobileHomeScene extends Phaser.Scene {
    * exists and the next placed after it, which is the desktop footer's
    * arrangement and keeps the row together whatever the copy is edited to say.
    */
-  createFooter() {
+  createFooter(shift) {
     const link = this.add
-      .text(INSET, FOOTER_Y, COPY.credit.link, {
+      .text(INSET, FOOTER_Y + shift, COPY.credit.link, {
         fontFamily: FONT,
         fontSize: '18px',
         color: LINK_COLOUR
@@ -312,7 +325,7 @@ export default class MobileHomeScene extends Phaser.Scene {
     [notice, version].forEach((piece) => {
       const text = this.add.text(
         x + FOOTER_GAP,
-        FOOTER_Y,
+        FOOTER_Y + shift,
         `${FOOTER_SEPARATOR} ${piece}`,
         {
           fontFamily: FONT,
@@ -324,7 +337,7 @@ export default class MobileHomeScene extends Phaser.Scene {
       x = text.x + text.width;
     });
 
-    this.createMusicCredit();
+    this.createMusicCredit(shift);
   }
 
   /**
@@ -338,9 +351,9 @@ export default class MobileHomeScene extends Phaser.Scene {
    * The whole line is the target rather than the artist's name inside it, since
    * a thumb cannot aim at three words in the middle of a sentence.
    */
-  createMusicCredit() {
+  createMusicCredit(shift) {
     const credit = this.add
-      .text(INSET, CREDIT_Y, COPY.credit.music, {
+      .text(INSET, CREDIT_Y + shift, COPY.credit.music, {
         fontFamily: FONT,
         fontSize: '18px',
         // The link colour rather than the muted one, because it is a link.
