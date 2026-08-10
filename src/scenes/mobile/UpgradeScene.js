@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 
 import { COPY } from '../../content/copy.js';
 import { RADIAL_BOARD } from '../../config/path.js';
+import { playSound } from '../../services/audio.js';
+import { FEEL, fadeOut, landing, nudge } from '../../services/feel.js';
 
 /**
  * The between-intake modal, drawn over the frozen board. Two cards, one taken,
@@ -36,6 +38,17 @@ const CARD_HEIGHT = 240;
 const CARD_GAP = 34;
 const CARD_INSET = 40;
 
+/**
+ * How long the offer takes to leave once one of them has been taken.
+ *
+ * Short, because the board is held underneath it and nothing is being read any
+ * more. It is the whole of the delay between the tap and the run carrying on,
+ * and a player who has asked for less motion does not have it at all: `fadeOut`
+ * runs the callback straight away and the modal closes on the tap as it always
+ * did.
+ */
+const TAKEN_FADE_MS = 170;
+
 export default class MobileUpgradeScene extends Phaser.Scene {
   constructor() {
     super('MobileUpgradeScene');
@@ -47,7 +60,7 @@ export default class MobileUpgradeScene extends Phaser.Scene {
   }
 
   create() {
-    const { width } = RADIAL_BOARD.board;
+    const { width, height } = RADIAL_BOARD.board;
 
     this.gameScene = this.scene.get('MobileGameScene');
 
@@ -57,7 +70,7 @@ export default class MobileUpgradeScene extends Phaser.Scene {
     this.chosen = false;
 
     this.add
-      .rectangle(0, 0, width, RADIAL_BOARD.board.height, VEIL_COLOUR, VEIL_ALPHA)
+      .rectangle(0, 0, width, height, VEIL_COLOUR, VEIL_ALPHA)
       .setOrigin(0, 0);
 
     this.add
@@ -76,31 +89,68 @@ export default class MobileUpgradeScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0.5);
 
-    this.offer.forEach((card, index) => this.drawCard(card, index));
+    // The offer arrives as one thing and leaves as one thing, because it is one
+    // decision rather than two cards that happen to be on screen together. It
+    // is also what keeps the two movements off each other: `landing` scales this
+    // container and a press moves a card inside it, so a card pressed while the
+    // offer is still settling does not cut the arrival short.
+    //
+    // Sat at the middle of the block rather than at the top of it, since a
+    // container is scaled about its own origin and one pinned to the top would
+    // grow downwards out of the corner instead of opening where it stands.
+    const block =
+      this.offer.length * CARD_HEIGHT + (this.offer.length - 1) * CARD_GAP;
+
+    this.cards = this.add.container(width / 2, FIRST_CARD_Y + block / 2);
+
+    this.offer.forEach((card, index) =>
+      this.cards.add(this.drawCard(card, index, block))
+    );
+
+    // Nothing here is faded up: every card is legible the instant it exists and
+    // the movement is decoration on top of that, which is the rule the intro
+    // cards on the board itself are drawn by.
+    landing(this.cards);
   }
 
-  drawCard(card, index) {
+  /**
+   * One card, built as a container of its own so the whole thing goes down
+   * together under a finger rather than the panel moving and the words staying
+   * where they were. Everything inside it is placed against the card's middle,
+   * which is what makes that true.
+   */
+  drawCard(card, index, block) {
     const { width } = RADIAL_BOARD.board;
     const label = COPY.upgrades[card.id];
-    const top = FIRST_CARD_Y + index * (CARD_HEIGHT + CARD_GAP);
     const cardWidth = width - CARD_INSET * 2;
+    const left = -cardWidth / 2;
+    const top = -CARD_HEIGHT / 2;
+
+    const holder = this.add.container(
+      0,
+      -block / 2 + index * (CARD_HEIGHT + CARD_GAP) + CARD_HEIGHT / 2
+    );
 
     const panel = this.add
-      .rectangle(CARD_INSET, top, cardWidth, CARD_HEIGHT, CARD_COLOUR)
+      .rectangle(left, top, cardWidth, CARD_HEIGHT, CARD_COLOUR)
       .setOrigin(0, 0)
       .setStrokeStyle(2, CARD_EDGE)
       .setInteractive({ useHandCursor: true });
 
-    this.add
-      .text(CARD_INSET + 28, top + 40, label.name, {
-        fontFamily: FONT,
-        fontSize: '30px',
-        color: TITLE_COLOUR
-      })
-      .setOrigin(0, 0);
+    holder.add(panel);
+
+    holder.add(
+      this.add
+        .text(left + 28, top + 40, label.name, {
+          fontFamily: FONT,
+          fontSize: '30px',
+          color: TITLE_COLOUR
+        })
+        .setOrigin(0, 0)
+    );
 
     const effect = this.add
-      .text(CARD_INSET + 28, top + 84, this.effectLine(card, label), {
+      .text(left + 28, top + 84, this.effectLine(card, label), {
         fontFamily: FONT,
         fontSize: '22px',
         color: EFFECT_COLOUR,
@@ -111,17 +161,25 @@ export default class MobileUpgradeScene extends Phaser.Scene {
       })
       .setOrigin(0, 0);
 
-    this.add
-      .text(CARD_INSET + 28, effect.y + effect.height + 12, label.detail, {
-        fontFamily: FONT,
-        fontSize: '19px',
-        color: NOTE_COLOUR,
-        fontStyle: 'italic',
-        wordWrap: { width: cardWidth - 56 }
-      })
-      .setOrigin(0, 0);
+    holder.add(effect);
 
-    panel.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => this.take(card));
+    holder.add(
+      this.add
+        .text(left + 28, effect.y + effect.height + 12, label.detail, {
+          fontFamily: FONT,
+          fontSize: '19px',
+          color: NOTE_COLOUR,
+          fontStyle: 'italic',
+          wordWrap: { width: cardWidth - 56 }
+        })
+        .setOrigin(0, 0)
+    );
+
+    panel.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      this.take(card, holder)
+    );
+
+    return holder;
   }
 
   /**
@@ -136,14 +194,34 @@ export default class MobileUpgradeScene extends Phaser.Scene {
     return label.effect.replace('{amount}', `${Math.abs(card.add ?? 0)}`);
   }
 
-  take(card) {
+  take(card, holder) {
     if (this.chosen) {
       return;
     }
 
     this.chosen = true;
 
-    this.scene.stop();
-    this.gameScene.takeUpgrade(card);
+    // Down under the finger before anything else happens, which is the rule
+    // every other control in the game is pressed by. It matters more here than
+    // on a switch: this is the one tap a run of this mode is made of, and it
+    // used to be answered by the screen simply ceasing to exist.
+    //
+    // Behind the guard rather than in front of it, so the card that lost cannot
+    // still be pressed while the offer is on its way out.
+    nudge(holder, 0, FEEL.pressDrop);
+
+    // The same clip the desktop board plays when something is put on it, and
+    // this is the one moment on this board that is the same act: a card is the
+    // only thing here that is ever committed to the tower.
+    playSound('place');
+
+    // Closing is what the fade is on the way to, so it is handed to `fadeOut`
+    // rather than left on a timer beside it. A caller that has to remember to
+    // close the modal itself when the movement is switched off is a caller that
+    // will forget, and the modal would then never close at all.
+    fadeOut(this.cards, TAKEN_FADE_MS, () => {
+      this.scene.stop();
+      this.gameScene.takeUpgrade(card);
+    });
   }
 }
