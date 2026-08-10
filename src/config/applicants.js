@@ -128,7 +128,7 @@ export const APPLICANTS = {
   },
 
   /**
-   * The seventh, and the only one no desktop wave list names.
+   * The seventh, and the one that stopped being the phone board's alone.
    *
    * It is here rather than in config/mobile.js, which is where the phone
    * board's other numbers live, and the reason is that a type is not a number.
@@ -137,13 +137,19 @@ export const APPLICANTS = {
    * in this object, and the intro card reads `colour` and `radius` from it. A
    * second table of applicants somewhere else would be a second place all of
    * those have to look, which is the "two answers to where the desk is" problem
-   * this project keeps refusing. So it goes in the table, and the phone wave
-   * list is the only list that spells its key.
+   * this project keeps refusing.
    *
-   * Nothing about the three desktop modes moves for this. A type that no wave
-   * sends is a type that never exists, which is the same argument `pressure` and
-   * `caution` were added on: the mode that does not want it never finds out it
-   * is here.
+   * Putting it in the shared table is what made the final open advert and back
+   * channel intakes a wave list edit rather than a feature. Three of the fields
+   * below were written as dead weight, filled in so the table had no holes, and
+   * two of them are now read. What that cost is set out under each one.
+   *
+   * **Classic does not send it and is not going to.** It is the mode with a
+   * balancing pass behind it, a leaderboard with real scores on it and a live
+   * experiment reading its wave one, so an extra arrival in its final intake
+   * retunes all three. The other two desktop lists say in their own comments
+   * that they are a first pass, which is the whole of why they could take this
+   * and classic could not.
    *
    * ## The numbers, and why they are these numbers
    *
@@ -170,6 +176,27 @@ export const APPLICANTS = {
    * eight intakes of tolerance a player has been protecting count for nothing,
    * which is precisely the shape of thing the 1.7.0 tuning pass took out of the
    * wave list, and it would arrive again through a different door.
+   *
+   * ## What it costs on a desktop board, and why it is only two numbers
+   *
+   * The health above is priced against one turret doing flat damage, which is
+   * the only thing the phone board has. A desktop board has six towers and one
+   * of them settles this in a single shot: the Knockout Question carries
+   * `instantReject`, GameScene reads it as "take whatever health is left", and
+   * 2,600 is then worth exactly as much as 40. A boss the player has to plan
+   * against, answered by a tower that is already on the palette, is not a boss.
+   * So it is immune to that one tower, which is the field below and no code at
+   * all, since `Tower.canTarget` has read `immuneTo` since the Keyword Stuffer.
+   * It costs the phone board nothing, because the phone board has no such tower
+   * to be immune to.
+   *
+   * `arrivalCost` is deliberately still phone-only. The desktop leak takes
+   * `GAME.livesPerLeak` flat, so this getting in costs one of ten lives, the
+   * same as a Graduate. Wiring the field up would be one line and the wrong
+   * line: 80 against ten lives is the instant loss refused two paragraphs above,
+   * and a second desktop-sized figure would be a number invented to justify a
+   * field rather than to balance anything. It is a wall to get past, and the
+   * intake behind it is what the run is actually spent on.
    */
   internalCandidate: {
     health: 2600,
@@ -180,17 +207,60 @@ export const APPLICANTS = {
     bounty: 90,
     arrivalCost: 80,
 
+    // The one tower that does not care what the health says. See the section
+    // above: without this, every desktop board answers the boss with a 140 cost
+    // turret and a 3.4 second reload, and the 2,600 is decoration.
+    immuneTo: ['knockoutQuestion'],
+
     // On, because the whole of the decision this type exists to force is how
     // much of it is left. Without a bar from the start, a player watches an
     // orange slab walk in untouched, since the turret is shooting whoever is
     // nearer the desk, and has no way to tell a charge that helped from a charge
     // that did nothing.
+    //
+    // The desktop reads it now too, and the reasoning transfers word for word.
+    // Desktop targeting is closest to the vacancy, this is the slowest thing on
+    // any board, so it is overtaken by everybody and shot at last. A bar that
+    // only appears on the first hit would appear about thirty seconds after it
+    // walked on.
     showHealth: true,
 
-    // Read by nobody, because no mode that reads them sends this type. They are
-    // filled in anyway, since a type in this table with holes in it is a type
-    // the next person to write a wave list has to check before they can use.
-    pressure: 30,
+    /**
+     * Two fields that used to be read by nobody. Open advert reads `pressure`
+     * and back channel reads `caution`, so both are live from the moment those
+     * two lists name this type, and the numbers here are not the numbers that
+     * were sat in this slot when nothing read them.
+     *
+     * **`pressure` came down from 30, and 30 was never a balance decision.**
+     * Pressure is priced against how long a type stands next to a tower rather
+     * than against how dangerous it looks, and nothing else in this table is
+     * remotely this slow. Crossing the 192 pixels of a tower's pressure range at
+     * 34 a second takes 5.6 seconds against a Referral's 1.6, so before the
+     * recovery is netted off this had three and a half times the worst
+     * contribution on the board and a number half again as big to multiply it
+     * by. At 30 it takes about 146 integrity out of a single tower on its own
+     * walk past, which suspends the Keyword Filter, the Video Screen and the
+     * Take-Home Task without a crowd behind it and makes the headline behaviour
+     * of the boss "switches your board off", a mode feature nobody designed.
+     *
+     * At 14 it nets 10 a second and takes about 56 across a full crossing. That
+     * is comfortably the largest single contribution on the board, against the
+     * Referral's 35 and the Career Changer's 28, and short of the 90 the
+     * cheapest tower has. So it softens what it walks past for the intake behind
+     * it and suspends nothing by itself, which is a boss leaning on the process
+     * rather than a boss deleting it.
+     *
+     * **`caution` stayed at 0.4 and that is a decision rather than an
+     * oversight.** It sits between the Referral's 0.2 and the Career Changer's
+     * 0.5, so it walks nearly straight at the desk and minds the screening
+     * about as much as somebody who already has the job would. It also has to
+     * stay low to stay legible: this is the one arrival on a back channel board
+     * that the player is meant to plan a route against, and a high caution boss
+     * would spend its thirty seconds threading the gaps and arrive somewhere
+     * nobody was watching. The joke is that it walks through the process, not
+     * that it dodges it.
+     */
+    pressure: 14,
     caution: 0.4
   }
 };

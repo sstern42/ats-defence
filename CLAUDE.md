@@ -99,9 +99,15 @@ Applicant.js did change for this one, in two places, and both were already wrong
 | The Keyword Stuffer | Immune to Keyword Filter. |
 | The Referral | Spawns past the first tower position. |
 | The Boomerang | Respawns once at the end of the wave, whether killed or leaked. |
-| The Internal Candidate | Slow, and 2,600 health against a turret that manages a few hundred. Costs twenty times an ordinary arrival if it gets in. Only the phone board's ninth intake sends it. |
+| The Internal Candidate | Slow, and 2,600 health that no Knockout Question may shortcut. Costs twenty times an ordinary arrival on the phone board and one life on the two desktop boards that send it. Closes the final intake of one-click apply, open advert and back channel. Classic never sees it. |
 
-The seventh is the phone board's boss and is in `applicants.js` with the other six rather than in `config/mobile.js` with that board's numbers. A type is not a number: `Applicant` is handed a definition, `Tower.canTarget` reads `immuneTo` off one, the plausibility check counts a wave by looking every key up in that object, and a second table would be a second place all of them have to look. It costs the three desktop modes nothing, because a type no wave list names is a type that never exists.
+The seventh started as the phone board's boss and is in `applicants.js` with the other six rather than in `config/mobile.js` with that board's numbers. A type is not a number: `Applicant` is handed a definition, `Tower.canTarget` reads `immuneTo` off one, the plausibility check counts a wave by looking every key up in that object, and a second table would be a second place all of them have to look.
+
+**Putting it in the shared table is why it reached three boards for the price of two wave list entries.** The argument for doing so was that it cost the desktop modes nothing; the return is that when the final open advert and back channel intakes wanted it, there was nothing to build. The intro strip was already loaded by the desktop boot scene, the animation was already registered against it, the plausibility ceiling already counted it, and `introduceType` already looked a type up by name. A second table would have been four places to correct, and three of them fail by drawing nothing rather than by erroring.
+
+What it did cost is two numbers on the type, and both are in `applicants.js` with the reasoning next to them. It is immune to the Knockout Question, because `instantReject` takes whatever health is left and 2,600 is otherwise worth the same as 40 on any board holding one. And `pressure` came down from 30 to 14, because that field was written as dead weight, open advert reads it, and this is the slowest thing in the table by a factor of three, so the untuned figure suspended most of the palette on a single walk past.
+
+**Classic still never sees it, and that is the rule rather than an omission.** It is the mode with a balancing pass behind it, a leaderboard with real scores on it and a live experiment reading its wave one. The other two desktop lists say in their own comments that they are a first pass, which is the whole of why they could take this and classic could not.
 
 Names and flavour text are content, not code. Keep all strings in a single `src/content/copy.js` so tone can be edited in one place.
 

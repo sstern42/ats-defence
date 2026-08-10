@@ -2516,7 +2516,15 @@ export default class GameScene extends Phaser.Scene {
     this.drawIntegrityBars(time);
 
     applicants.forEach((applicant) => {
-      if (!applicant.active || applicant.health === applicant.maxHealth) {
+      // Hurt, or one of the types that carries its bar from the moment it turns
+      // up. The second is one type and the reasoning is in applicants.js beside
+      // the flag; the first is the rule and stays the rule, because a bar over
+      // everybody is thirty flickering slivers by the last intake.
+      if (
+        !applicant.active ||
+        (applicant.health === applicant.maxHealth &&
+          !applicant.definition.showHealth)
+      ) {
         return;
       }
 

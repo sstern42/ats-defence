@@ -1,6 +1,6 @@
 {
   "name": "ats-defence",
-  "version": "1.11.4",
+  "version": "1.12.0",
   "private": true,
   "type": "module",
   "description": "Browser tower defence where you play the applicant tracking system, defending a vacancy from waves of applicants.",
