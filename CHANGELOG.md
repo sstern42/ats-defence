@@ -7,6 +7,42 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.11.4 - 2026-08-10
+
+- The upgrade cards answer back. The offer arrives rather than appearing, the
+  card pressed goes down under the finger, and the modal leaves rather than
+  ceasing to exist. It was the last screen in the game with none of this, and it
+  is the screen the whole of the phone design's agency happens on: the one tap a
+  run is made of was acknowledged by the screen vanishing and nothing else.
+- Taking one plays the clip the desktop board plays when something is put on the
+  board, which is the same act. A card is the only thing on the phone board that
+  is ever committed to the turret.
+- The intake counter reacts when an intake opens, as the desktop counter already
+  did at the same moment. The bulk reject comes back up out of its press when
+  its wait is over, as the desktop trap button already did. The pad's line
+  reacts once, on the way from waiting to askable, and never on the countdown
+  itself, a second passing not being an event.
+- All three land together when an intake opens, and that is deliberate rather
+  than three things that happened to collide. The phone board takes both of its
+  controls away between intakes and gives them back at the same instant the
+  counter moves, so what the moment is saying is one thing, said by the three
+  places that were greyed out a second earlier.
+- The rating readout deliberately does not react. It moves on every rejection
+  and it is drawn quiet on purpose, sat where it is so as not to compete with
+  the counter beside it, and a number that jumped a dozen times an intake would
+  undo the reason it is there.
+- The three links on the home page and the tip jar on the game over screen now
+  go down under a press. They had a hover and nothing else, and a tablet plays
+  that board with no hover at all, so they were the only things left on either
+  screen a finger could touch and get nothing back from.
+- One fix carried in with it: the pad's line kept its greyed-out colour through
+  an intake it was askable for. The guard that stops it re-rendering every frame
+  was on the wording alone, and two of the four things that decide whether a pad
+  can be laid do not appear in the wording.
+- A player whose system asks for less motion still gets none of it, and gets the
+  same game. The cards are legible the instant they exist, the modal closes on
+  the tap as it always did, and every colour, count and label still changes.
+
 ## 1.11.3 - 2026-08-09
 
 - The background music is credited in the game. A line under the footer on the
