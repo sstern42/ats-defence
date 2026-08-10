@@ -349,6 +349,14 @@ export default class HomeScene extends Phaser.Scene {
       link.setColor(KOFI_COLOUR)
     );
 
+    // Down under the press, as every button on this screen already is. The
+    // hover above is the only other thing this link does, and a tablet plays
+    // this board with no hover at all, so without this the tip jar is the one
+    // thing here a finger can touch and get nothing back from.
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      nudge(link, 0, FEEL.pressDrop)
+    );
+
     link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
       // No run has been played, so there is no final wave to report. Null
       // rather than nothing, since a click from here is a real click and the
@@ -394,6 +402,10 @@ export default class HomeScene extends Phaser.Scene {
 
     link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
       link.setColor(KOFI_COLOUR)
+    );
+
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      nudge(link, 0, FEEL.pressDrop)
     );
 
     // A new tab, and noopener, same as the tip jar. No event goes with it: the
@@ -462,6 +474,10 @@ export default class HomeScene extends Phaser.Scene {
 
     credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () =>
       credit.setColor(KOFI_COLOUR)
+    );
+
+    credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      nudge(credit, 0, FEEL.pressDrop)
     );
 
     // A new tab, and noopener, same as the two links above it. No event: where

@@ -484,6 +484,14 @@ export default class GameOverScene extends Phaser.Scene {
       link.setColor(KOFI_COLOUR)
     );
 
+    // Down under the press, as the restart button and the four answers beside
+    // it already are. The tip jar was the one thing left on this screen that a
+    // finger could touch and get nothing back from, hover being no use at all
+    // on the tablets this board is played on.
+    link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () =>
+      nudge(link, 0, FEEL.pressDrop)
+    );
+
     link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
       trackKofiClicked({ fromScreen: 'game_over', finalWave: this.waveNumber });
 
