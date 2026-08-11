@@ -175,11 +175,22 @@ export default class Tower extends Phaser.GameObjects.Container {
    * Whether this tower has anything to say about an applicant. A type that is
    * immune to it is not aimed at, since a tracer that lands and does nothing
    * looks like a bug rather than a joke.
+   *
+   * Two ways of saying the same thing, and both are data on the applicant. The
+   * flat `immuneTo` list is the older one and the routing reads it as well, so a
+   * type that knows in advance it can walk through something walks through it.
+   * A nought in `damageFrom` is the newer one and it is worth exactly as much
+   * here: a hit that cannot do anything is a hit not worth taking aim for,
+   * whether the definition says so in a list or in a number.
    */
   canTarget(applicant) {
-    const immuneTo = applicant.definition.immuneTo;
+    const { immuneTo, damageFrom } = applicant.definition;
 
-    return !immuneTo || !immuneTo.includes(this.typeKey);
+    if (immuneTo && immuneTo.includes(this.typeKey)) {
+      return false;
+    }
+
+    return damageFrom?.[this.typeKey] !== 0;
   }
 
   isInRange(applicant) {

@@ -7,6 +7,45 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.14.0 - 2026-08-11
+
+- An eighth applicant type, The Contractor, on the three desktop boards. It is
+  on no intake list: it turns up eleven seconds into every intake from the
+  fourth, already four tenths of the way in, because nobody advertised the role
+  and it is already inside.
+- Reaching the vacancy costs no lives. The position is never filled, so a
+  contractor cannot end a run however many of them get in. It attaches to the
+  desk instead and bills the budget at two a second, capped at 120 an
+  engagement, and the budget floors at nought rather than going below it.
+- Twenty seconds of nobody dealing with it and the contract renews: full health
+  again and the rate up by half. Three renewals and it leaves of its own accord.
+- The Take-Home Task, the Culture Fit Panel and Salary Expectations have nothing
+  to say to it, and none of them take aim. A fortnight of unpaid work is a
+  fortnight of paid work to somebody invoicing for it, a culture fit panel is
+  asking whether they would fit in here, and they have already said what they
+  expect to be paid, twice, in writing. Salary Expectations still brings the
+  renewal conversation forward five seconds, which cuts both ways.
+- The Keyword Filter, the Knockout Question and the Video Screen work on it
+  exactly as they work on everybody else, and rejecting one pays nothing,
+  because the notice period is served whatever anybody decides.
+- The whole tower interaction is a map of numbers on the type rather than
+  special cases in tower code, and a nought in it is read three ways: the tower
+  does not aim, a hit that lands anyway does nothing, and a field that holds
+  people up does not hold this one up.
+- Three events, `contract_started`, `contract_renewed` and `contract_ended`,
+  taking the list from fifteen to eighteen. None of it goes through
+  `applicant_leaked`, since nothing leaked and that column already means the
+  vacancy lost a life. The queries are `docs/contracts.sql`.
+- Behind a GrowthBook boolean, `contractor_enabled`, defaulting to on and read
+  once at run start beside the difficulty assignment. `?contractor=off` and
+  `?contractor=on` force it either way on a deploy preview.
+- Not on the phone board. That mode has no budget to drain, and the only thing
+  it could take there is the tower's tolerance, which is what lives are called
+  on it.
+- The leaderboard's plausibility ceiling now counts the arrivals no wave list
+  contains. Without it a good honest run would have been told its score was too
+  high for the intake it reached.
+
 ## 1.13.0 - 2026-08-10
 
 - A second superweapon on the phone board, Hold for review. Two charges a run,

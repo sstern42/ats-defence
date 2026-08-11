@@ -384,6 +384,66 @@ export function trackUpgradeOffered({ taken, refused }) {
   track('upgrade_offered', { taken, refused });
 }
 
+/**
+ * The sixteenth, seventeenth and eighteenth, and the only three added at once.
+ *
+ * The bar for another event has been the same every time: a question in the spec
+ * that none of the existing ones can answer. These clear it on question 4, which
+ * asks which things are dead weight, and they clear it as a set rather than
+ * separately, which is why they arrive together.
+ *
+ * A contract is not an arrival and is deliberately not reported as one.
+ * `applicant_leaked` means the vacancy lost a life, every read of it in `docs/`
+ * counts it that way, and a type that cannot cost a life would quietly make that
+ * column mean two things. Nothing leaked.
+ *
+ * Nor is it a `tower_placed` or a `game_over` property. What has to be
+ * recoverable is not whether a contractor turned up, which the wave list would
+ * say if it were on one, but what happened after it did: how long it stayed, how
+ * far the rate got, and how much budget went with it. Three of those are facts
+ * about an engagement rather than about a run, a run can have several, and a
+ * property on `game_over` can only hold one number per run.
+ *
+ * The three of them are one story told in order, and each is the half of it the
+ * others cannot say. `contract_started` is the arrival, and on its own it counts
+ * how often the desk is reached. `contract_renewed` is the middle, and on its own
+ * it says whether players deal with one at all or wait it out. `contract_ended`
+ * is the outcome and the money, and it is the only one that can be joined to a
+ * budget. A single event at the end would lose every engagement a run that was
+ * abandoned mid contract was carrying, which is the run most worth reading.
+ *
+ * `end_reason` is `rejected` when the player dealt with it and `expired` when it
+ * served its renewals and left. Those are opposite findings about the same
+ * feature and no other field separates them.
+ */
+export function trackContractStarted({ dayRate, spawnWave }) {
+  track('contract_started', {
+    day_rate: dayRate,
+    spawn_wave: spawnWave
+  });
+}
+
+export function trackContractRenewed({ renewalNumber, dayRate }) {
+  track('contract_renewed', {
+    renewal_number: renewalNumber,
+    day_rate: dayRate
+  });
+}
+
+export function trackContractEnded({
+  endReason,
+  renewals,
+  currencyDrained,
+  durationMs
+}) {
+  track('contract_ended', {
+    end_reason: endReason,
+    renewals,
+    currency_drained: currencyDrained,
+    duration_ms: Math.round(durationMs)
+  });
+}
+
 export function trackFeedbackGiven({ question, answer, finalWave }) {
   track('feedback_given', {
     question,
