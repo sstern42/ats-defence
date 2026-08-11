@@ -1,5 +1,5 @@
 /**
- * Draws the seven applicant introduction animations and writes them to
+ * Draws the eight applicant introduction animations and writes them to
  * public/assets/intros as sprite strips.
  *
  * The brief was a funny clip for each applicant type, the first time one turns
@@ -310,7 +310,7 @@ function mortarboard(frame, x, y, angle, scale = 1) {
 }
 
 /**
- * The seven recipes. Each one is handed the frame and how far through the loop
+ * The eight recipes. Each one is handed the frame and how far through the loop
  * is, from 0 up to but not including 1, and draws that moment.
  */
 const RECIPES = {
@@ -579,6 +579,92 @@ const RECIPES = {
         7,
         7,
         stage < cleared ? SHADE.bright : SHADE.ink,
+        1
+      );
+    }
+  },
+
+  /**
+   * Four years go by. Nothing else does.
+   *
+   * The second recipe here to animate everything except the applicant, and the
+   * two are opposite jokes with the same construction. The Internal Candidate
+   * stands still while a process runs its whole course around them, which is
+   * eight stages of screening spent on somebody who already has the job. This one
+   * stands still while the calendar does, because the screening never runs at
+   * all: nobody is assessing a contractor, there is nothing for the process to
+   * clear, and the only thing in the frame with anything to do is the year.
+   *
+   * Exactly four pages come off in one loop, which is the trait on the card said
+   * in pictures rather than in words. They land in a pile at the figure's feet
+   * and the pile is four sheets deep by the last frame, so a viewer who missed
+   * the first three can still count them.
+   *
+   * The figure is drawn first and never again. There is no sway, no swing and
+   * nothing hanging off it, and that is the recipe rather than an omission: this
+   * is the only strip in the file where the applicant is furniture.
+   */
+  contractor(frame, progress) {
+    // Stood exactly where they will be standing in four years, which is here.
+    person(frame, { x: 20, feet: 72, height: 44 });
+
+    const years = 4;
+    const step = 1 / years;
+    // Which page is coming off, and how far through coming off it is. Clamped at
+    // the last one, so the final frame is still shedding rather than showing a
+    // fifth page that the loop has no room to land.
+    const shed = Math.min(years - 1, Math.floor(progress / step));
+    const local = Math.min(1, (progress - shed * step) / step);
+
+    // The pad on the wall: the board, the page currently on it, and two lines of
+    // whatever a year says. There is always another page underneath, drawn
+    // whether or not one is in the air, so the pad never looks used up.
+    rect(frame, 44, 8, 28, 32, SHADE.dim, 1);
+    rect(frame, 46, 13, 24, 22, SHADE.bright, 1);
+    rect(frame, 49, 18, 13, 2.5, SHADE.ink, 0.85);
+    rect(frame, 49, 24, 18, 2.5, SHADE.ink, 0.65);
+
+    // Where this one is going, which is the top of the pile as it stands.
+    const restY = 71 - shed * 4;
+
+    // The flight is over three quarters of the way through and the last quarter
+    // is spent sitting on the pile, which is what makes it land at all. There
+    // are only four frames to a page, so a fall eased across the whole quarter
+    // is sampled at four heights and never once at the bottom: the page would
+    // vanish in mid air and reappear in the stack a frame later.
+    const fall = Math.min(1, local / 0.75);
+
+    // Coming off the bottom of the pad and already tilted, rather than starting
+    // square on it. A page in its first frame that is still lined up with the
+    // page underneath it reads as the pad bulging rather than as a year going.
+    // It also flattens as it goes, so it arrives the shape the ones underneath
+    // it already are.
+    turnedRect(
+      frame,
+      58 + (46 - 58) * fall,
+      34 + (restY - 34) * (fall * fall * 0.6 + fall * 0.4),
+      20,
+      14 - fall * 11,
+      // Half a turn exactly, because half a turn of a rectangle is the shape it
+      // started as. It tumbles on the way down and arrives lying flat, matching
+      // the sheets it is landing on; anything short of pi settles as a wedge
+      // sat on top of a flat pile, which reads as a different object.
+      0.4 + fall * (Math.PI - 0.4),
+      SHADE.bright,
+      1
+    );
+
+    // The years already on the floor, alternating shade so the pile reads as
+    // sheets rather than as one block.
+    for (let year = 0; year < shed; year += 1) {
+      turnedRect(
+        frame,
+        46,
+        71 - year * 4,
+        20,
+        3,
+        year % 2 === 0 ? 0.06 : -0.05,
+        year % 2 === 0 ? SHADE.bright : SHADE.mid,
         1
       );
     }

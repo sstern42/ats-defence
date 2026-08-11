@@ -1,7 +1,7 @@
 # Introduction credit
 
-Nobody's. These six sprite strips are drawn by `tools/make-intros.mjs`, which is
-a few hundred lines of circles and rectangles using Node built-ins and no
+Nobody's. These eight sprite strips are drawn by `tools/make-intros.mjs`, which
+is a few hundred lines of circles and rectangles using Node built-ins and no
 dependency.
 
 The brief was a funny clip for each applicant type. Found footage was the
@@ -36,3 +36,11 @@ applicant's colour, which is why none of them have a colour of their own.
 | `intro-keywordStuffer.png` | A page fills with words, then fills in, until there is nothing on it to read. |
 | `intro-referral.png` | A barrier lifts itself well before anybody reaches it. |
 | `intro-boomerang.png` | It is thrown, it leaves, and it is back before the loop is over. |
+| `intro-internalCandidate.png` | Eight stages of screening clear themselves around somebody who does not move. |
+| `intro-contractor.png` | Four years come off the calendar and land in a pile. Nothing else happens. |
+
+The last two are the ones that animate everything except the applicant, and they
+are opposite jokes with the same construction. One is a whole process running on
+somebody who already has the job. The other is no process at all, because nobody
+screens a contractor, so the only thing in the frame with anything to do is the
+year.

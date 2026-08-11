@@ -125,10 +125,17 @@ read, the Referral's barrier lifts well before they reach it, and the Boomerang
 comes back. The card does not stop the wave, since a type usually arrives in the
 middle of one.
 
+Two of them animate everything except the applicant, and they are opposite jokes
+built the same way. The Internal Candidate stands still while eight stages of
+screening clear themselves around somebody who already has the job. The
+Contractor stands still while four years come off a calendar and land in a pile
+at their feet, because nobody screens a contractor at all and the only thing in
+the frame with anything to do is the year.
+
 A found clip would have been funnier and was not an option: this repository is
 public, every other asset in it is CC0, and stock footage of somebody's actual
 graduation is neither ours to ship nor especially kind to the person in it. So
-`tools/make-intros.mjs` draws all six out of circles and rectangles, using Node
+`tools/make-intros.mjs` draws all eight out of circles and rectangles, using Node
 built-ins and no dependency, and writes them out as sprite strips. They are
 greyscale like the rest of the art and tinted with the applicant's own colour, so
 the card and the thing walking down the path are recognisably the same person.
