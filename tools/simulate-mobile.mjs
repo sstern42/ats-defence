@@ -81,8 +81,10 @@
  */
 import { APPLICANTS } from '../src/config/applicants.js';
 import {
+  MOBILE_CONTRACT,
   MOBILE_HOLD,
   MOBILE_RUN,
+  MOBILE_SCORING,
   MOBILE_SUPERWEAPON,
   MOBILE_TOWER,
   MOBILE_TRAP
@@ -509,7 +511,90 @@ function wantsHold(run, policy, live, bossHere) {
   return run.health <= run.maxHealth * 0.3 && crowd >= 1;
 }
 
-function playRun(policy, bulkPolicy, trapPolicy, holdPolicy) {
+/**
+ * The fifth thing with a policy rather than a number, and the first whose cost is
+ * not measured in tolerance.
+ *
+ * A contract on this board takes rating rather than budget, because there is no
+ * budget, and the rating cannot end a run. So the question this brackets is not
+ * when to spend a charge but whether spending one on a contractor is ever worth
+ * it at all, which is a different shape of question from the other four and is
+ * the whole reason the feature was measured before it was believed.
+ *
+ * `none` is the board without the type, and is what every number recorded before
+ * this was measured on. `ignore` is the type present and never answered, which is
+ * the floor and also, on the arithmetic, the rational play. `answer` spends a
+ * charge on any contract on the books. `spare` is the same player with the
+ * discipline to keep one back for the ninth intake, which is the reading the
+ * design would want if this were worth doing at all.
+ */
+function wantsBulkOnContract(run, policy) {
+  if (run.contracts.length === 0 || run.charges === 0) {
+    return false;
+  }
+
+  if (policy === 'answer') {
+    return true;
+  }
+
+  return policy === 'spare' && run.charges > 1;
+}
+
+/**
+ * Every contract on the books, advanced by however long has just passed.
+ *
+ * Called from inside an intake and again across the gap between them, because a
+ * contract does not care which of those is happening: it is on the books either
+ * way, and a drain modelled only during intakes would quietly discount the two
+ * seconds a side that eight gaps come to.
+ *
+ * The cap counts what was actually taken, and the rating floors at nought the
+ * same way the desktop's budget does, so a run already scoring nothing cannot be
+ * billed into a negative.
+ */
+function billContracts(run, ms) {
+  for (let i = run.contracts.length - 1; i >= 0; i -= 1) {
+    const contract = run.contracts[i];
+    const allowance = MOBILE_CONTRACT.cap - contract.drained;
+    const due = Math.min((contract.rate * ms) / 1000, allowance);
+
+    contract.drained += due;
+    run.drained += due;
+    contract.age += ms;
+
+    if (contract.age >= MOBILE_CONTRACT.renewalMs) {
+      contract.age -= MOBILE_CONTRACT.renewalMs;
+
+      if (contract.renewals >= MOBILE_CONTRACT.maxRenewals) {
+        run.contracts.splice(i, 1);
+        run.contractsExpired += 1;
+
+        continue;
+      }
+
+      contract.renewals += 1;
+      contract.rate *= MOBILE_CONTRACT.renewalMultiplier;
+      contract.health = APPLICANTS.contractor.health;
+    }
+  }
+}
+
+/** The run as one number, which is what a contract is actually taking. */
+function score(cleared, run) {
+  const { perWaveCleared, perRejection, perLifeRemaining } = MOBILE_SCORING;
+
+  return Math.max(
+    0,
+    Math.round(
+      cleared * perWaveCleared +
+        run.rejected * perRejection +
+        run.health * perLifeRemaining -
+        run.drained
+    )
+  );
+}
+
+function playRun(policy, bulkPolicy, trapPolicy, holdPolicy, contractPolicy) {
   const run = {
     stats: { ...MOBILE_TOWER, splashRadius: 0 },
     beatsImmunity: false,
@@ -533,6 +618,15 @@ function playRun(policy, bulkPolicy, trapPolicy, holdPolicy) {
     trapKills: 0,
     trapsStale: 0,
 
+    // Whoever is on the books, what they have taken off the rating between them,
+    // and how the engagements ended. A contract is not in `live`, because the
+    // turret is not handed one: see MOBILE_CONTRACT.
+    contracts: [],
+    drained: 0,
+    contractsStarted: 0,
+    contractsRejected: 0,
+    contractsExpired: 0,
+
     // What the tower had left at the end of each intake it finished, which is
     // the only per intake reading that says where the pressure actually is. The
     // totals say what a run came to and cannot say which intake took it there.
@@ -543,24 +637,40 @@ function playRun(policy, bulkPolicy, trapPolicy, holdPolicy) {
     // A card between intakes, and none before the first, which is the game.
     if (index > 0) {
       apply(run, pick(drawCards(run.taken), policy));
+
+      // The gap itself. Nothing walks in it and a contract bills through it, so
+      // it is billed rather than skipped.
+      billContracts(run, MOBILE_RUN.prepMs);
     }
 
     const finished = playWave(
       run,
       MOBILE_WAVES[index],
+      index + 1,
       bulkPolicy,
       trapPolicy,
-      holdPolicy
+      holdPolicy,
+      contractPolicy
     );
 
     if (!finished) {
-      return { outcome: 'filled', cleared: index, ...totals(run) };
+      return {
+        outcome: 'filled',
+        cleared: index,
+        score: score(index, run),
+        ...totals(run)
+      };
     }
 
     run.left.push(run.health / run.maxHealth);
   }
 
-  return { outcome: 'held', cleared: MOBILE_WAVES.length, ...totals(run) };
+  return {
+    outcome: 'held',
+    cleared: MOBILE_WAVES.length,
+    score: score(MOBILE_WAVES.length, run),
+    ...totals(run)
+  };
 }
 
 function totals(run) {
@@ -577,12 +687,24 @@ function totals(run) {
     trapKills: run.trapKills,
     trapsStale: run.trapsStale,
     bossStopped: run.bossStopped ?? false,
-    bossSeen: run.bossSeen ?? false
+    bossSeen: run.bossSeen ?? false,
+    drained: run.drained,
+    contractsStarted: run.contractsStarted,
+    contractsRejected: run.contractsRejected,
+    contractsExpired: run.contractsExpired
   };
 }
 
 /** One intake. Returns false if the tower ran out partway through it. */
-function playWave(run, wave, bulkPolicy, trapPolicy, holdPolicy) {
+function playWave(
+  run,
+  wave,
+  intake,
+  bulkPolicy,
+  trapPolicy,
+  holdPolicy,
+  contractPolicy
+) {
   const pending = [];
 
   wave.groups.forEach((group) => {
@@ -590,6 +712,16 @@ function playWave(run, wave, bulkPolicy, trapPolicy, holdPolicy) {
       pending.push({ at: group.delayMs + n * group.intervalMs, typeKey: group.applicant });
     }
   });
+
+  // The one arrival that is on no list. Scheduled here rather than in the wave
+  // data, because it is not in the wave data, which is the whole point of it.
+  const unscheduled = APPLICANTS.contractor.unscheduled;
+
+  if (contractPolicy !== 'none' && intake >= unscheduled.fromWave) {
+    for (let sent = 0; sent < unscheduled.perWave; sent += 1) {
+      pending.push({ at: unscheduled.delayMs, typeKey: 'contractor' });
+    }
+  }
 
   pending.sort((a, b) => a.at - b.at);
 
@@ -639,6 +771,24 @@ function playWave(run, wave, bulkPolicy, trapPolicy, holdPolicy) {
       who.radius -= (who.definition.speed * pace * TICK_MS) / 1000;
 
       if (who.radius <= RADIAL_BOARD.arrivalRadius) {
+        // A contractor reaching the desk is not an arrival. Nothing is filled,
+        // no tolerance is taken, and it comes off the list the turret is handed
+        // rather than off the board: it is on the books now, and the only thing
+        // that can still reach it is a bulk reject.
+        if (who.definition.contract) {
+          live.splice(i, 1);
+          run.contracts.push({
+            rate: MOBILE_CONTRACT.ratePerSecond,
+            drained: 0,
+            renewals: 0,
+            age: 0,
+            health: who.health
+          });
+          run.contractsStarted += 1;
+
+          continue;
+        }
+
         if (who.definition.returns && !who.hasReturned) {
           returns.push(who.typeKey);
         }
@@ -721,6 +871,34 @@ function playWave(run, wave, bulkPolicy, trapPolicy, holdPolicy) {
       nextHoldAt = now + MOBILE_HOLD.cooldownMs;
     }
 
+    // What the contracts have taken since the last tick, and whether any of them
+    // has renewed itself or served its last renewal and gone.
+    billContracts(run, TICK_MS);
+
+    // A charge spent on the books rather than on the queue. Checked before the
+    // ordinary bulk reject so the two cannot both fire on one tick, and it only
+    // ever fires when there is a contract to spend it on, so a policy of `none`
+    // or `ignore` reaches the branch below exactly as it always did.
+    if (
+      now >= nextBulkAt &&
+      wantsBulkOnContract(run, contractPolicy) &&
+      !wantsBulk(run, bulkPolicy, live, bossHere)
+    ) {
+      run.charges -= 1;
+      run.bulkUsed += 1;
+      nextBulkAt = now + MOBILE_SUPERWEAPON.cooldownMs;
+
+      // 800 against 80 of health, so every contract on the books goes at once.
+      // That is the game: one mail merge reaches everybody on the system.
+      for (let i = run.contracts.length - 1; i >= 0; i -= 1) {
+        if (run.contracts[i].health <= MOBILE_SUPERWEAPON.damage) {
+          run.contracts.splice(i, 1);
+          run.contractsRejected += 1;
+          run.rejected += 1;
+        }
+      }
+    }
+
     // The bulk reject, before the turret fires, so a charge spent this tick is
     // not also paid for by a shot the turret had already put into somebody who
     // is now gone.
@@ -757,6 +935,15 @@ function playWave(run, wave, bulkPolicy, trapPolicy, holdPolicy) {
         .filter(
           (who) =>
             who.radius <= reach &&
+            // The shielded variant, which is a design being measured rather than
+            // a rule of the board. A contractor is not shot at on the way in
+            // either, on the grounds that there is nothing to screen: the
+            // engagement was agreed before it walked on. It cannot be expressed
+            // as data, because the turret's key is `keywordFilter` and the
+            // desktop Keyword Filter is one of the three towers that is supposed
+            // to work on this type, so it would have to be the mobile scene
+            // choosing what it hands `tower.update`.
+            !(SHIELDED && who.definition.contract) &&
             (run.beatsImmunity ||
               !(who.definition.immuneTo ?? []).includes('keywordFilter'))
         )
@@ -839,6 +1026,17 @@ const trapPolicy = validating ? 'none' : flag('trap', 'none');
 // would be checked against a game that could not.
 const holdPolicy = validating ? 'none' : flag('hold', 'none');
 
+// And off for a fourth time for the fourth time's reason, and off by default as
+// well as while validating, because the type is not on this board: it is being
+// measured to decide whether it should be. `none` is the game as it stands.
+const contractPolicy = validating ? 'none' : flag('contractor', 'none');
+
+// Whether the turret is handed a contractor at all. Off is the type as the
+// desktop plays it, walking in like anybody else and shot at like anybody else.
+// On is the variant, and the reason it is worth a flag is that the first
+// measurement said the walk is where the whole cost lands.
+const SHIELDED = args.includes('--shielded');
+
 // And the curve is cut short to match, since those runs never saw a ninth
 // intake and printing one under them would invite a comparison there is nothing
 // to compare against.
@@ -852,17 +1050,18 @@ const policies = validating
 
 policies.forEach((policy) => {
   const results = Array.from({ length: runs }, () =>
-    playRun(policy, bulkPolicy, trapPolicy, holdPolicy)
+    playRun(policy, bulkPolicy, trapPolicy, holdPolicy, contractPolicy)
   );
   const held = results.filter((r) => r.outcome === 'held');
   const mean = (pick) =>
     results.reduce((sum, r) => sum + pick(r), 0) / results.length;
 
   console.log(
-    `\n${policy}, bulk ${bulkPolicy}, trap ${trapPolicy}, hold ${holdPolicy}` +
-      ` (${runs} runs)`
+    `\n${policy}, bulk ${bulkPolicy}, trap ${trapPolicy}, hold ${holdPolicy},` +
+      ` contractor ${contractPolicy}${SHIELDED ? ' shielded' : ''} (${runs} runs)`
   );
   console.log(`  held the vacancy   ${((held.length / runs) * 100).toFixed(1)}%`);
+  console.log(`  mean rating        ${mean((r) => r.score).toFixed(0)}`);
   console.log(`  mean rejections    ${mean((r) => r.rejected).toFixed(0)}`);
   console.log(`  mean arrivals      ${mean((r) => r.arrived).toFixed(0)}`);
   console.log(`  mean intakes clear ${mean((r) => r.cleared).toFixed(1)} of ${MOBILE_WAVES.length}`);
@@ -881,6 +1080,22 @@ policies.forEach((policy) => {
   console.log(
     `  rejected by a pad  ${mean((r) => r.trapKills).toFixed(1)} of ${mean((r) => r.rejected).toFixed(0)}`
   );
+
+  // The engagements, and what they came to. `drained` is the whole of what this
+  // type costs on this board, so it is reported against the rating rather than on
+  // its own: a number of points means nothing without the number it came out of.
+  if (contractPolicy !== 'none') {
+    console.log(
+      `  contracts started  ${mean((r) => r.contractsStarted).toFixed(2)},` +
+        ` ${mean((r) => r.contractsRejected).toFixed(2)} rejected,` +
+        ` ${mean((r) => r.contractsExpired).toFixed(2)} ran their term`
+    );
+    console.log(
+      `  rating drained     ${mean((r) => r.drained).toFixed(0)} of a` +
+        ` ${mean((r) => r.score + r.drained).toFixed(0)} rating,` +
+        ` ${((mean((r) => r.drained) / mean((r) => r.score + r.drained)) * 100).toFixed(1)}%`
+    );
+  }
 
   // Read off the runs that got to the ninth rather than off all of them, since
   // a run that died in the sixth says nothing about whether the boss can be

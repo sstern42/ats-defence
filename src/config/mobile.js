@@ -663,3 +663,115 @@ export const MOBILE_SCORING = {
   perRejection: 4,
   perLifeRemaining: 2
 };
+
+/**
+ * The Contractor on the phone board, which is the one type here that costs no
+ * tolerance at all.
+ *
+ * ## What it drains, and why it is the rating
+ *
+ * The type's whole design on the desktop boards is that it bills the budget
+ * rather than the vacancy, because a contractor is not a hire and the position
+ * stays open. This board has no budget: currency was decided out of the mode,
+ * there is nothing to buy and nothing to spend. So the question is what else
+ * there is to take, and there are only two answers. The tower's tolerance is one,
+ * and it is refused outright, because tolerance is what lives are called here and
+ * a contractor costing lives is the single thing this type exists not to do. The
+ * other is the rating, and that is what these numbers take.
+ *
+ * The rating is the run as one number and the only thing this board competes on,
+ * so a contractor left on the books does not threaten the run and does cost the
+ * board. That is the desktop trade translated rather than a new one: spend
+ * screening capacity dealing with somebody who pays nothing, or let the number go
+ * down.
+ *
+ * It also needs no new readout. `showRating` already polls the score every frame
+ * and redraws when it moves, so the drain is visible from the moment it starts
+ * with nothing added to the HUD.
+ *
+ * ## The one thing that had to change about it, and why
+ *
+ * **The turret does not shoot a contract.** On the desktop the type stays
+ * targetable at the desk and is dealt with by whichever tower can reach it. That
+ * cannot transfer: this board has one turret doing 20 a shot every 300ms, it
+ * targets whoever has least walking left, and an attached contractor sits at the
+ * desk with nothing left to walk. It would be shot first, always, and 80 health
+ * against 66 damage a second is an engagement about a second long. The feature
+ * would not exist.
+ *
+ * So an attached contractor comes off the list the turret is handed. It is not
+ * applying any more, it is on the books, and there is nothing left for a
+ * screening process to screen. What can still reach it is the bulk reject, which
+ * is a mail merge to everybody on the system rather than a process with a
+ * shortlist, and that is the whole of the decision this puts in front of a
+ * player: one charge of three, worth 800 damage to a crowd and wanted for the
+ * ninth intake, against up to `cap` off the rating.
+ *
+ * `MOBILE_TRAP` cannot reach one either, and that falls out of geometry rather
+ * than a rule: `trapSpot` refuses anything inside `arrivalRadius +
+ * triggerRadius`, which is exactly where a contract is standing.
+ *
+ * ## The numbers
+ *
+ * They are the desktop's, deliberately and to start with. A run here scores
+ * somewhere around 2,000, so `cap` is about six per cent of it per engagement,
+ * which is the same order as 120 of budget against a desktop run. Keeping them
+ * identical is what makes the first measurement mean anything: any difference
+ * between the two boards is then the board rather than the tuning.
+ *
+ * When it turns up is `unscheduled` on the type in applicants.js, shared with
+ * the desktop for the same reason the stats are shared. Eleven seconds into an
+ * intake is late here, since these intakes run fifteen to twenty five seconds
+ * against a desktop minute, so it arrives in the crush rather than before it.
+ * That is the right end of the intake to arrive at on a board whose turret is
+ * saturated by then, and it is the first number to reach for if this wants
+ * tuning.
+ *
+ * ## What it measured, and why the mode still says `contractors: false`
+ *
+ * **These numbers are not switched on.** `oneClickApply` does not send the type,
+ * and the measurement below is why. It was modelled first, on the precedent the
+ * second superweapon set, and the model said not to build it.
+ *
+ * 3,000 runs a row, best play throughout: sensible cards, charges saved for the
+ * ninth, pad in front of the leader, holds spent on a crowd.
+ *
+ *   contractor policy      held    rating   drained   contracts
+ *   none (the board today) 60.9%     2146         -   -
+ *   ignore                 49.2%     1782   322 (15%) 3.3 started
+ *   spare (keep one back)   2.3%     1857    87  (4%) 2.0 rejected
+ *   answer (spend on any)   2.4%     1899    24  (1%) 2.7 rejected
+ *
+ * **Answering one loses the run, and it is not close.** 60.9% to 2.3%. The
+ * charges are the ninth intake's only answer, so a charge spent on somebody who
+ * cannot cost a life is the vacancy given away, and a decision with one correct
+ * answer is not a decision. That is the whole design failing rather than a number
+ * being wrong.
+ *
+ * **Ignoring one still costs the run, which is the part that decides it.** The
+ * drain is rating and the rating cannot end a run, so every one of those 11.7
+ * points comes from somewhere else: the turret spending shots on an 80 health
+ * arrival that pays no bounty on its way in. A type whose entire argument is that
+ * it cannot cost a life took an eighth of this board's hold rate, and this board
+ * has a measured survival curve to lose.
+ *
+ * Shielding it from the turret, which is the mobile scene simply not handing it
+ * one, was measured too: `--contractor ignore --shielded` comes out at 55.6% held
+ * and 515 of rating drained, 24% of the run. So it recovers about half the
+ * survival cost, because a walking contractor still pads the crowd counts the
+ * hold and the pad policies read, and it doubles the tax in exchange.
+ *
+ * What the measurement points at, if this is picked up again, is the counter
+ * rather than the cost. Every variant above makes a scarce resource the only
+ * answer, and the scarce resource is spoken for. The pad is free, renewable and
+ * already the board's "where rather than when" control, and it cannot reach a
+ * contract today only because `trapSpot` refuses anything inside the arrival
+ * radius. That is the version worth modelling next.
+ */
+export const MOBILE_CONTRACT = {
+  ratePerSecond: 2,
+  cap: 120,
+  renewalMs: 20000,
+  renewalMultiplier: 1.5,
+  maxRenewals: 3
+};
