@@ -7,6 +7,22 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.14.1 - 2026-08-11
+
+- An introduction animation for The Contractor, which shipped in 1.14.0 with a
+  card that had the name and the trait on it and nothing drawn beside them.
+- Four years come off a calendar, one every four frames, and land in a pile at
+  the feet of somebody who does not move. The pile is four sheets deep by the
+  last frame, which is the line on the card said in pictures.
+- It is the second strip to animate everything except the applicant, and the two
+  are opposite jokes with the same construction. The Internal Candidate stands
+  still while a whole screening process runs around somebody who already has the
+  job. This one stands still because no process runs at all: nobody screens a
+  contractor, so the only thing in the frame with anything to do is the year.
+- Drawn by `tools/make-intros.mjs` out of circles and rectangles, like the other
+  seven, so it adds no dependency and no licence question. The seven existing
+  strips are byte for byte what they were.
+
 ## 1.14.0 - 2026-08-11
 
 - An eighth applicant type, The Contractor, on the three desktop boards. It is

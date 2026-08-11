@@ -43,7 +43,19 @@ export const INTRO_KEYS = [
   // for us. A list saying which board a strip belongs to would have had to be
   // found and corrected before any of this drew, and forgetting it would have
   // cost a card rather than an error.
-  'intro-internalCandidate'
+  'intro-internalCandidate',
+
+  // The eighth, and the only one whose type is on no intake list at all.
+  //
+  // The phone build fetches it and will never draw it, because that board does
+  // not send contractors, which is three and a half kilobytes spent on nothing
+  // for every phone that opens the game. That is the same bargain the note above
+  // describes running the other way, and it is taken for the same reason: a list
+  // saying which board a strip belongs to would be the second list this file has
+  // now twice refused, and it would fail by drawing nothing rather than by
+  // erroring. The note above is what happened last time a strip was fetched by a
+  // board that did not want it.
+  'intro-contractor'
 ];
 
 /**
