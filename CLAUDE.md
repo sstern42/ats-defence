@@ -100,6 +100,11 @@ Applicant.js did change for this one, in two places, and both were already wrong
 | The Referral | Spawns past the first tower position. |
 | The Boomerang | Respawns once at the end of the wave, whether killed or leaked. |
 | The Internal Candidate | Slow, and 2,600 health that no Knockout Question may shortcut. Costs twenty times an ordinary arrival on the phone board and one life on the two desktop boards that send it. Closes the final intake of one-click apply, open advert and back channel. Classic never sees it. |
+| The Contractor | On no intake list. Turns up unannounced from the fourth intake, already 40% of the way in. Reaching the vacancy costs no lives at all: the position is never filled, so it attaches and bills the budget by the day instead, renewing itself three times before it leaves. The Take-Home Task, the Culture Fit Panel and Salary Expectations have nothing to say to it. Rejecting it pays nothing. |
+
+**The eighth is the first type that does not play by the rule the other seven are versions of.** Every one of them is a health bar walking at a desk, and reaching the desk costs a life. This one cannot cost a life, which is the whole design: a contractor is not a hire, the position stays open, and what it takes is budget at a day rate for as long as it is on the books. It is capped, it floors at nought, and it leaves of its own accord after three renewals.
+
+What it cost is set out under "Beyond the MVP". The short version is that it is data in three places and a section in `GameScene`, it is behind a flag defaulting to on, and it is off on the phone board because that board has no budget to drain and the only thing it could take there is what lives are called on it.
 
 The seventh started as the phone board's boss and is in `applicants.js` with the other six rather than in `config/mobile.js` with that board's numbers. A type is not a number: `Applicant` is handed a definition, `Tower.canTarget` reads `immuneTo` off one, the plausibility check counts a wave by looking every key up in that object, and a second table would be a second place all of them have to look.
 
@@ -260,6 +265,46 @@ The queries in `docs/` read one mode, and read classic unless told otherwise. Th
 | `experiment_viewed` | experiment_key, variation_id, arm |
 | `feedback_given` | question, answer, final_wave |
 | `upgrade_offered` | taken, refused |
+| `contract_started` | day_rate, spawn_wave |
+| `contract_renewed` | renewal_number, day_rate |
+| `contract_ended` | end_reason, renewals, currency_drained, duration_ms |
+
+The last three are the Contractor's, they are the only ones ever added at once,
+and they clear the bar as a set rather than separately.
+
+They are on question 4, which asks which things are dead weight. It cannot be
+asked of this type the way `tower_usage.sql` asks it of a tower, because nothing
+about a contractor is a thing the player installs: the only decision anybody
+makes about one is whether to spend screening time on it rather than on the
+queue behind it, and that is answerable only from what happened after it reached
+the desk.
+
+**None of it goes through `applicant_leaked`, and that is a rule rather than a
+preference.** That event means the vacancy lost a life, every read of it in
+`docs/` counts it that way, and a type that cannot cost a life would make that
+column mean two things and inflate every leak rate already written down. Nothing
+leaked.
+
+Nor does it fit on `game_over` the way the charge counts do. A run can hold
+several engagements at once, and each has a length, a rate and a bill of its
+own, so a property that holds one number per run cannot say any of it.
+
+The three are one engagement told in order and each is the half the others
+cannot say. The first is the arrival, and alone it counts how often the desk is
+reached. The second is the middle, and alone it says whether players deal with
+one or wait it out. The third is the outcome and the money, and it is the only
+one that joins to a budget. A single event at the end would lose every
+engagement carried by a run that was abandoned during one, which is the run most
+worth reading. `end_reason` is `rejected` or `expired`, checked by the collector
+on the same terms the answer list and the card ids are, because they are opposite
+findings about the same feature and the rest of the event means nothing without
+knowing which it was. The queries are `docs/contracts.sql`.
+
+`variant_assignments` gained a second key with them, `contractor_enabled`, and it
+is a flag rather than an experiment: nothing is bucketed and there are no arms.
+It is on every event rather than only on the three above, because those only fire
+when it is on, and without a key on every run there is no telling a run that was
+offered no contractors from a run that was and never let one reach the desk.
 
 `game_over` carries two extra properties on the phone board,
 `bulk_rejects_used` and `holds_used`, and they are properties rather than events
@@ -758,6 +803,62 @@ of the runs that reached it and now ends none, and the ninth used to end 63% and
 now ends 39%. That is a curve with a smaller step in it rather than no step, and
 the levers are written down next to the numbers.
 
+The Contractor came off this list next, on request, and it is the first thing
+here that changes what reaching the vacancy means. Everything before it added to
+the game as it stood. A second mode is the same loop given different numbers, a
+superweapon is a button and three fields, a pad is a placement. This is an
+applicant type whose arrival does not cost a life, on a game whose entire loss
+condition is that arrivals cost lives.
+
+It qualified on the terms everything above did, and the shape is the usual one.
+Every number is data: the stats, the map of which towers have nothing to say to
+it, when it turns up and the whole of the engagement are five blocks in
+`applicants.js`, and which boards send it is one field on the mode.
+`entities/Applicant.js` gained one argument, which is the seventh feature running
+that has not needed it forked or subclassed, and the argument is the thing the
+whole feature is about: what a hit from a named process is worth. `Tower.js`
+gained no knowledge of who it is shooting at, only of a nought in a map it was
+already reading a list beside. Nothing already working moved: the six towers, the
+seven types before it, the three wave lists and all four boards are what they
+were.
+
+What it cost is four things and one of them is a rule.
+
+The rule is **classic does not move**, and this is the first entry that has to
+answer to it honestly rather than by not applying. The mode's survival curve is
+untouched, and that is a consequence of the design rather than a claim: a type
+that cannot fill the vacancy cannot end a run, so the balancing pass and the
+wave one the live experiment varies are both exactly where they were. What does
+move is the economy. Up to 120 of budget per engagement, from the fourth intake
+on, is a real change to a tuned mode. It is behind a GrowthBook boolean
+defaulting to on, and `contractors` on the mode is the narrower lever
+underneath it, so both the whole feature and any one board can be turned off
+without cutting a release. Neither of those makes the change free, and the
+honest statement is that this is the first post-MVP feature that spends some of
+classic's tuning rather than working round it.
+
+The second is three events at once, argued in the analytics spec, and a second
+key in `variant_assignments`.
+
+The third is the leaderboard's ceiling, which had to be told. It is computed
+from the wave lists, so an arrival on no wave list is an arrival the ceiling does
+not know can be rejected, and the ceiling is the perfect run. Left alone it would
+have refused honest scores from good players, which is the failure mode that
+check is least able to afford. `plausibility.js` reads the same
+`unscheduled` block the game spawns from, on the same terms it already reads
+everything else there.
+
+The fourth is that it is not on the phone board, and that is a refusal rather
+than an omission. It costs budget instead of lives and that board has no budget:
+it was decided out of the mode, there is nothing to buy and nothing to spend. The
+only resource there is the tower's tolerance, which is what lives are called on
+that board, so draining it would be a contractor costing lives, which is the one
+thing this type exists not to do. Sending it with nothing to drain is not the
+same feature wearing a different hat either: an arrival that monopolises the one
+turret for eighty seconds and takes nothing is a second boss, on the one board
+with a measured survival curve and a simulator behind it. If it is ever wanted
+there, what it needs first is something on that board worth draining.
+
 ### Still true whatever gets built
 
 - Deploy is not a late step, and a red deploy preview is a failed step.
@@ -770,8 +871,18 @@ the levers are written down next to the numbers.
   a run or fail quietly inside one. A feature that asks the network a question
   the game then waits on has broken offline play and will not be noticed by
   anyone testing on a desk.
-- The event list stays at fifteen unless there is a question that needs a
-  sixteenth. All three of the last ones cleared the same bar, and the bar is
+- The event list stays at eighteen unless there is a question that needs a
+  nineteenth. It said fifteen for four versions and the three that took it to
+  eighteen arrived together, for one type, and had to clear the bar as a set:
+  three events for one feature is the largest addition this list has ever taken
+  and the argument for it is in the analytics spec rather than here. What did
+  not move is the bar itself, and the two refusals underneath it are worth
+  repeating, because both were live options for that type. A contractor reaching
+  the desk is not an `applicant_leaked`, since nothing leaked and that column
+  would then mean two things. How much budget one drained is not a property on
+  `game_over`, since a run can hold several engagements at once and a property
+  holds one number.
+  All of the ones before them cleared the same bar, and the bar is
   that the question cannot be answered any other way. The thirteenth was added
   because an exposure could not be recorded anywhere else. The fourteenth was
   added because question 2 asks whether the difficulty curve is right and no
@@ -804,6 +915,12 @@ the levers are written down next to the numbers.
 - **Classic does not move.** It is the mode with a balancing pass behind it, a
   leaderboard with real scores on it and a live experiment reading its wave one.
   A change that retunes it to suit something else has broken all three.
+  The Contractor is the one thing that has been let past this, on purpose and
+  with the cost written down under "Beyond the MVP": it leaves the survival curve
+  and wave one alone because it cannot end a run, and it does spend some of the
+  mode's economy. That is the precedent and it is a narrow one. Anything that
+  moves what an intake sends, what a tower does or what a run is scored at is
+  still refused.
 
 ## Versioning
 

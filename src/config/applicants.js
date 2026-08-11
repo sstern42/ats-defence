@@ -39,6 +39,24 @@
  *   costs. Only the phone board reads it and only one type carries it, on the
  *   same terms as the two fields above: a mode-specific number living on the
  *   type, because it is a fact about who arrived rather than about the board.
+ * - `damageFrom` is what a hit from a named tower type is worth against this
+ *   one, as a multiplier. Absent means one, which is what every type before the
+ *   seventh had and what every tower not named in the map is worth. A zero is
+ *   the strongest statement in it and it is read three ways: the tower does not
+ *   take aim, a hit that lands anyway does nothing, and a field that holds
+ *   people up does not hold this one up. It is a map rather than the flat
+ *   `immuneTo` list above because one type needs the scaled form, and because a
+ *   tower with nothing to say still has somewhere to say it from: Salary
+ *   Expectations does no damage to a contract and still does something to it.
+ * - `unscheduled` is a type that does not appear on any intake list and turns up
+ *   anyway. `fromWave` is the first intake it can, `perWave` is how many, and
+ *   `delayMs` is how far into the intake. Only one type carries it and only the
+ *   desktop loop reads it, against the `contractors` field on the mode, so a
+ *   board that does not want them never finds out this exists. The leaderboard's
+ *   plausibility ceiling reads it too, since an arrival nothing scheduled is
+ *   still an arrival that can be rejected and scored for.
+ * - `contract` is what happens when this one reaches the vacancy instead of the
+ *   vacancy losing a life. The numbers are in the block below with the reasoning.
  *
  * Every type has a `pressure` even where it is small, because a Graduate on its
  * own is not a problem and forty of them standing round one desk is.
@@ -262,5 +280,165 @@ export const APPLICANTS = {
      */
     pressure: 14,
     caution: 0.4
+  },
+
+  /**
+   * The eighth, and the first one that does not play by the rules the other
+   * seven are all versions of.
+   *
+   * Every type above it is a health bar walking at a desk, and the whole of what
+   * differs is how much health, how fast, and which tower it is awkward about.
+   * Reaching the vacancy costs a life, and ten lives is the run. This one costs
+   * no lives at all: the position is never filled, because a contractor is not a
+   * hire, so it cannot trigger the loss condition however many of them get in.
+   * What it takes instead is budget, at a day rate, for as long as it is on the
+   * books.
+   *
+   * ## What it costs the rest of the game, which is one field each in three
+   * places
+   *
+   * `damageFrom` is the whole of the tower interaction and it is read by
+   * `Tower.canTarget`, `Applicant.takeDamage` and `GameScene.applySlows`. Three
+   * readers of one map rather than three special cases keyed on a type name,
+   * which is the same seam `immuneTo` already ran along.
+   *
+   * `unscheduled` is the whole of the spawning, and it is read by the desktop
+   * loop and by the leaderboard's plausibility ceiling. Nothing else changes:
+   * it is `spawnApplicant` with the wave counter told not to count it, since a
+   * wave that counted an arrival it never scheduled would end one applicant
+   * early.
+   *
+   * `contract` is the whole of what it does at the desk, and the scene is the
+   * only thing that reads it.
+   *
+   * ## The numbers, and why they are these numbers
+   *
+   * Health and speed are the Overqualified's, near enough, because that is the
+   * arrival the player already knows how to answer and the joke here is not that
+   * this one is hard to reject. It is that rejecting it is not obviously the
+   * right move: the notice period means there is no bounty, so a Keyword Filter
+   * spending four seconds on this is four seconds it does not spend on the queue
+   * behind it, and the budget it saves may be less than the budget those four
+   * seconds cost.
+   *
+   * `spawnProgress` puts it four tenths of the way in. It did not come through
+   * the front of the funnel, because nobody advertised the role: it is already
+   * inside, and the towers covering the first third of the board never see it.
+   * The Referral has the same field at 0.28 and the same reason.
+   *
+   * `bounty` is nought, and it is the only nought in this column. Rejecting a
+   * contractor pays nothing back, because the notice period is served whatever
+   * anybody decides.
+   *
+   * `caution` is 1, which is middling, and it is deliberate on the one board
+   * that reads it: a contractor is not the Overqualified threading the gaps and
+   * it is not the Graduate walking into everything. It minds the screening about
+   * as much as somebody being paid by the day minds anything.
+   *
+   * `showHealth` is on, and it is the only presentation decision here. A
+   * renewal puts the health back to full, and a bar that only appeared on the
+   * first hit would make the single most important thing this type does
+   * invisible until somebody happened to shoot it afterwards.
+   */
+  contractor: {
+    health: 80,
+    speed: 175,
+    radius: 12,
+    colour: 0x9aa7b3,
+    sprite: 'unit-slim',
+    bounty: 0,
+    spawnProgress: 0.4,
+    pressure: 8,
+    caution: 1,
+    showHealth: true,
+
+    /**
+     * The three towers with nothing to say to a day rate, and the reasoning is
+     * the same joke three times.
+     *
+     * A Take-Home Task is a fortnight of unpaid work, which is a fortnight of
+     * paid work to somebody invoicing for it, so it does not slow this one down.
+     * A Culture Fit Panel is asking whether somebody would fit in here, and this
+     * one is not staying. Salary Expectations is asking what they expect to be
+     * paid, and they have already said, twice, in writing.
+     *
+     * The last of those is the reason this is a map of numbers rather than a
+     * second `immuneTo` list. A zero here stops the pad doing damage and stops
+     * nothing else, and the pad still brings the renewal conversation forward,
+     * which is `contract.hastenedBy` below.
+     *
+     * The three not named are the ordinary ones, and they are worth one apiece:
+     * the Keyword Filter, the Knockout Question and the Video Screen all work
+     * exactly as they work on everybody else. `instantReject` is not excluded
+     * here the way it is on the Internal Candidate, because 80 health is not
+     * 2,600 and a Knockout Question spending 3.4 seconds of reload on somebody
+     * worth no bounty is a decision rather than a shortcut.
+     */
+    damageFrom: {
+      takeHomeTask: 0,
+      cultureFitPanel: 0,
+      salaryExpectations: 0
+    },
+
+    /**
+     * It is on no intake list, and that is the point of it rather than an
+     * omission. A contractor is not a line in the plan, it is somebody a manager
+     * has already agreed to before anybody was told, and a type that turned up
+     * in `waves.js` would be a type the player could count.
+     *
+     * From the fourth intake, because the first three are where a player is
+     * still learning what the six towers do, and one per intake, because two
+     * would be a second budget problem rather than the same one twice.
+     *
+     * `delayMs` is eleven seconds in, which on every list here is after the
+     * opening group has been dealt with and while the second one is arriving.
+     * That is the moment it is meant to be missed in.
+     */
+    unscheduled: {
+      fromWave: 4,
+      perWave: 1,
+      delayMs: 11000
+    },
+
+    /**
+     * The engagement, once it reaches the desk.
+     *
+     * `dayRate` is budget a second while it is on the books. Two is about a
+     * third of what a Graduate pays back when it is rejected, so a contractor
+     * left alone for a minute costs roughly what twenty Graduates earn, which is
+     * most of an early intake's income.
+     *
+     * `cap` is the most one engagement may ever take, and it is there because
+     * the drain has no natural end: a player who cannot reach the desk with a
+     * tower would otherwise watch a budget go to nought and stay there. A
+     * hundred and twenty is two thirds of the opening budget and rather more
+     * than any single intake pays out, so it is expensive without being the run.
+     * Only budget actually taken counts against it, so a contractor billing an
+     * empty budget bills nothing and the cap is not quietly spent on nothing.
+     *
+     * `renewalMs` and `maxRenewals` are the shape of the thing. Twenty seconds
+     * of not dealing with it and the contract renews: full health again, and the
+     * rate up by half. Three renewals is the end of it, and then it leaves of its
+     * own accord, because the fiction has to end somewhere and a contractor that
+     * stayed for ever would be a loss condition by another name on a type whose
+     * whole argument is that it is not one.
+     *
+     * `hastenedBy` is what a tower does to the clock rather than to the health.
+     * Salary Expectations brings the renewal conversation forward five seconds,
+     * which reads both ways and is meant to: it costs the player the rate going
+     * up sooner, and it brings the departure forward by the same five seconds,
+     * because the engagement is a fixed number of renewals rather than a fixed
+     * length of time.
+     */
+    contract: {
+      dayRate: 2,
+      cap: 120,
+      renewalMs: 20000,
+      renewalMultiplier: 1.5,
+      maxRenewals: 3,
+      hastenedBy: {
+        salaryExpectations: 5000
+      }
+    }
   }
 };

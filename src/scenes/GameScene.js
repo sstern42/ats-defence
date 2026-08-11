@@ -12,6 +12,9 @@ import Trap, { TRAP_SPRITE_SCALE } from '../entities/Trap.js';
 import {
   setWaveNumber,
   trackApplicantLeaked,
+  trackContractEnded,
+  trackContractRenewed,
+  trackContractStarted,
   trackGameOver,
   trackGameStarted,
   trackRestartClicked,
@@ -21,9 +24,9 @@ import {
   trackWaveStarted
 } from '../services/analytics.js';
 import { playSound } from '../services/audio.js';
-import { shake } from '../services/feel.js';
+import { pulse, shake } from '../services/feel.js';
 import { startMusic, stopMusic } from '../services/music.js';
-import { resolveWaves } from '../services/experiments.js';
+import { contractorEnabled, resolveWaves } from '../services/experiments.js';
 import { currentMode, currentModeKey } from '../services/mode.js';
 import CostField from '../services/routing.js';
 import {
@@ -162,6 +165,20 @@ const BANNER_HOLD_MS = 1100;
 
 /** A new face is introduced for longer, since there is more to read. */
 const NOTICE_HOLD_MS = 2600;
+
+/**
+ * The label over somebody who is at the desk on a day rate: how far above them
+ * it sits, and what colour it is.
+ *
+ * The colour is the vacancy's own rather than the type's, because what the label
+ * says is not a fact about the applicant, it is money leaving the budget, and
+ * the budget going down is the same news the vacancy filling up is.
+ */
+const CONTRACT_LABEL_DROP = 26;
+const CONTRACT_LABEL_COLOUR = '#d98a6a';
+
+/** How far the second engagement's label sits above the first one's. */
+const CONTRACT_LABEL_STACK = 16;
 
 /**
  * The card a new applicant type is introduced on. It sits just under the HUD,
@@ -355,6 +372,15 @@ export default class GameScene extends Phaser.Scene {
     this.pendingReturns = [];
     this.seenTypes = new Set();
 
+    // Whoever is currently at the desk on a day rate, and whether this run sends
+    // them at all. Both halves have to agree: the board has to be one that has a
+    // budget to drain, and the flag has to be on. Read once here rather than per
+    // intake, since a run whose rules changed halfway through is a run nobody
+    // can read afterwards.
+    this.contracts = [];
+    this.contractorsEnabled =
+      (this.mode.contractors ?? false) && contractorEnabled();
+
     this.drawGround();
     this.drawScenery();
     this.drawPath();
@@ -416,6 +442,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.applySlows(applicants);
     this.applyPressure(applicants, time, delta);
+    this.updateContracts(time, delta);
 
     this.towers.forEach((tower) => {
       const target = tower.update(time, applicants);
@@ -433,10 +460,17 @@ export default class GameScene extends Phaser.Scene {
     // A wave is over when everybody it was going to send has been sent and
     // none of them are still walking, however they left the board. Anybody who
     // is coming back gets to come back first.
+    //
+    // Somebody sat at the desk on a contract is not still walking. They are not
+    // holding the intake open either, deliberately: an engagement runs to eighty
+    // seconds and the vacancy has not been filled, so holding the run at the end
+    // of an intake for one would be four intakes of waiting across a run. They
+    // stay where they are, keep billing, and the next intake opens around them,
+    // which is both the funnier outcome and the accurate one.
     if (
       this.phase === 'running' &&
       this.spawnsRemaining === 0 &&
-      !applicants.some((applicant) => applicant.active)
+      !applicants.some((applicant) => applicant.active && !applicant.contract)
     ) {
       if (this.pendingReturns.length > 0) {
         this.releaseReturns();
@@ -619,6 +653,7 @@ export default class GameScene extends Phaser.Scene {
     );
 
     wave.groups.forEach((group) => this.scheduleGroup(group));
+    this.scheduleContractor();
 
     this.events.emit('wave-started', {
       waveNumber: this.waveNumber,
@@ -661,6 +696,35 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.waveTimers.push(opener);
+  }
+
+  /**
+   * The one arrival that is on no list.
+   *
+   * It is scheduled here, alongside the groups, rather than by anything cleverer,
+   * because it is not cleverer: it is a delayed call on the wave's own timer
+   * list, so it is cleared by the same line that clears everything else when a
+   * run ends or a wave is cut short.
+   *
+   * The wave counter is deliberately not told. `spawnsRemaining` counts what the
+   * list said it would send, and a wave that counted an arrival nothing
+   * scheduled would run out of count one applicant before it ran out of
+   * applicants, and could end while somebody was still walking.
+   */
+  scheduleContractor() {
+    const { unscheduled } = APPLICANTS.contractor;
+
+    if (!this.contractorsEnabled || this.waveNumber < unscheduled.fromWave) {
+      return;
+    }
+
+    for (let sent = 0; sent < unscheduled.perWave; sent += 1) {
+      this.waveTimers.push(
+        this.time.delayedCall(unscheduled.delayMs, () =>
+          this.spawnApplicant('contractor', false, false)
+        )
+      );
+    }
   }
 
   /**
@@ -881,6 +945,12 @@ export default class GameScene extends Phaser.Scene {
    * in, and lets it back up to full speed once it walks clear. Fields do not
    * stack, since two Take-Home Tasks side by side would otherwise stop the
    * board dead.
+   *
+   * `canTarget` is asked here as well as by the shooting towers, and it is the
+   * same question in both places: whether this process has anything to say about
+   * this applicant. A fortnight of unpaid work is not a fortnight to somebody
+   * invoicing for it, and the field that would have held them up is the field
+   * they walk through.
    */
   applySlows(applicants) {
     applicants.forEach((applicant) => {
@@ -894,6 +964,7 @@ export default class GameScene extends Phaser.Scene {
         if (
           tower.definition.behaviour === 'slow' &&
           !tower.suspended &&
+          tower.canTarget(applicant) &&
           tower.isInRange(applicant)
         ) {
           multiplier = Math.min(multiplier, tower.definition.slowMultiplier);
@@ -952,13 +1023,25 @@ export default class GameScene extends Phaser.Scene {
   /**
    * One hit landing on one applicant. An instant rejection takes whatever
    * health is left, so both sorts of tower go through the same place.
+   *
+   * What the hit is worth is settled by the applicant rather than here, from the
+   * `damageFrom` map on its type, which is why a tower that has nothing to say to
+   * somebody needs no branch in this method and no knowledge of who it is
+   * shooting at. Towers do not aim at people they cannot touch, so the only hit
+   * that ever arrives worth nothing is a pad that has been trodden on.
+   *
+   * The clock is a separate question from the health and is asked separately.
+   * There is exactly one tower that moves a renewal date and it does no damage
+   * at all, so the two would never have fitted in one number.
    */
   applyDamage(tower, applicant) {
     const damage = tower.definition.instantReject
       ? applicant.health
       : tower.rollDamage();
 
-    if (applicant.takeDamage(damage)) {
+    this.hastenRenewal(tower, applicant);
+
+    if (applicant.takeDamage(damage, tower.typeKey)) {
       this.rejectApplicant(applicant);
     }
   }
@@ -1015,8 +1098,18 @@ export default class GameScene extends Phaser.Scene {
   /**
    * An applicant has been screened out. That is the one thing this department
    * gets paid for, so the bounty goes back into the budget.
+   *
+   * Somebody on a day rate is screened out the same way as everybody else and
+   * the engagement ends with them, which is the whole of what a player can do
+   * about one. It pays nothing, because that type's bounty is nought rather than
+   * because anything here treats it differently: the notice period is served
+   * whatever the decision was.
    */
   rejectApplicant(applicant) {
+    if (applicant.contract) {
+      this.endContract(applicant.contract, 'rejected');
+    }
+
     this.queueReturn(applicant);
 
     applicant.reject();
@@ -1392,7 +1485,12 @@ export default class GameScene extends Phaser.Scene {
     this.drawRouting();
 
     this.applicants.getChildren().forEach((applicant) => {
-      if (applicant.active) {
+      // Anybody on a contract is already at the desk and has nothing left to
+      // reconsider. A re-route restarts a walk from where somebody is standing,
+      // so handing one to somebody standing on the vacancy would set them
+      // walking to it again and arrive them a second time, which would engage
+      // the same person twice on two day rates.
+      if (applicant.active && !applicant.contract) {
         applicant.reroute(
           this.field.routeFrom(applicant.x, applicant.y, applicant.typeKey)
         );
@@ -2106,9 +2204,16 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Sends one applicant out. `isReturn` marks a Boomerang that has already had
    * its second go, so it does not queue up for a third.
+   *
+   * `scheduled` is whether the wave list asked for this one. Everything did
+   * until there was a type that turns up on its own, and the counter is what
+   * cares: it was set from the list, so only somebody the list named may take
+   * one off it.
    */
-  spawnApplicant(typeKey, isReturn = false) {
-    this.spawnsRemaining = Math.max(0, this.spawnsRemaining - 1);
+  spawnApplicant(typeKey, isReturn = false, scheduled = true) {
+    if (scheduled) {
+      this.spawnsRemaining = Math.max(0, this.spawnsRemaining - 1);
+    }
 
     const applicant = new Applicant(
       this,
@@ -2119,12 +2224,19 @@ export default class GameScene extends Phaser.Scene {
     );
 
     applicant.hasReturned = isReturn;
+
+    // Which intake they turned up in, which is not the intake they arrive in:
+    // the walk is long enough that one can outlast the wave that sent it, and
+    // only one type reads this, for an event that has to say when it appeared
+    // rather than when it got to the desk.
+    applicant.spawnWave = this.waveNumber;
+
     // Where they start. Every frame after this one is the loop's problem, since
     // an applicant is the only thing in the standing band that moves.
     applicant.setDepth(standingDepth(applicant.y));
 
     this.applicants.add(applicant);
-    applicant.walk((arrived) => this.leak(arrived));
+    applicant.walk((arrived) => this.reachVacancy(arrived));
 
     this.introduceType(typeKey);
   }
@@ -2297,6 +2409,340 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Somebody has got to the desk.
+   *
+   * What that means was one thing for the whole of this game's life, and it is
+   * two things now. For seven of the eight types it is a life, and the branch
+   * below goes to the code that has always handled it. For the eighth it is a
+   * purchase order, because the position is never filled and there is therefore
+   * nothing for the vacancy to lose.
+   */
+  reachVacancy(applicant) {
+    if (applicant.definition.contract) {
+      this.beginContract(applicant);
+
+      return;
+    }
+
+    this.leak(applicant);
+  }
+
+  /**
+   * Somebody has been engaged.
+   *
+   * They stay exactly where they are, at the desk, active and shootable, and the
+   * budget starts going down. Nothing about the vacancy moves: no life, no
+   * flash, no shake, no `applicant_leaked`. The board says so by having a price
+   * over somebody's head rather than a hole in the vacancy.
+   *
+   * The record is held on the scene and on the applicant both, and the second
+   * one is not redundant. The scene's list is what gets billed every frame; the
+   * field on the applicant is what lets a rejection, a pad and the wave counter
+   * each ask one question of the thing in front of them rather than searching a
+   * list for it.
+   */
+  beginContract(applicant) {
+    const terms = applicant.definition.contract;
+
+    // Arriving during the pause before the game over screen. There is nothing
+    // left to bill, so they are cleared exactly as a late leak is.
+    if (this.runOver) {
+      this.applicants.remove(applicant, true, true);
+
+      return;
+    }
+
+    const contract = {
+      applicant,
+      terms,
+      dayRate: terms.dayRate,
+      // What the rate has run up that is not yet a whole unit of budget. The
+      // rate is per second and this is called per frame, so without somewhere
+      // to keep the fraction a day rate of two would round to nothing sixty
+      // times a second and the budget would never move.
+      owed: 0,
+      drained: 0,
+      renewals: 0,
+      startedAt: this.time.now,
+      renewAt: this.time.now + terms.renewalMs,
+      label: null
+    };
+
+    // How far up the label goes, which is one line per engagement already on the
+    // board. Everybody converges on the one desk, so two contractors stand on
+    // exactly the same pixel, and two prices in exactly the same place is one
+    // price nobody can read. Read before the push, so the first one sits where it
+    // would have sat anyway.
+    const stacked = this.contracts.length * CONTRACT_LABEL_STACK;
+
+    applicant.contract = contract;
+    this.contracts.push(contract);
+
+    contract.label = this.add
+      .text(
+        applicant.x,
+        applicant.y - applicant.definition.radius - CONTRACT_LABEL_DROP - stacked,
+        '',
+        {
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '13px',
+          color: CONTRACT_LABEL_COLOUR
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(DEPTHS.hint);
+
+    this.refreshContractLabel(contract);
+
+    // The same clip a tower goes down to, which is the joke rather than a
+    // shortage of clips: something has just been installed on the board, at a
+    // price, and it was not the player who installed it.
+    playSound('place');
+
+    trackContractStarted({
+      dayRate: contract.dayRate,
+      spawnWave: applicant.spawnWave
+    });
+  }
+
+  /**
+   * What the label says, and where it sits so the board can be read around it.
+   *
+   * The desk is near the right edge, so the label is pulled back on to the board
+   * rather than being cut in half by it, the same as the one a leak gets.
+   */
+  refreshContractLabel(contract) {
+    const label = contract.label;
+
+    label.setText(COPY.board.dayRate.replace('{rate}', contract.dayRate));
+
+    label.x = Phaser.Math.Clamp(
+      contract.applicant.x,
+      label.displayWidth / 2,
+      this.scale.width - label.displayWidth / 2 - 8
+    );
+  }
+
+  /**
+   * Every engagement on the board, once a frame: what it has billed, and whether
+   * it is due to renew itself.
+   *
+   * The list is copied before it is walked, because renewing the last one ends
+   * it, and ending one takes it off the list underneath the walk.
+   */
+  updateContracts(time, delta) {
+    if (this.contracts.length === 0) {
+      return;
+    }
+
+    const seconds = delta / 1000;
+    let taken = 0;
+
+    [...this.contracts].forEach((contract) => {
+      taken += this.bill(contract, seconds);
+
+      if (time >= contract.renewAt) {
+        this.renewContract(contract, time);
+      }
+    });
+
+    // One event for the frame however many of them billed in it, and none at
+    // all in the frames where nobody did. The HUD pulses the budget and
+    // repaints the whole palette on this, so a day rate that emitted every
+    // frame would be a readout twitching sixty times a second to say it had
+    // lost two.
+    if (taken > 0) {
+      this.events.emit('currency-changed', this.currency);
+    }
+  }
+
+  /**
+   * One engagement's share of one frame, taken out of the budget and returned so
+   * the caller knows whether anything moved.
+   *
+   * Two limits, and they are different limits. The cap is what an engagement may
+   * ever take, and it is what stops a contractor nobody can reach from emptying
+   * a budget and holding it there. The budget itself is the other, because it
+   * floors at nought and does not go below it: an invoice against a department
+   * with no money left is not a debt in this game, it is an invoice nobody paid.
+   *
+   * Only what was actually taken counts against the cap, which is the whole
+   * reason the two are checked separately. Billing an empty budget and calling it
+   * spent would let a broke player wait a contract out for nothing.
+   */
+  bill(contract, seconds) {
+    const allowance = contract.terms.cap - contract.drained;
+
+    if (allowance <= 0 || this.currency <= 0) {
+      return 0;
+    }
+
+    contract.owed += contract.dayRate * seconds;
+
+    const due = Math.min(Math.floor(contract.owed), allowance, this.currency);
+
+    if (due <= 0) {
+      return 0;
+    }
+
+    contract.owed -= due;
+    contract.drained += due;
+    this.currency -= due;
+
+    return due;
+  }
+
+  /**
+   * Nobody dealt with it in time, so it has renewed itself: back to full health,
+   * and the rate up by half.
+   *
+   * The health going back is the part that matters, and it is why this type is
+   * one of the two that carry a bar from the moment they arrive. A contractor
+   * worn down to a sliver and left there is a contractor at full health twenty
+   * seconds later, and the player who was two shots away has to start again
+   * against a rate half as big again.
+   *
+   * Three of them and it goes of its own accord. That is the end of the fiction
+   * rather than a mechanic: something that stayed for ever would be a loss
+   * condition wearing a different hat, on a type whose entire argument is that it
+   * is not one.
+   */
+  renewContract(contract, time) {
+    const { applicant, terms } = contract;
+
+    if (contract.renewals >= terms.maxRenewals) {
+      this.endContract(contract, 'expired');
+
+      return;
+    }
+
+    contract.renewals += 1;
+    contract.dayRate = Math.round(contract.dayRate * terms.renewalMultiplier);
+    contract.renewAt = time + terms.renewalMs;
+
+    applicant.health = applicant.maxHealth;
+
+    this.refreshContractLabel(contract);
+    this.showContractRenewal(contract);
+
+    // The refusal noise, used for something nobody refused. It is the sound this
+    // game makes when the system will not do the thing you wanted, which is
+    // exactly what has happened.
+    playSound('denied');
+
+    trackContractRenewed({
+      renewalNumber: contract.renewals,
+      dayRate: contract.dayRate
+    });
+  }
+
+  /**
+   * A word over a contract that has just extended itself, in the same shape a
+   * suspended tower gets, because they are the same sort of news.
+   *
+   * The label underneath it has already changed its number and the health bar has
+   * already gone back to full, so nothing here is the only place anything is
+   * said. A player who has asked for less motion gets both of those and misses
+   * only the announcement.
+   */
+  showContractRenewal(contract) {
+    const label = this.add
+      .text(contract.label.x, contract.label.y - 14, COPY.board.renewed, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '13px',
+        color: CONTRACT_LABEL_COLOUR
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTHS.hint);
+
+    pulse(contract.label);
+
+    this.tweens.add({
+      targets: label,
+      y: label.y - 24,
+      alpha: 0,
+      duration: LEAK_LABEL_MS,
+      ease: 'Quad.easeOut',
+      onComplete: () => label.destroy()
+    });
+  }
+
+  /**
+   * A tower has done something to the clock rather than to the health. Only
+   * Salary Expectations does, and it does it by being named in `hastenedBy` on
+   * the type rather than by being named here.
+   *
+   * It does nothing at all to a contractor still walking, which is correct and
+   * not a guard against anything: there is no renewal date until there is a
+   * contract, so asking somebody what they expect to be paid before they have
+   * been engaged brings nothing forward.
+   */
+  hastenRenewal(tower, applicant) {
+    const by = applicant.definition.contract?.hastenedBy?.[tower.typeKey];
+
+    if (!by || !applicant.contract) {
+      return;
+    }
+
+    applicant.contract.renewAt -= by;
+  }
+
+  /**
+   * An engagement is over, either because somebody got a tower onto it or
+   * because it served its renewals and left.
+   *
+   * A rejection has already been dealt with by whoever called this, and it pays
+   * nothing, because the type's bounty is nought and a notice period is served
+   * whatever anybody decides. An expiry is the only one that has anything to do
+   * here: it is the fade an applicant leaves the board on and nothing else, so
+   * nothing is counted, nothing is scored and nothing is paid.
+   */
+  endContract(contract, reason) {
+    const { applicant } = contract;
+
+    this.contracts = this.contracts.filter((other) => other !== contract);
+
+    contract.label.destroy();
+    applicant.contract = null;
+
+    trackContractEnded({
+      endReason: reason,
+      renewals: contract.renewals,
+      currencyDrained: contract.drained,
+      durationMs: this.time.now - contract.startedAt
+    });
+
+    if (reason === 'expired') {
+      applicant.reject();
+
+      playSound('reject');
+    }
+  }
+
+  /**
+   * The run has ended underneath whoever is still on the books.
+   *
+   * Nothing is emitted for them, deliberately. The two reasons a contract ends
+   * are that it was rejected and that it ran its course, and neither is what
+   * happened here: the run stopped around it. An engagement with a
+   * `contract_started` and no `contract_ended` is exactly the honest record of
+   * that, and it reads the same way a run with no `game_over` does.
+   *
+   * What this is actually for is the seven hundred milliseconds between the run
+   * ending and the board freezing under the game over screen, in which `update`
+   * is still running and would otherwise carry on billing a budget nobody can
+   * spend.
+   */
+  clearContracts() {
+    this.contracts.forEach((contract) => {
+      contract.label.destroy();
+      contract.applicant.contract = null;
+    });
+
+    this.contracts = [];
+  }
+
+  /**
    * An applicant has reached the vacancy, which costs the player a life. The
    * applicant is cleared either way, so a leak arriving during the pause
    * before the game over screen still tidies itself up.
@@ -2387,6 +2833,7 @@ export default class GameScene extends Phaser.Scene {
     this.clearWaveTimers();
     this.clearBanner();
     this.clearNotice();
+    this.clearContracts();
 
     this.pendingReturns = [];
 

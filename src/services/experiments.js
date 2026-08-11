@@ -32,6 +32,25 @@ const STARTING_DIFFICULTY = 'starting-difficulty';
 const DEFAULT_ARM = 'control';
 
 /**
+ * The Contractor, on a boolean flag rather than an experiment.
+ *
+ * It is not being measured against anything yet, so there is no arm to be in and
+ * nothing here buckets anybody. What the flag buys is the ability to turn a type
+ * off in the mode with a balancing pass behind it without cutting a release, and
+ * the ability to make it an experiment later without touching this file: a
+ * GrowthBook feature that is a flat true today can be a rule with a fifty fifty
+ * split tomorrow, and the tracking callback below already reports the exposure
+ * when it becomes one.
+ *
+ * On by default, and by two separate routes, because both have to agree. The
+ * value asked of GrowthBook defaults to true, and a run that never reaches
+ * GrowthBook at all takes the same answer from `ready` being false. A feature
+ * flag service being unreachable is not a reason for the game to be a different
+ * game.
+ */
+const CONTRACTOR = 'contractor_enabled';
+
+/**
  * The client key is public by design. It reads feature definitions and nothing
  * else, which is why it is the one key in this project allowed a VITE_ prefix.
  */
@@ -57,6 +76,7 @@ const PARTICIPANT_KEY = 'requisita.participant_id';
 let growthbook = null;
 let ready = false;
 let assignment = null;
+let contractors = null;
 
 /**
  * Where exposures go once something is listening, and the ones that arrived
@@ -221,6 +241,45 @@ function assign() {
 }
 
 /**
+ * Whether this run sends contractors, worked out once and then remembered, on
+ * the same terms and for the same reason the arm above is: a flag that moved
+ * underneath a run would leave a run whose events cannot be read.
+ *
+ * `?contractor=off` and `?contractor=on` force it in both directions, which is
+ * how the type gets looked at, or looked past, on a deploy preview. Forcing is
+ * reported as forcing rather than folded into the real answer, the same as the
+ * difficulty override.
+ */
+function assignContractors() {
+  if (contractors) {
+    return contractors;
+  }
+
+  const forced = new URLSearchParams(window.location.search).get('contractor');
+
+  if (forced === 'on' || forced === 'off') {
+    contractors = { enabled: forced === 'on', source: 'forced' };
+  } else if (!ready || !growthbook) {
+    contractors = { enabled: true, source: 'unassigned' };
+  } else {
+    contractors = {
+      enabled: growthbook.getFeatureValue(CONTRACTOR, true) !== false,
+      source: 'growthbook'
+    };
+  }
+
+  return contractors;
+}
+
+/**
+ * Whether the board this run is played on may send the type nothing schedules.
+ * Read once, at run start, beside the wave list.
+ */
+export function contractorEnabled() {
+  return assignContractors().enabled;
+}
+
+/**
  * Every assignment for this run, in the shape the analytics spec wants as a
  * global property: one string per experiment.
  *
@@ -228,12 +287,22 @@ function assign() {
  * prefixed with where it came from, so `forced:busy` and `unassigned:control`
  * are visibly not assigned players and can be filtered out of the analysis
  * rather than silently widening one side of it.
+ *
+ * The second key is the contractor flag, and it is here rather than on the three
+ * events that type sends because those only ever fire when it is on. Without a
+ * key on every event there is no way to tell a run that was offered no
+ * contractors from a run that was and never let one reach the desk, which is
+ * precisely the comparison the flag exists to make possible.
  */
 export function getVariantAssignments() {
   const { arm, source } = assign();
+  const contractor = assignContractors();
+  const state = contractor.enabled ? 'on' : 'off';
 
   return {
-    [STARTING_DIFFICULTY]: source === 'growthbook' ? arm : `${source}:${arm}`
+    [STARTING_DIFFICULTY]: source === 'growthbook' ? arm : `${source}:${arm}`,
+    [CONTRACTOR]:
+      contractor.source === 'growthbook' ? state : `${contractor.source}:${state}`
   };
 }
 

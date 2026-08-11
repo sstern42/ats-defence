@@ -16,6 +16,8 @@ The joke is that you are the one doing the rejecting, and that the tools are rec
 
 The applicants know the game too. The Keyword Stuffer is immune to keyword matching. The Referral starts a third of the way down the path. The Boomerang comes back at the end of the intake whether you rejected it or not.
 
+And from the fourth intake, on none of the lists and announced by nobody, The Contractor. Reaching the vacancy costs you nothing, because the position is never filled: it sits at the desk on a day rate and bills the budget for as long as it is there, renewing itself every twenty seconds at half as much again. The Take-Home Task, the Culture Fit Panel and Salary Expectations all have nothing to say to it. Rejecting one pays nothing, because the notice period is served whatever you decide.
+
 ## Three ways to run a vacancy
 
 **Classic intake** is the game above. One path in, walked in single file, towers beside it.

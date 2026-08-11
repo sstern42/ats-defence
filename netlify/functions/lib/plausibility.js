@@ -35,6 +35,36 @@ function rejectionsIn(wave) {
 }
 
 /**
+ * The applicants a run reached this far could have rejected that no intake list
+ * contains.
+ *
+ * There is exactly one such type and it is the Contractor, which turns up
+ * unannounced from a given intake onwards on the boards whose mode says they
+ * send it. It pays no bounty, but it is still an applicant that can be rejected
+ * and the score still counts a rejection, so a ceiling computed from the wave
+ * lists alone is a ceiling below what an honest run can score.
+ *
+ * That is the whole reason this exists. The ceiling is the perfect run, so an
+ * arrival missing from it is not slack being tightened, it is a good player
+ * being told their score is too high for the intake they reached.
+ *
+ * Read from the same data the game spawns them from, on the same terms
+ * everything else here is: there is one definition of when a contractor turns
+ * up, and both the game and this file read it.
+ */
+function contractsIn(mode, finalWave) {
+  const unscheduled = APPLICANTS.contractor?.unscheduled;
+
+  if (!mode.contractors || !unscheduled) {
+    return 0;
+  }
+
+  const intakes = Math.max(0, finalWave - unscheduled.fromWave + 1);
+
+  return intakes * unscheduled.perWave;
+}
+
+/**
  * The busiest opening wave a mode can send.
  *
  * For the mode carrying the starting difficulty experiment that is the larger
@@ -104,6 +134,8 @@ export function maximumScore(finalWave, modeKey) {
   for (let index = 1; index < finalWave; index += 1) {
     rejections += rejectionsIn(mode.waves[index]);
   }
+
+  rejections += contractsIn(mode, finalWave);
 
   return (
     finalWave * perWaveCleared +

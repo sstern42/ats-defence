@@ -76,6 +76,26 @@ export const COPY = {
       trait: 'Already has the job. The Knockout Question knows better than to ask.',
       traitRadial:
         'Already has the job. This intake is a formality, and a long one.'
+    },
+    /**
+     * The eighth, and the only card in this list that has to explain a rule
+     * rather than a habit. Every other line names something a type does
+     * differently on its way to the desk. This one is about what happens once it
+     * gets there, and what happens is that nothing happens: the vacancy is not
+     * filled, because the vacancy was never the point.
+     *
+     * Three short sentences rather than one, which is longer than any line above
+     * it, and the length is the joke doing the work. The first two are what the
+     * system has concluded, in the system's own words, and the third is the bit
+     * it has not noticed it has just said.
+     *
+     * No `traitRadial`, because the phone board does not send this type. See the
+     * note on `contractors` in config/modes.js for why.
+     */
+    contractor: {
+      name: 'The Contractor',
+      trait:
+        'Not a hire. Does not count towards headcount. Will be here in four years.'
     }
   },
   towers: {
@@ -336,7 +356,27 @@ export const COPY = {
     reapplyingNote: 'Some of them are back',
     // Said over a screening process that has been leaned on until it stopped
     // working. It is coming back, and it will not have learned anything.
-    suspended: 'Under review'
+    suspended: 'Under review',
+    /**
+     * What a contract costs, over the head of the person on it, for as long as
+     * they are on it.
+     *
+     * `{rate}` is filled in when the label is drawn and again when the contract
+     * renews, on the same arrangement `{amount}` has on the upgrade cards: the
+     * number a player reads and the number the budget is losing cannot drift
+     * apart, because there is only one of them.
+     *
+     * It is a label that sits there rather than a number that floats up and
+     * fades, which is the rule the rest of this game is drawn by. Everything it
+     * says is state: it is legible for as long as the thing it belongs to is on
+     * the board, it says the same thing to a player who has asked their system
+     * for less motion, and a player who looked away has not missed it.
+     */
+    dayRate: 'Day rate: £{rate}',
+    // Said over a contract that has just renewed itself. The rate on the label
+    // underneath it has already gone up, so this is the acknowledgement rather
+    // than the information.
+    renewed: 'Contract extended'
   },
   gameOver: {
     filled: {

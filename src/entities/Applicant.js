@@ -199,9 +199,28 @@ export default class Applicant extends Phaser.GameObjects.PathFollower {
    * Anybody still standing flinches. Anybody who is not is about to be rejected
    * by the scene, which has a better exit of its own, so there is no point
    * starting a flinch that would be taken straight back off again.
+   *
+   * `fromKey` is the tower type the hit came from, where there is one, and it is
+   * what `damageFrom` on the definition is read against. A type with no such map
+   * takes the number it was handed, which is every type but one and is what this
+   * method did before the map existed. Anything with no tower behind it, which is
+   * to say the phone board's bulk reject, hands nothing over and is worth its
+   * full amount against everybody: immunity here is a property of an applicant
+   * against a named screening process, and a mail merge is not one.
+   *
+   * A hit worth nothing does not flinch. The scene will not have aimed at
+   * anybody it cannot touch, so this only comes up for a pad that has been
+   * trodden on, and a body twitching under a question that did nothing to it is
+   * the animation saying the opposite of what happened.
    */
-  takeDamage(amount) {
-    this.health = Math.max(0, this.health - amount);
+  takeDamage(amount, fromKey) {
+    const scaled = amount * (this.definition.damageFrom?.[fromKey] ?? 1);
+
+    if (scaled === 0) {
+      return false;
+    }
+
+    this.health = Math.max(0, this.health - scaled);
 
     if (this.health > 0) {
       pulse(this, FLINCH);

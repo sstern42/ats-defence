@@ -42,8 +42,25 @@ export const ALLOWED_EVENTS = new Set([
   // The fifteenth. The phone board's only player decision, and the only event
   // that records something declined as well as something done. Its argument is
   // in services/analytics.js at trackUpgradeOffered.
-  'upgrade_offered'
+  'upgrade_offered',
+
+  // The last three, and the only ones added together. They are one engagement
+  // told in order: somebody who cannot fill the vacancy arriving at it, the
+  // contract renewing itself while nobody deals with it, and how it finished.
+  // The argument for three rather than one is in services/analytics.js at
+  // trackContractStarted.
+  'contract_started',
+  'contract_renewed',
+  'contract_ended'
 ]);
+
+/**
+ * How a contract finished, which is the only per-event property check here that
+ * is not a config import. There is no config for it: the two words are decided
+ * by the scene rather than listed anywhere, and they are the whole of what
+ * `contract_ended` says that the other two do not.
+ */
+const CONTRACT_END_REASONS = new Set(['rejected', 'expired']);
 
 /** Long enough for the largest real event several times over. */
 /** The cards, read from the same config the game draws them from. */
@@ -130,6 +147,17 @@ export function checkEvent(payload) {
     (!UPGRADE_ID.has(properties.taken) || !UPGRADE_ID.has(properties.refused))
   ) {
     return { error: 'unknown upgrade' };
+  }
+
+  // Same arrangement again. An engagement that ended for a reason this endpoint
+  // has never heard of is an engagement nothing can be concluded from, since the
+  // two reasons are opposite findings about the same feature and the rest of the
+  // event is meaningless without knowing which of them it is.
+  if (
+    event === 'contract_ended' &&
+    !CONTRACT_END_REASONS.has(properties.end_reason)
+  ) {
+    return { error: 'unknown contract end reason' };
   }
 
   const sessionId = trimmed(properties.session_id, MAX_ID);
