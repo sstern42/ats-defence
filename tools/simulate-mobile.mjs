@@ -78,6 +78,27 @@
  * numbers should be read as the ceiling of what a placement is worth rather than
  * as what a player will get out of it, which is the opposite of the reading the
  * card policies want.
+ *
+ * ## The fifth thing, and the only one that is not on the board
+ *
+ * `--contractor` models an applicant type this board does not send, to decide
+ * whether it should. Everything else in this file measures the game; this
+ * measures a proposal, and it defaults to `none` so every other reading here is
+ * the game as it stands.
+ *
+ *   node tools/simulate-mobile.mjs --runs 3000 --contractor ignore
+ *   node tools/simulate-mobile.mjs --runs 3000 --contractor pad --shielded
+ *
+ * The five values bracket what a player could do about a contract:  `none` is the
+ * board without the type, `ignore` never answers one, `answer` and `spare` spend
+ * a bulk reject, and `pad` spends the free renewable control instead. `--shielded`
+ * is a variant of the type rather than of the player, and takes the contractor
+ * off the list the turret is handed.
+ *
+ * The answer it produced is in config/mobile.js at MOBILE_CONTRACT, along with
+ * the table. The short version is that no variant is free: every one of them
+ * costs this board between eight and fifteen points of hold rate, and most of
+ * that is spent before the contract starts.
  */
 import { APPLICANTS } from '../src/config/applicants.js';
 import {
@@ -541,6 +562,36 @@ function wantsBulkOnContract(run, policy) {
 }
 
 /**
+ * The fourth variant, and the one that asks a different question from the other
+ * three.
+ *
+ * Those three all make a bulk reject the only answer, and the measurement said
+ * the same thing about each of them: a charge is the ninth intake's only answer,
+ * so spending one here loses the run. That is a finding about the counter being
+ * scarce rather than about the type, so this models a counter that is not.
+ *
+ * **It is the pad's numbers and it is deliberately not the pad.** The pad cannot
+ * be this: `MOBILE_TRAP_KEY` is `salaryExpectations`, the type's `damageFrom`
+ * puts that at nought, and a contractor walking through a question about money
+ * is one of the three jokes the whole design is made of. What the pad supplies
+ * here is a shape to measure, since it is the only free renewable rearm-limited
+ * control on the board and any real answer would have to cost about what it
+ * costs.
+ *
+ * So this is 60 damage against 80 of health on a sixteen second rearm, laid at
+ * the desk where the contracts are standing. Two of them clear one engagement and
+ * they have to land inside one renewal window or the second is thrown away
+ * against full health, which is tight on purpose: the rearm is sixteen seconds
+ * and the renewal is twenty. What it costs is the two pads not being available
+ * for the crowd, which is the whole of the trade being tested.
+ */
+function answersWithPad(run, policy, now, nextTrapAt) {
+  return (
+    policy === 'pad' && run.contracts.length > 0 && now >= nextTrapAt
+  );
+}
+
+/**
  * Every contract on the books, advanced by however long has just passed.
  *
  * Called from inside an intake and again across the gap between them, because a
@@ -802,6 +853,29 @@ function playWave(
 
         if (run.health === 0) {
           return false;
+        }
+      }
+    }
+
+    // A pad spent on the books rather than on the queue. Checked before the
+    // ordinary placement, since both come out of the same rearm and a player
+    // answering a contract is a player not laying one in front of anybody.
+    //
+    // It springs the instant it is laid, because the contracts are standing on
+    // the desk and the pad is going down on top of them, which is the same tick
+    // the game would resolve it on.
+    if (answersWithPad(run, contractPolicy, now, nextTrapAt)) {
+      nextTrapAt = now + MOBILE_TRAP.rearmDelayMs;
+      run.trapsLaid += 1;
+
+      for (let i = run.contracts.length - 1; i >= 0; i -= 1) {
+        run.contracts[i].health -= MOBILE_TRAP.damage;
+
+        if (run.contracts[i].health <= 0) {
+          run.contracts.splice(i, 1);
+          run.contractsRejected += 1;
+          run.rejected += 1;
+          run.trapKills += 1;
         }
       }
     }

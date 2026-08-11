@@ -734,39 +734,58 @@ export const MOBILE_SCORING = {
  * second superweapon set, and the model said not to build it.
  *
  * 3,000 runs a row, best play throughout: sensible cards, charges saved for the
- * ninth, pad in front of the leader, holds spent on a crowd.
+ * ninth, pad in front of the leader, holds spent on a crowd. Runs of the same
+ * row come out about a point apart, so anything under two points is noise.
  *
- *   contractor policy      held    rating   drained   contracts
- *   none (the board today) 60.9%     2146         -   -
- *   ignore                 49.2%     1782   322 (15%) 3.3 started
- *   spare (keep one back)   2.3%     1857    87  (4%) 2.0 rejected
- *   answer (spend on any)   2.4%     1899    24  (1%) 2.7 rejected
+ *   contractor policy       held   drained of the rating   engagements ended
+ *   none (the board today) 60.4%                       -   -
+ *   ignore                 48.7%              323 (15.4%)  none, 3.3 started
+ *   answer (a charge)       2.4%               24  (1.3%)  2.7 of 3.3
+ *   spare (charge, keep 1)  2.3%               87  (4.5%)  2.0 of 3.2
+ *   pad (a free counter)   45.6%               30  (1.5%)  3.1 of 3.2
+ *   ignore, shielded       55.6%              515 (24.2%)  none, 5.3 started
+ *   pad, shielded          51.9%               95  (4.5%)  4.8 of 5.3
  *
- * **Answering one loses the run, and it is not close.** 60.9% to 2.3%. The
- * charges are the ninth intake's only answer, so a charge spent on somebody who
- * cannot cost a life is the vacancy given away, and a decision with one correct
- * answer is not a decision. That is the whole design failing rather than a number
- * being wrong.
+ * **Answering one with a charge loses the run, and it is not close.** 60.4% to
+ * 2.4%. The charges are the ninth intake's only answer, so one spent on somebody
+ * who cannot cost a life is the vacancy given away. A decision with one correct
+ * answer is not a decision.
  *
- * **Ignoring one still costs the run, which is the part that decides it.** The
- * drain is rating and the rating cannot end a run, so every one of those 11.7
- * points comes from somewhere else: the turret spending shots on an 80 health
- * arrival that pays no bounty on its way in. A type whose entire argument is that
- * it cannot cost a life took an eighth of this board's hold rate, and this board
- * has a measured survival curve to lose.
+ * **A free counter fixes that much, and it is worth knowing it does.** The `pad`
+ * row is a live trade rather than a trap: it clears nearly every engagement, and
+ * the mean rating comes out at 2,067 against `ignore`'s 1,779, for three points
+ * of hold rate. So somebody playing for the board answers them and somebody
+ * playing to survive does not, which is the shape a decision is supposed to have.
+ * The counter being scarce was a real fault and it is fixable.
  *
- * Shielding it from the turret, which is the mobile scene simply not handing it
- * one, was measured too: `--contractor ignore --shielded` comes out at 55.6% held
- * and 515 of rating drained, 24% of the run. So it recovers about half the
- * survival cost, because a walking contractor still pads the crowd counts the
- * hold and the pad policies read, and it doubles the tax in exchange.
+ * **What is not fixable is that none of them are free.** Every row above costs
+ * this board between eight and fifteen points of hold rate, and the best of them
+ * is still 8.5 short of the board as it stands. The drain cannot be the cause,
+ * since the rating does not end runs. It is spent before the engagement even
+ * starts: the turret puts shots into an 80 health arrival that pays no bounty on
+ * the way in, and the pad variant spends the pads that were holding the crowd
+ * back. A type whose entire argument is that it cannot cost a life takes an
+ * eighth of the hold rate off a board with a measured survival curve.
  *
- * What the measurement points at, if this is picked up again, is the counter
- * rather than the cost. Every variant above makes a scarce resource the only
- * answer, and the scarce resource is spoken for. The pad is free, renewable and
- * already the board's "where rather than when" control, and it cannot reach a
- * contract today only because `trapSpot` refuses anything inside the arrival
- * radius. That is the version worth modelling next.
+ * `--shielded` is the only thing that touches that, and it half fixes it at
+ * best. It is also not expressible as data: `MOBILE_TOWER_KEY` is
+ * `keywordFilter`, and the desktop Keyword Filter is one of the three towers this
+ * type is meant to be answerable by, so it would have to be the mobile scene
+ * choosing what it hands `tower.update`.
+ *
+ * **So the conclusion is the one modes.js already states, now with numbers
+ * behind it.** This board has nothing worth draining, and every way of inventing
+ * something moves a survival curve that took a tuning pass to settle. If the type
+ * is ever wanted here, what it needs first is a budget on the board, and that is
+ * a larger change than the contractor.
+ *
+ * One idea that did not survive contact and is recorded so nobody spends the
+ * afternoon on it again: making the pad the counter for real. `MOBILE_TRAP_KEY`
+ * is `salaryExpectations` and the type's `damageFrom` puts that at nought, so by
+ * its own data the pad has nothing to say to a contractor, which is one of the
+ * three jokes the design is made of. The pad also does 60 against 80 of health.
+ * The `pad` row above is the pad's numbers standing in for a free counter in
+ * general, not a proposal to use the pad.
  */
 export const MOBILE_CONTRACT = {
   ratePerSecond: 2,
