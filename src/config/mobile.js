@@ -663,3 +663,134 @@ export const MOBILE_SCORING = {
   perRejection: 4,
   perLifeRemaining: 2
 };
+
+/**
+ * The Contractor on the phone board, which is the one type here that costs no
+ * tolerance at all.
+ *
+ * ## What it drains, and why it is the rating
+ *
+ * The type's whole design on the desktop boards is that it bills the budget
+ * rather than the vacancy, because a contractor is not a hire and the position
+ * stays open. This board has no budget: currency was decided out of the mode,
+ * there is nothing to buy and nothing to spend. So the question is what else
+ * there is to take, and there are only two answers. The tower's tolerance is one,
+ * and it is refused outright, because tolerance is what lives are called here and
+ * a contractor costing lives is the single thing this type exists not to do. The
+ * other is the rating, and that is what these numbers take.
+ *
+ * The rating is the run as one number and the only thing this board competes on,
+ * so a contractor left on the books does not threaten the run and does cost the
+ * board. That is the desktop trade translated rather than a new one: spend
+ * screening capacity dealing with somebody who pays nothing, or let the number go
+ * down.
+ *
+ * It also needs no new readout. `showRating` already polls the score every frame
+ * and redraws when it moves, so the drain is visible from the moment it starts
+ * with nothing added to the HUD.
+ *
+ * ## The one thing that had to change about it, and why
+ *
+ * **The turret does not shoot a contract.** On the desktop the type stays
+ * targetable at the desk and is dealt with by whichever tower can reach it. That
+ * cannot transfer: this board has one turret doing 20 a shot every 300ms, it
+ * targets whoever has least walking left, and an attached contractor sits at the
+ * desk with nothing left to walk. It would be shot first, always, and 80 health
+ * against 66 damage a second is an engagement about a second long. The feature
+ * would not exist.
+ *
+ * So an attached contractor comes off the list the turret is handed. It is not
+ * applying any more, it is on the books, and there is nothing left for a
+ * screening process to screen. What can still reach it is the bulk reject, which
+ * is a mail merge to everybody on the system rather than a process with a
+ * shortlist, and that is the whole of the decision this puts in front of a
+ * player: one charge of three, worth 800 damage to a crowd and wanted for the
+ * ninth intake, against up to `cap` off the rating.
+ *
+ * `MOBILE_TRAP` cannot reach one either, and that falls out of geometry rather
+ * than a rule: `trapSpot` refuses anything inside `arrivalRadius +
+ * triggerRadius`, which is exactly where a contract is standing.
+ *
+ * ## The numbers
+ *
+ * They are the desktop's, deliberately and to start with. A run here scores
+ * somewhere around 2,000, so `cap` is about six per cent of it per engagement,
+ * which is the same order as 120 of budget against a desktop run. Keeping them
+ * identical is what makes the first measurement mean anything: any difference
+ * between the two boards is then the board rather than the tuning.
+ *
+ * When it turns up is `unscheduled` on the type in applicants.js, shared with
+ * the desktop for the same reason the stats are shared. Eleven seconds into an
+ * intake is late here, since these intakes run fifteen to twenty five seconds
+ * against a desktop minute, so it arrives in the crush rather than before it.
+ * That is the right end of the intake to arrive at on a board whose turret is
+ * saturated by then, and it is the first number to reach for if this wants
+ * tuning.
+ *
+ * ## What it measured, and why the mode still says `contractors: false`
+ *
+ * **These numbers are not switched on.** `oneClickApply` does not send the type,
+ * and the measurement below is why. It was modelled first, on the precedent the
+ * second superweapon set, and the model said not to build it.
+ *
+ * 3,000 runs a row, best play throughout: sensible cards, charges saved for the
+ * ninth, pad in front of the leader, holds spent on a crowd. Runs of the same
+ * row come out about a point apart, so anything under two points is noise.
+ *
+ *   contractor policy       held   drained of the rating   engagements ended
+ *   none (the board today) 60.4%                       -   -
+ *   ignore                 48.7%              323 (15.4%)  none, 3.3 started
+ *   answer (a charge)       2.4%               24  (1.3%)  2.7 of 3.3
+ *   spare (charge, keep 1)  2.3%               87  (4.5%)  2.0 of 3.2
+ *   pad (a free counter)   45.6%               30  (1.5%)  3.1 of 3.2
+ *   ignore, shielded       55.6%              515 (24.2%)  none, 5.3 started
+ *   pad, shielded          51.9%               95  (4.5%)  4.8 of 5.3
+ *
+ * **Answering one with a charge loses the run, and it is not close.** 60.4% to
+ * 2.4%. The charges are the ninth intake's only answer, so one spent on somebody
+ * who cannot cost a life is the vacancy given away. A decision with one correct
+ * answer is not a decision.
+ *
+ * **A free counter fixes that much, and it is worth knowing it does.** The `pad`
+ * row is a live trade rather than a trap: it clears nearly every engagement, and
+ * the mean rating comes out at 2,067 against `ignore`'s 1,779, for three points
+ * of hold rate. So somebody playing for the board answers them and somebody
+ * playing to survive does not, which is the shape a decision is supposed to have.
+ * The counter being scarce was a real fault and it is fixable.
+ *
+ * **What is not fixable is that none of them are free.** Every row above costs
+ * this board between eight and fifteen points of hold rate, and the best of them
+ * is still 8.5 short of the board as it stands. The drain cannot be the cause,
+ * since the rating does not end runs. It is spent before the engagement even
+ * starts: the turret puts shots into an 80 health arrival that pays no bounty on
+ * the way in, and the pad variant spends the pads that were holding the crowd
+ * back. A type whose entire argument is that it cannot cost a life takes an
+ * eighth of the hold rate off a board with a measured survival curve.
+ *
+ * `--shielded` is the only thing that touches that, and it half fixes it at
+ * best. It is also not expressible as data: `MOBILE_TOWER_KEY` is
+ * `keywordFilter`, and the desktop Keyword Filter is one of the three towers this
+ * type is meant to be answerable by, so it would have to be the mobile scene
+ * choosing what it hands `tower.update`.
+ *
+ * **So the conclusion is the one modes.js already states, now with numbers
+ * behind it.** This board has nothing worth draining, and every way of inventing
+ * something moves a survival curve that took a tuning pass to settle. If the type
+ * is ever wanted here, what it needs first is a budget on the board, and that is
+ * a larger change than the contractor.
+ *
+ * One idea that did not survive contact and is recorded so nobody spends the
+ * afternoon on it again: making the pad the counter for real. `MOBILE_TRAP_KEY`
+ * is `salaryExpectations` and the type's `damageFrom` puts that at nought, so by
+ * its own data the pad has nothing to say to a contractor, which is one of the
+ * three jokes the design is made of. The pad also does 60 against 80 of health.
+ * The `pad` row above is the pad's numbers standing in for a free counter in
+ * general, not a proposal to use the pad.
+ */
+export const MOBILE_CONTRACT = {
+  ratePerSecond: 2,
+  cap: 120,
+  renewalMs: 20000,
+  renewalMultiplier: 1.5,
+  maxRenewals: 3
+};
