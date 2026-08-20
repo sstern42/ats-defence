@@ -364,7 +364,9 @@ export default class MobileHomeScene extends Phaser.Scene {
 
     // A new tab, and noopener, same as the two links above it. No event goes
     // with it either: where somebody went after reading a credit is not one of
-    // the six questions in the spec.
+    // the six questions in the spec. The URL is bare where the footer link
+    // above it is tagged, same as the desktop screen, since the page on the
+    // other end is somebody else's.
     credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
       nudge(credit, 0, FEEL.pressDrop);
       window.open(MUSIC_CREDIT_URL, '_blank', 'noopener,noreferrer');

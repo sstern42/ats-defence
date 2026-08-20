@@ -481,7 +481,10 @@ export default class HomeScene extends Phaser.Scene {
     );
 
     // A new tab, and noopener, same as the two links above it. No event: where
-    // somebody went after reading a credit is not one of the six questions.
+    // somebody went after reading a credit is not one of the six questions. The
+    // URL is bare where the footer link above it is tagged, and that is the rule
+    // rather than an oversight: a credit is somebody else's page, and the
+    // reasoning is written down beside the constant in config/links.js.
     credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
       window.open(MUSIC_CREDIT_URL, '_blank', 'noopener,noreferrer');
     });

@@ -69,6 +69,25 @@
       content="https://ats.spencerstern.com/og-image.png"
     />
 
+    <!-- Page analytics, which is a different question from the game's own
+         instrumentation and does not replace any of it. The collector in
+         netlify/functions answers the six questions in the spec, all of which
+         are about what happens inside a run. This answers the one nothing in
+         the game can: how many people arrived at the page at all, and where
+         they came from, which is the denominator every funnel in docs/ is
+         missing.
+
+         Deferred, and third party, so nothing in a run waits on it. If it does
+         not load, or is blocked, or the player is offline, the game is exactly
+         what it was: no code here reads it and no scene asks it anything. The
+         service worker leaves it alone on the same terms it leaves GrowthBook
+         alone, since a tracker served out of a cache is a stale tracker. -->
+    <script
+      defer
+      src="https://cloud.umami.is/script.js"
+      data-website-id="f60b7d32-c2a2-4b68-b296-cff512350c35"
+    ></script>
+
     <style>
       html,
       body {

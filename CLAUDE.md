@@ -33,6 +33,7 @@ Read these before writing anything.
 | Music | One CC0 loop, played through Phaser's mixer like the effects |
 | Backend | Supabase (leaderboard and analytics, both behind Netlify functions) |
 | Experiments | GrowthBook |
+| Page analytics | Umami, a script tag in `index.html` and nothing else |
 | Domain | ats.spencerstern.com |
 
 Keep dependencies minimal. If a task can be done with vanilla JS in twenty lines, do not add a package.
@@ -400,6 +401,38 @@ The idle reason is off on the phone board, and the reason it is off is a rule ra
 It will still be lossy. A tab closed from a background window may never run the handler, and a player watching a long wave without moving the mouse is counted as idle. That is expected and will be stated in the write-up rather than hidden.
 
 Send every event. No sampling at this traffic level.
+
+### Page analytics, which is not this
+
+Umami sits on the page as a deferred script tag in `index.html`, and it is a
+different question rather than a second copy of this one. Everything specified
+above is about what happens inside a run, and all of it starts at
+`session_started`, which is the game booting. None of it can see somebody who
+opened the page, read the title and left, and none of it can count the arrivals
+a launch post produced, so every funnel in `docs/` is missing its top row.
+That is the whole of what the script is for.
+
+**It adds nothing to the eighteen and reads nothing from them.** No event goes
+to it, no game code imports it, and the two stores are never joined: one counts
+page views and referrers, the other answers the six questions. A question that
+can be answered by the eighteen is answered by the eighteen.
+
+One link out of the game carries the same campaign parameters the game already
+reads on the way in, so a visit that arrives tagged and leaves tagged is
+attributable at both ends. It is the footer link back to the site this is a
+project of, and the tags are written into the constant in `config/links.js`
+rather than assembled anywhere, because one destination is one string.
+
+The other two are bare and neither is an oversight. The music credit points at
+somebody else's page, and a credit arriving with our campaign parameters on it
+is writing in their analytics rather than thanking them. The tip jar is ours and
+is still untagged, because Ko-fi reports no campaign back: the parameters would
+be decoration on a link somebody is about to follow, and what the game wanted to
+know about that click is already on `kofi_clicked`, which carries the screen and
+the wave. A tag nobody can read is not instrumentation.
+
+Anything added later that links out is a decision on those terms rather than a
+default, and the reasoning is beside the constants rather than here.
 
 ## Experiment
 
@@ -866,9 +899,12 @@ there, what it needs first is something on that board worth draining.
   is the wrong shape.
 - **Nothing in a run needs the network.** It was true by accident until the game
   became installable and it is a rule now. Every wave, tower, applicant, card,
-  sound and chord is in the build, and the four things that do go out, the
-  collector, the leaderboard, the health check and GrowthBook, all sit outside
-  a run or fail quietly inside one. A feature that asks the network a question
+  sound and chord is in the build, and the five things that do go out, the
+  collector, the leaderboard, the health check, GrowthBook and the page
+  analytics script, all sit outside a run or fail quietly inside one. The fifth
+  is the easiest of them: nothing in the game reads it, so a blocked or
+  unreachable tracker is a page that counted one fewer visit and a game that is
+  exactly what it was. A feature that asks the network a question
   the game then waits on has broken offline play and will not be noticed by
   anyone testing on a desk.
 - The event list stays at eighteen unless there is a question that needs a

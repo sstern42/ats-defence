@@ -157,8 +157,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  /* GrowthBook is the only cross origin request the game makes, and an
-     experiment assignment is not something to serve out of a cache. */
+  /* Two things on this page are cross origin, and neither belongs in a cache:
+     GrowthBook, since an experiment assignment is not something to serve from
+     one, and the page analytics script, since a tracker served out of a cache
+     is a stale tracker. Both are left to the network, which is also what makes
+     them free offline: they fail, and nothing in a run was waiting. */
   if (url.origin !== self.location.origin) {
     return;
   }
