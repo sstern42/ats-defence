@@ -164,7 +164,6 @@ src/
     links.js           Outbound links
   services/
     analytics.js       Event emission
-    links.js           Where a link out points, and which ones carry the campaign
     audio.js           Playback, throttling and the on or off state
     music.js           Starts and stops the one loop, and remembers the toggle
     feel.js            The small movements, and the one place that knows to sit still
@@ -418,24 +417,22 @@ to it, no game code imports it, and the two stores are never joined: one counts
 page views and referrers, the other answers the six questions. A question that
 can be answered by the eighteen is answered by the eighteen.
 
-Links out of the game carry the same campaign parameters the game already reads
-on the way in, so a visit that arrives tagged and leaves tagged is attributable
-at both ends. `config/links.js` holds the campaign and the list of hosts that
-may carry it, `services/links.js` is the only file that puts one on a URL, and
-the list is the rule rather than a convenience.
+One link out of the game carries the same campaign parameters the game already
+reads on the way in, so a visit that arrives tagged and leaves tagged is
+attributable at both ends. It is the footer link back to the site this is a
+project of, and the tags are written into the constant in `config/links.js`
+rather than assembled anywhere, because one destination is one string.
 
-One host is on it, and the other two destinations are off it for different
-reasons. The music credit points at somebody else's page, and a credit arriving
-with our campaign parameters on it is writing in their analytics rather than
-thanking them. The tip jar is ours and is still not tagged, because Ko-fi
-reports no campaign back: the parameters would be decoration on a link somebody
-is about to follow, and what the game wanted to know about that click is already
-on `kofi_clicked`, which carries the screen and the wave. A tag nobody can read
-is not instrumentation.
+The other two are bare and neither is an oversight. The music credit points at
+somebody else's page, and a credit arriving with our campaign parameters on it
+is writing in their analytics rather than thanking them. The tip jar is ours and
+is still untagged, because Ko-fi reports no campaign back: the parameters would
+be decoration on a link somebody is about to follow, and what the game wanted to
+know about that click is already on `kofi_clicked`, which carries the screen and
+the wave. A tag nobody can read is not instrumentation.
 
-`utm_content` is the screen the link was on, spelled exactly as `from_screen` is
-on `kofi_clicked`, so if a second destination is ever tagged the two records of
-one click line up by eye.
+Anything added later that links out is a decision on those terms rather than a
+default, and the reasoning is beside the constants rather than here.
 
 ## Experiment
 

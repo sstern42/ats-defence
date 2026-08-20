@@ -6,7 +6,6 @@ import { VERSION } from '../../config/version.js';
 import { COPY } from '../../content/copy.js';
 import { trackKofiClicked } from '../../services/analytics.js';
 import { FEEL, nudge } from '../../services/feel.js';
-import { outbound } from '../../services/links.js';
 import { addCarpet, addVignette } from '../backdrop.js';
 
 /**
@@ -311,7 +310,7 @@ export default class MobileHomeScene extends Phaser.Scene {
     // footer is not one of them.
     link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
       nudge(link, 0, FEEL.pressDrop);
-      window.open(outbound(SITE_URL, 'home'), '_blank', 'noopener,noreferrer');
+      window.open(SITE_URL, '_blank', 'noopener,noreferrer');
     });
 
     const notice = COPY.credit.copyright.replace(
@@ -365,8 +364,9 @@ export default class MobileHomeScene extends Phaser.Scene {
 
     // A new tab, and noopener, same as the two links above it. No event goes
     // with it either: where somebody went after reading a credit is not one of
-    // the six questions in the spec. No campaign tags either, same as the
-    // desktop footer, since the page on the other end is somebody else's.
+    // the six questions in the spec. The URL is bare where the footer link
+    // above it is tagged, same as the desktop screen, since the page on the
+    // other end is somebody else's.
     credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
       nudge(credit, 0, FEEL.pressDrop);
       window.open(MUSIC_CREDIT_URL, '_blank', 'noopener,noreferrer');
