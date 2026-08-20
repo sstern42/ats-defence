@@ -19,13 +19,15 @@ analysis notes, tooling and CI changes do not.
   same five keys on the way in since launch. A visit that arrives tagged and
   leaves tagged is now attributable at both ends.
 - `config/links.js` holds the campaign and the list of hosts that may carry it,
-  and `services/links.js` is the one file that puts one on a URL. The list is
-  the rule: the tip jar and the site this is a project of are tagged, and the
-  music credit is not, since it points at somebody else's page and their report
-  is not ours to write in.
+  and `services/links.js` is the one file that puts one on a URL. One host is on
+  the list. The music credit is off it because it points at somebody else's page
+  and their report is not ours to write in, and the tip jar is off it because
+  Ko-fi reports no campaign back, so a tag there is decoration on a link
+  somebody is about to follow. What the game wanted to know about that click is
+  already on `kofi_clicked`, which carries the screen and the wave.
 - `utm_content` is the screen the link was on, spelled exactly as `from_screen`
-  is on `kofi_clicked`, so the two records of one click line up rather than
-  being two spellings of the same thing.
+  is on `kofi_clicked`, so a second tagged destination would line up with the
+  events rather than being a second spelling of the same thing.
 - Nothing in a run waits on any of it. The script is deferred and third party,
   the service worker leaves it to the network on the same terms it leaves
   GrowthBook, and a blocked or unreachable tracker is a page that counted one

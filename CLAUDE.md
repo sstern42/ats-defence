@@ -422,11 +422,20 @@ Links out of the game carry the same campaign parameters the game already reads
 on the way in, so a visit that arrives tagged and leaves tagged is attributable
 at both ends. `config/links.js` holds the campaign and the list of hosts that
 may carry it, `services/links.js` is the only file that puts one on a URL, and
-the list is the rule: the tip jar and the site the game is a project of are
-tagged, and the music credit is not, because it points at somebody else's page
-and their report is not ours to write in. `utm_content` is the screen the link
-was on, spelled exactly as `from_screen` is on `kofi_clicked`, so the two
-records of one click line up by eye.
+the list is the rule rather than a convenience.
+
+One host is on it, and the other two destinations are off it for different
+reasons. The music credit points at somebody else's page, and a credit arriving
+with our campaign parameters on it is writing in their analytics rather than
+thanking them. The tip jar is ours and is still not tagged, because Ko-fi
+reports no campaign back: the parameters would be decoration on a link somebody
+is about to follow, and what the game wanted to know about that click is already
+on `kofi_clicked`, which carries the screen and the wave. A tag nobody can read
+is not instrumentation.
+
+`utm_content` is the screen the link was on, spelled exactly as `from_screen` is
+on `kofi_clicked`, so if a second destination is ever tagged the two records of
+one click line up by eye.
 
 ## Experiment
 

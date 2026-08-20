@@ -366,7 +366,7 @@ export default class HomeScene extends Phaser.Scene {
 
       // A new tab, and noopener, so the game is not left reachable through
       // window.opener by whatever is on the other end.
-      window.open(outbound(KOFI_URL, 'home'), '_blank', 'noopener,noreferrer');
+      window.open(KOFI_URL, '_blank', 'noopener,noreferrer');
     });
   }
 

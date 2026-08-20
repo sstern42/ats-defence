@@ -1,14 +1,15 @@
 /**
  * Where a link out of the game actually points.
  *
- * There are three destinations and six places that open one, so without this
- * the campaign parameters would be typed out six times and later corrected in
- * four of them. The scenes carry the screen they are on and nothing else.
+ * There are three destinations and six places that open one, and exactly one of
+ * those destinations may carry a campaign. This is where that is decided, so a
+ * scene passes the screen it is on and nothing else and cannot get it wrong.
  *
- * It is a service rather than more constants in `config/links.js` because
- * deciding whether a destination may be tagged is behaviour, and because the
- * tip jar is on two screens: a constant per screen per destination is how a
- * list of three links becomes a list of six.
+ * It is a service rather than a tagged constant in `config/links.js` because
+ * which destinations may be tagged is a rule rather than a string, and a rule
+ * kept as data with one file reading it is the shape the rest of this project
+ * is in. It is also the half of the arrangement that will still be right when
+ * the second taggable destination turns up.
  */
 import { CAMPAIGN, TAGGED_HOSTS } from '../config/links.js';
 
@@ -19,6 +20,10 @@ import { CAMPAIGN, TAGGED_HOSTS } from '../config/links.js';
  * `screen` goes on as `utm_content` and is the same string the analytics events
  * carry as `from_screen`, deliberately: the two records of one click are then
  * joinable by eye, and there is one spelling of the screen rather than two.
+ * Today both callers are a home screen footer, so it always reads `home`. It is
+ * passed rather than assumed because the footer is not the only place a link
+ * out could ever go, and a parameter that means nothing until it does is
+ * cheaper than one added afterwards to events already written.
  *
  * The parameters are set rather than appended, so a destination that already
  * had one keeps a single value, and a link opened twice is the same link.

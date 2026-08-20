@@ -31,9 +31,9 @@ export const SITE_URL = 'https://spencerstern.com';
 export const MUSIC_CREDIT_URL = 'https://tallbeard.itch.io/music-loop-bundle';
 
 /**
- * The campaign parameters put on every link out of the game to somewhere this
- * project owns. Plain data, read by `services/links.js`, which is the only
- * file that knows what to do with them.
+ * The campaign parameters, for the one destination that may carry them. Plain
+ * data, read by `services/links.js`, which is the only file that knows what to
+ * do with them, and by nothing else.
  *
  * `utm_medium` is `game` rather than `referral` because the game is one of
  * several things that will send people to that site and the campaign is what
@@ -58,13 +58,21 @@ export const CAMPAIGN = {
  * The hosts a link is allowed to be tagged for, which is the whole of the rule
  * about whose reports these parameters may turn up in.
  *
- * Both of these are this project's own. The music credit is not on the list and
- * will not be tagged: it points at somebody else's page, the licence asked for
+ * One host, and the other two destinations are off it for different reasons.
+ *
+ * The music credit points at somebody else's page. The licence asked for
  * nothing in the first place, and a credit that arrives carrying our campaign
  * parameters is us writing in their analytics rather than thanking them.
+ *
+ * The tip jar is ours and still not tagged, because nothing at the other end
+ * reports a campaign back to us: Ko-fi does not show one, so the parameters
+ * would be decoration on a link somebody is about to follow. What the game
+ * wanted to know about that link it already knows, since `kofi_clicked` carries
+ * the screen and the wave the click came from. If Ko-fi ever grows a campaign
+ * report, adding the host here is the whole change.
  *
  * Matched exactly rather than by suffix. Every destination the game has is in
  * this file, so there is nothing to match loosely for, and a suffix test is how
  * `spencerstern.com.example.net` gets tagged one day.
  */
-export const TAGGED_HOSTS = ['spencerstern.com', 'ko-fi.com'];
+export const TAGGED_HOSTS = ['spencerstern.com'];
