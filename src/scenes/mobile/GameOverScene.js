@@ -15,6 +15,7 @@ import { COARSE_POINTER } from '../../services/device.js';
 import { feedbackWanted, recordFeedback } from '../../services/feedback.js';
 import { FEEL, nudge } from '../../services/feel.js';
 import { submitScore } from '../../services/leaderboard.js';
+import { outbound } from '../../services/links.js';
 import { currentModeKey } from '../../services/mode.js';
 import NameInput from '../../services/nameInput.js';
 
@@ -572,7 +573,11 @@ export default class MobileGameOverScene extends Phaser.Scene {
 
       // A new tab, and noopener, so the game is not left reachable through
       // window.opener by whatever is on the other end.
-      window.open(KOFI_URL, '_blank', 'noopener,noreferrer');
+      window.open(
+        outbound(KOFI_URL, 'game_over'),
+        '_blank',
+        'noopener,noreferrer'
+      );
     });
   }
 

@@ -7,6 +7,30 @@ something the game shows a player. The version itself lives in
 Anything that reaches a player gets a version and an entry here. Documentation,
 analysis notes, tooling and CI changes do not.
 
+## 1.14.2 - 2026-08-20
+
+- Page analytics, as a deferred script tag in `index.html` and nothing else. It
+  answers the one question the fifteen events cannot: how many people reached
+  the page at all and where they came from, which is the top row every funnel in
+  `docs/` has been missing. Nothing in the game reads it, no event goes to it,
+  and the two stores are never joined.
+- Links out of the game carry campaign parameters, which is the other half of
+  something this project was already doing: `services/analytics.js` has read the
+  same five keys on the way in since launch. A visit that arrives tagged and
+  leaves tagged is now attributable at both ends.
+- `config/links.js` holds the campaign and the list of hosts that may carry it,
+  and `services/links.js` is the one file that puts one on a URL. The list is
+  the rule: the tip jar and the site this is a project of are tagged, and the
+  music credit is not, since it points at somebody else's page and their report
+  is not ours to write in.
+- `utm_content` is the screen the link was on, spelled exactly as `from_screen`
+  is on `kofi_clicked`, so the two records of one click line up rather than
+  being two spellings of the same thing.
+- Nothing in a run waits on any of it. The script is deferred and third party,
+  the service worker leaves it to the network on the same terms it leaves
+  GrowthBook, and a blocked or unreachable tracker is a page that counted one
+  fewer visit and a game that is exactly what it was.
+
 ## 1.14.1 - 2026-08-11
 
 - An introduction animation for The Contractor, which shipped in 1.14.0 with a

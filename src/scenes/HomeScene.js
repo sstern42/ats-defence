@@ -7,6 +7,7 @@ import { COPY } from '../content/copy.js';
 import { trackKofiClicked } from '../services/analytics.js';
 import { HAS_KEYBOARD } from '../services/device.js';
 import { FEEL, nudge } from '../services/feel.js';
+import { outbound } from '../services/links.js';
 import { currentModeKey, setMode } from '../services/mode.js';
 import { addCarpet, addVignette } from './backdrop.js';
 import LeaderboardPanel from './LeaderboardPanel.js';
@@ -365,7 +366,7 @@ export default class HomeScene extends Phaser.Scene {
 
       // A new tab, and noopener, so the game is not left reachable through
       // window.opener by whatever is on the other end.
-      window.open(KOFI_URL, '_blank', 'noopener,noreferrer');
+      window.open(outbound(KOFI_URL, 'home'), '_blank', 'noopener,noreferrer');
     });
   }
 
@@ -412,7 +413,7 @@ export default class HomeScene extends Phaser.Scene {
     // event list answers the six questions in the spec and where somebody went
     // after reading the footer is not one of them.
     link.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
-      window.open(SITE_URL, '_blank', 'noopener,noreferrer');
+      window.open(outbound(SITE_URL, 'home'), '_blank', 'noopener,noreferrer');
     });
 
     const notice = COPY.credit.copyright.replace(
@@ -481,7 +482,10 @@ export default class HomeScene extends Phaser.Scene {
     );
 
     // A new tab, and noopener, same as the two links above it. No event: where
-    // somebody went after reading a credit is not one of the six questions.
+    // somebody went after reading a credit is not one of the six questions. No
+    // campaign tags either, and that is the rule rather than an oversight: the
+    // host is not in TAGGED_HOSTS, because a credit is somebody else's page and
+    // their report is not ours to write in.
     credit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => {
       window.open(MUSIC_CREDIT_URL, '_blank', 'noopener,noreferrer');
     });
